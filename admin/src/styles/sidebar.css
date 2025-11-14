@@ -1,0 +1,54 @@
+.sidebar {
+    width: 250px;
+    border-right: 1px solid #dee2e6;
+  }
+
+/* Force sidebar nav items to stack vertically and take full width
+   This prevents two short items from appearing side-by-side when
+   other CSS accidentally changes flex direction or allows wrapping */
+.custom-sidebar-position .nav.flex-column {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+}
+
+.custom-sidebar-position .nav-item {
+  width: 100% !important;
+}
+
+.custom-sidebar-position .nav-link {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  width: 100% !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  gap: 0.5rem !important;
+}
+
+/* Ensure icons and text stay in a single row */
+.custom-sidebar-position .nav-link svg {
+  flex-shrink: 0 !important;
+}
+
+.custom-sidebar-position .nav-link span {
+  flex-shrink: 0 !important;
+}
+
+/* Mobile offcanvas specific styling */
+.offcanvas .nav-link {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  white-space: nowrap !important;
+}
+
+.offcanvas .nav-link svg {
+  flex-shrink: 0 !important;
+}
+
+.offcanvas .nav-link span {
+  flex-shrink: 0 !important;
+}
