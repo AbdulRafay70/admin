@@ -189,7 +189,7 @@ const FlightBookingForm = () => {
         setLoading((prev) => ({ ...prev, airlines: true }));
         setError((prev) => ({ ...prev, airlines: null }));
         const airlinesResponse = await axios.get(
-          "https://api.saer.pk/api/airlines/",
+          "http://127.0.0.1:8000/api/airlines/",
           {
             params: { organization: organizationId },
             headers: { Authorization: `Bearer ${token}` },
@@ -201,7 +201,7 @@ const FlightBookingForm = () => {
         setLoading((prev) => ({ ...prev, cities: true }));
         setError((prev) => ({ ...prev, cities: null }));
         const citiesResponse = await axios.get(
-          "https://api.saer.pk/api/cities/",
+          "http://127.0.0.1:8000/api/cities/",
           {
             params: { organization: organizationId },
             headers: { Authorization: `Bearer ${token}` },
@@ -392,7 +392,7 @@ const FlightBookingForm = () => {
       if (ticketId) {
         // Update existing ticket
         response = await axios.put(
-          `https://api.saer.pk/api/tickets/${ticketId}/`,
+          `http://127.0.0.1:8000/api/tickets/${ticketId}/`,
           payload,
           {
             params: { organization: organizationId },
@@ -405,7 +405,7 @@ const FlightBookingForm = () => {
       } else {
         // Create new ticket
         response = await axios.post(
-          "https://api.saer.pk/api/tickets/",
+          "http://127.0.0.1:8000/api/tickets/",
           payload,
           {
             headers: {

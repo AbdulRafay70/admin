@@ -166,12 +166,35 @@ const AgencyProfile = () => {
   const loadAgencyProfile = async (agencyId) => {
     setLoading(true);
     try {
-      // In production:
-      // const response = await axios.get(`https://api.saer.pk/api/agency/profile?agency_id=${agencyId}`);
-      // setSelectedAgency(response.data);
-      
-      // Using demo data
-      setSelectedAgency(demoProfile);
+      const response = await axios.get(`http://127.0.0.1:8000/api/agency/profile`, {
+        params: { agency_id: agencyId }
+      });
+
+      // API might return the profile directly or wrapped in a `data` field.
+      const apiData = response && response.data ? response.data : null;
+      const profile = apiData && apiData.data ? apiData.data : apiData;
+
+      // Normalize to ensure expected fields exist to avoid runtime errors in render
+      const normalized = {
+        agency_id: profile?.agency_id || agencyId,
+        agency_name: profile?.agency_name || "-",
+        contact_person: profile?.contact_person || "-",
+        contact_number: profile?.contact_number || "-",
+        relationship_status: profile?.relationship_status || "active",
+        relation_history: profile?.relation_history || [],
+        working_with_companies: profile?.working_with_companies || [],
+        performance_summary: {
+          total_bookings: profile?.performance_summary?.total_bookings || 0,
+          on_time_payments: profile?.performance_summary?.on_time_payments || 0,
+          late_payments: profile?.performance_summary?.late_payments || 0,
+          disputes: profile?.performance_summary?.disputes || 0,
+          remarks: profile?.performance_summary?.remarks || ""
+        },
+        recent_communication: profile?.recent_communication || [],
+        conflict_history: profile?.conflict_history || []
+      };
+
+      setSelectedAgency(normalized);
       showAlert("success", "Agency profile loaded successfully!");
     } catch (error) {
       console.error("Error loading agency profile:", error);

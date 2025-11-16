@@ -134,7 +134,7 @@ const AgencyDetails = () => {
     setIsSubmitting(true);
     try {
       await axios.patch(
-        `https://api.saer.pk/api/agencies/${currentAgencyId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/agencies/${currentAgencyId}/?organization=${orgId}`,
         { contacts: contentForm.contacts },
         axiosConfig
       );
@@ -214,7 +214,7 @@ const AgencyDetails = () => {
         setAgencyData(agencyDataResponse);
       } else {
         const response = await axios.get(
-          `https://api.saer.pk/api/agencies/${id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/agencies/${id}/?organization=${orgId}`,
           axiosConfig
         );
         agencyDataResponse = response.data;
@@ -231,7 +231,7 @@ const AgencyDetails = () => {
   const fetchMainAgents = async () => {
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/users/`,
+        `http://127.0.0.1:8000/api/users/`,
         {
           ...axiosConfig,
           params: {
@@ -259,7 +259,7 @@ const AgencyDetails = () => {
   const fetchSubAgents = async () => {
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/users/`,
+        `http://127.0.0.1:8000/api/users/`,
         {
           ...axiosConfig,
           params: {
@@ -290,7 +290,7 @@ const AgencyDetails = () => {
   const fetchGroups = async () => {
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/groups/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/groups/?organization=${orgId}`,
         axiosConfig
       );
 
@@ -334,7 +334,7 @@ const AgencyDetails = () => {
       }
 
       const response = await axios.patch(
-        `https://api.saer.pk/api/agencies/${id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/agencies/${id}/?organization=${orgId}`,
         formData,
         {
           headers: {
@@ -372,7 +372,7 @@ const AgencyDetails = () => {
       updatedFiles.splice(fileIndex, 1);
 
       const response = await axios.patch(
-        `https://api.saer.pk/api/agencies/${id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/agencies/${id}/?organization=${orgId}`,
         {
           files: updatedFiles,
         },
@@ -400,7 +400,7 @@ const AgencyDetails = () => {
       };
 
       const response = await axios.patch(
-        `https://api.saer.pk/api/agencies/${id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/agencies/${id}/?organization=${orgId}`,
         {
           contacts: [...(agencyData.contacts || []), newContact],
         },
@@ -431,7 +431,7 @@ const AgencyDetails = () => {
       updatedContacts.splice(contactIndex, 1);
 
       const response = await axios.patch(
-        `https://api.saer.pk/api/agencies/${id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/agencies/${id}/?organization=${orgId}`,
         {
           contacts: updatedContacts,
         },
@@ -496,7 +496,7 @@ const AgencyDetails = () => {
   //   try {
   //     setIsSubmitting(true);
   //     await axios.delete(
-  //       `https://api.saer.pk/api/users/${selectedSubAgent.id}/?organization=${orgId}`,
+  //       `http://127.0.0.1:8000/api/users/${selectedSubAgent.id}/?organization=${orgId}`,
   //       axiosConfig
   //     );
   //     setSuccess("Sub-agent deleted successfully");
@@ -548,7 +548,7 @@ const AgencyDetails = () => {
         }
 
         await axios.patch(
-          `https://api.saer.pk/api/users/${selectedSubAgent.id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/users/${selectedSubAgent.id}/?organization=${orgId}`,
           updateData,
           axiosConfig
         );
@@ -573,7 +573,7 @@ const AgencyDetails = () => {
         if (mainAgent) {
           // Fetch full details of the main agent to get organizations and branches
           const mainAgentDetails = await axios.get(
-            `https://api.saer.pk/api/users/${mainAgent.id}/?organization=${orgId}`,
+            `http://127.0.0.1:8000/api/users/${mainAgent.id}/?organization=${orgId}`,
             axiosConfig
           );
 
@@ -597,7 +597,7 @@ const AgencyDetails = () => {
         }
 
         await axios.post(
-          `https://api.saer.pk/api/users/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/users/?organization=${orgId}`,
           subAgentData,
           axiosConfig
         );
@@ -663,7 +663,7 @@ const AgencyDetails = () => {
       }
 
       await axios.patch(
-        `https://api.saer.pk/api/users/${selectedMainAgent.id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/users/${selectedMainAgent.id}/?organization=${orgId}`,
         updateData,
         axiosConfig
       );
@@ -700,7 +700,7 @@ const AgencyDetails = () => {
       const agentId = deleteType === 'main' ? selectedMainAgent.id : selectedSubAgent.id;
 
       await axios.delete(
-        `https://api.saer.pk/api/users/${agentId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/users/${agentId}/?organization=${orgId}`,
         axiosConfig
       );
 
@@ -1656,7 +1656,7 @@ const AgencyDetails = () => {
                             }
 
                             const response = await axios.patch(
-                              `https://api.saer.pk/api/agencies/${id}/`,
+                              `http://127.0.0.1:8000/api/agencies/${id}/`,
                               { contacts: updatedContacts },
                               axiosConfig
                             );

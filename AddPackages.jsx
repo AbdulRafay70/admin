@@ -278,7 +278,7 @@ const AddPackages = ({ mode = "add" }) => {
           const decoded = jwtDecode(token);
           const userId = decoded.user_id || decoded.id;
 
-          const userRes = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
+          const userRes = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -305,7 +305,7 @@ const AddPackages = ({ mode = "add" }) => {
         try {
           const token = localStorage.getItem("accessToken");
           const response = await axios.get(
-            `https://api.saer.pk/api/umrah-packages/${id}/`,
+            `http://127.0.0.1:8000/api/umrah-packages/${id}/`,
             {
               params: { organization: organizationId },
               headers: {
@@ -501,7 +501,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/hotels/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/hotels/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -515,7 +515,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       // Fallback: if org-scoped request returned empty, try global list
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("https://api.saer.pk/api/hotels/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/hotels/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -534,7 +534,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/tickets/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/tickets/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -546,7 +546,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
 
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("https://api.saer.pk/api/tickets/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/tickets/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -563,7 +563,7 @@ const AddPackages = ({ mode = "add" }) => {
     try {
       const token = localStorage.getItem("accessToken");
       const response = await axios.get(
-        "https://api.saer.pk/api/transport-sector-prices/",
+        "http://127.0.0.1:8000/api/transport-sector-prices/",
         {
           params: { organization: organizationId },
           headers: {
@@ -584,7 +584,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/airlines/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/airlines/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -596,7 +596,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
 
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("https://api.saer.pk/api/airlines/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/airlines/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -618,7 +618,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/cities/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/cities/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -631,7 +631,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       if (data.length === 0 && organizationId) {
         // try global fallback
-        const fallback = await axios.get("https://api.saer.pk/api/cities/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/cities/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -1165,7 +1165,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (mode === "edit") {
         // Update existing package
         await axios.put(
-          `https://api.saer.pk/api/umrah-packages/${id}/`,
+          `http://127.0.0.1:8000/api/umrah-packages/${id}/`,
           packageData,
           {
             params: { organization: organizationId },
@@ -1179,7 +1179,7 @@ const AddPackages = ({ mode = "add" }) => {
       } else {
         // Create new package
         await axios.post(
-          "https://api.saer.pk/api/umrah-packages/",
+          "http://127.0.0.1:8000/api/umrah-packages/",
           packageData,
           {
             params: { organization: organizationId },
@@ -1270,7 +1270,7 @@ const AddPackages = ({ mode = "add" }) => {
 
           // Fetch Airlines
           const airlinesResponse = await axios.get(
-            "https://api.saer.pk/api/airlines/",
+            "http://127.0.0.1:8000/api/airlines/",
             {
               params: { organization: organizationId },
               headers: { Authorization: `Bearer ${token}` },
@@ -1280,7 +1280,7 @@ const AddPackages = ({ mode = "add" }) => {
 
           // Fetch Cities
           const citiesResponse = await axios.get(
-            "https://api.saer.pk/api/cities/",
+            "http://127.0.0.1:8000/api/cities/",
             {
               params: { organization: organizationId },
               headers: { Authorization: `Bearer ${token}` },
@@ -1379,7 +1379,7 @@ const AddPackages = ({ mode = "add" }) => {
         }
 
         const response = await axios.post(
-          "https://api.saer.pk/api/tickets/",
+          "http://127.0.0.1:8000/api/tickets/",
           payload,
           {
             headers: {
@@ -1472,7 +1472,7 @@ const AddPackages = ({ mode = "add" }) => {
         }
 
         const response = await axios.post(
-          "https://api.saer.pk/api/tickets/",
+          "http://127.0.0.1:8000/api/tickets/",
           payload,
           {
             headers: {

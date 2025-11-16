@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Use Vite env variable when available, otherwise fall back to local dev backend
-const baseURL = import.meta.env.VITE_API_BASE || "https://api.saer.pk/api";
+const baseURL = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api";
 
 const api = axios.create({
   baseURL,

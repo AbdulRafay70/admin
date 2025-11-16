@@ -291,7 +291,7 @@ const AddPackages = ({ mode = "add" }) => {
         setSelectedOrganization({ id: 11, name: "Org 11" });
       } catch (e) {}
 
-      const baseUrl = "https://api.saer.pk/api/umrah-packages/";
+      const baseUrl = "http://127.0.0.1:8000/api/umrah-packages/";
       const requestUrl = `${baseUrl}?organization=11`;
 
       // Minimal payload accepted by backend for testing
@@ -346,9 +346,9 @@ const AddPackages = ({ mode = "add" }) => {
     }
 
     const endpoints = [
-      { name: "Food Prices", url: "https://api.saer.pk/api/food-prices/?organization=11" },
-      { name: "Ziarat Prices", url: "https://api.saer.pk/api/ziarat-prices/?organization=11" },
-      { name: "Tickets", url: "https://api.saer.pk/api/tickets/?organization=11" },
+      { name: "Food Prices", url: "http://127.0.0.1:8000/api/food-prices/?organization=11" },
+      { name: "Ziarat Prices", url: "http://127.0.0.1:8000/api/ziarat-prices/?organization=11" },
+      { name: "Tickets", url: "http://127.0.0.1:8000/api/tickets/?organization=11" },
     ];
 
     for (const ep of endpoints) {
@@ -452,7 +452,7 @@ const AddPackages = ({ mode = "add" }) => {
           const decoded = decodeJwt(token);
           const userId = decoded.user_id || decoded.id;
 
-          const userRes = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
+          const userRes = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -491,7 +491,7 @@ const AddPackages = ({ mode = "add" }) => {
         try {
           const token = localStorage.getItem("accessToken");
           const response = await axios.get(
-            `https://api.saer.pk/api/umrah-packages/${id}/`,
+            `http://127.0.0.1:8000/api/umrah-packages/${id}/`,
             {
               params: { organization: organizationId },
               headers: {
@@ -729,7 +729,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/hotels/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/hotels/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -743,7 +743,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       // Fallback: if org-scoped request returned empty, try global list
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("https://api.saer.pk/api/hotels/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/hotels/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -755,7 +755,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching hotels — your token may be expired or your account lacks permissions.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
+        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
       } else {
         toast.error(error?.response?.data?.detail || "Failed to fetch hotels");
       }
@@ -779,7 +779,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       // Build URL explicitly including the organization query param to avoid
       // any serializer/interceptor removing params unexpectedly.
-      const baseUrl = "https://api.saer.pk/api/tickets/";
+      const baseUrl = "http://127.0.0.1:8000/api/tickets/";
       const requestUrl = organizationId
         ? `${baseUrl}?organization=${encodeURIComponent(organizationId)}`
         : baseUrl;
@@ -795,7 +795,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
 
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("https://api.saer.pk/api/tickets/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/tickets/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -814,7 +814,7 @@ const AddPackages = ({ mode = "add" }) => {
         // Optionally clear token to force re-auth
         // localStorage.removeItem('accessToken');
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error") || error?.message?.includes("ECONNRESET")) {
-        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
+        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
       } else {
         toast.error(error?.response?.data?.detail || "Failed to fetch tickets");
       }
@@ -832,7 +832,7 @@ const AddPackages = ({ mode = "add" }) => {
       }
 
       const response = await axios.get(
-        "https://api.saer.pk/api/transport-sector-prices/",
+        "http://127.0.0.1:8000/api/transport-sector-prices/",
         {
           params: { organization: organizationId },
           headers: {
@@ -846,7 +846,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching transport sectors — check permissions or token.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
+        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
       } else {
         toast.error("Failed to fetch transport sectors");
       }
@@ -859,7 +859,7 @@ const AddPackages = ({ mode = "add" }) => {
       const token = localStorage.getItem("accessToken");
       const params = {};
       if (organizationId) params.organization = organizationId;
-      const response = await axios.get("https://api.saer.pk/api/food-prices/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/food-prices/", {
         params,
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -872,7 +872,7 @@ const AddPackages = ({ mode = "add" }) => {
       } else {
         // Fallback: some deployments expose daily food endpoint with names at /api/daily/food/
         try {
-          const fallbackUrl = "https://api.saer.pk/api/daily/food/" + (organizationId ? `?organization=${encodeURIComponent(organizationId)}` : "");
+          const fallbackUrl = "http://127.0.0.1:8000/api/daily/food/" + (organizationId ? `?organization=${encodeURIComponent(organizationId)}` : "");
           console.debug("fetchFoodOptions: falling back to", fallbackUrl);
           const fb = await axios.get(fallbackUrl, { headers: { Authorization: `Bearer ${token}` } });
           // Normalize possible shapes from daily food API into {id, name, selling_price, purchase_price}
@@ -919,7 +919,7 @@ const AddPackages = ({ mode = "add" }) => {
       const token = localStorage.getItem("accessToken");
       const params = {};
       if (organizationId) params.organization = organizationId;
-      const response = await axios.get("https://api.saer.pk/api/ziarat-prices/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/ziarat-prices/", {
         params,
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -945,7 +945,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/airlines/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/airlines/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -957,7 +957,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
 
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("https://api.saer.pk/api/airlines/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/airlines/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -973,7 +973,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching airlines — check permissions or token.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
+        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
       } else {
         toast.error("Failed to fetch airlines");
       }
@@ -992,7 +992,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("https://api.saer.pk/api/cities/", {
+      const response = await axios.get("http://127.0.0.1:8000/api/cities/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1005,7 +1005,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       if (data.length === 0 && organizationId) {
         // try global fallback
-        const fallback = await axios.get("https://api.saer.pk/api/cities/", {
+        const fallback = await axios.get("http://127.0.0.1:8000/api/cities/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -1021,7 +1021,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching cities — check permissions or token.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
+        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
       } else {
         toast.error("Failed to fetch cities");
       }
@@ -1588,7 +1588,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (mode === "edit") {
         // Update existing package
         await axios.put(
-          `https://api.saer.pk/api/umrah-packages/${id}/`,
+          `http://127.0.0.1:8000/api/umrah-packages/${id}/`,
           packageData,
           {
             params: { organization: organizationId },
@@ -1602,7 +1602,7 @@ const AddPackages = ({ mode = "add" }) => {
       } else {
         // Create new package
         await axios.post(
-          "https://api.saer.pk/api/umrah-packages/",
+          "http://127.0.0.1:8000/api/umrah-packages/",
           packageData,
           {
             params: { organization: organizationId },
@@ -1693,7 +1693,7 @@ const AddPackages = ({ mode = "add" }) => {
 
           // Fetch Airlines
           const airlinesResponse = await axios.get(
-            "https://api.saer.pk/api/airlines/",
+            "http://127.0.0.1:8000/api/airlines/",
             {
               params: { organization: organizationId },
               headers: { Authorization: `Bearer ${token}` },
@@ -1703,7 +1703,7 @@ const AddPackages = ({ mode = "add" }) => {
 
           // Fetch Cities
           const citiesResponse = await axios.get(
-            "https://api.saer.pk/api/cities/",
+            "http://127.0.0.1:8000/api/cities/",
             {
               params: { organization: organizationId },
               headers: { Authorization: `Bearer ${token}` },
@@ -1802,7 +1802,7 @@ const AddPackages = ({ mode = "add" }) => {
         }
 
         const response = await axios.post(
-          "https://api.saer.pk/api/tickets/",
+          "http://127.0.0.1:8000/api/tickets/",
           payload,
           {
             headers: {
@@ -1895,7 +1895,7 @@ const AddPackages = ({ mode = "add" }) => {
         }
 
         const response = await axios.post(
-          "https://api.saer.pk/api/tickets/",
+          "http://127.0.0.1:8000/api/tickets/",
           payload,
           {
             headers: {

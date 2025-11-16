@@ -167,7 +167,7 @@ const AgencyProfile = () => {
     setLoading(true);
     try {
       // In production:
-      // const response = await axios.get(`https://api.saer.pk/api/agency/profile?agency_id=${agencyId}`);
+      // const response = await axios.get(`http://127.0.0.1:8000/api/agency/profile?agency_id=${agencyId}`);
       // setSelectedAgency(response.data);
       
       // Using demo data

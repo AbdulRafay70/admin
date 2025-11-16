@@ -107,7 +107,7 @@ const Partners = ({ embed = false }) => {
         );
       } else {
         const response = await axios.get(
-          `https://api.saer.pk/api/users/?organization=${getSelectedOrganization}`,
+          `http://127.0.0.1:8000/api/users/?organization=${getSelectedOrganization}`,
           axiosConfig
         );
         const data = response.data || [];
@@ -144,7 +144,7 @@ const Partners = ({ embed = false }) => {
         setAgencies(JSON.parse(cachedData));
       } else {
         const response = await axios.get(
-          `https://api.saer.pk/api/agencies/?organization=${getSelectedOrganization}`,
+          `http://127.0.0.1:8000/api/agencies/?organization=${getSelectedOrganization}`,
           axiosConfig
         );
         const data = response.data || [];
@@ -178,7 +178,7 @@ const Partners = ({ embed = false }) => {
         setGroups(JSON.parse(cachedData));
       } else {
         const response = await axios.get(
-          `https://api.saer.pk/api/groups/?organization=${getSelectedOrganization}`,
+          `http://127.0.0.1:8000/api/groups/?organization=${getSelectedOrganization}`,
           axiosConfig
         );
         const data = response.data || [];
@@ -253,9 +253,18 @@ const Partners = ({ embed = false }) => {
         phoneNumber.includes(searchTerm) ||
         address.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesType =
-        filter === "all" ||
-        (filter in typeMap && partner.profile?.type === typeMap[filter]);
+      let matchesType = true;
+      if (filter !== "all") {
+        if (filter === "agents") {
+          matchesType = partner.profile?.type === "agent" || partner.profile?.type === "area-agent";
+        } else if (filter === "employees") {
+          matchesType = partner.profile?.type === "employee";
+        } else if (filter === "branches") {
+          matchesType = partner.profile?.type === "subagent";
+        } else {
+          matchesType = true;
+        }
+      }
 
       return (
         matchesOrganization && matchesStatus && matchesSearch && matchesType
@@ -315,8 +324,8 @@ const Partners = ({ embed = false }) => {
       },
     });
 
-    // Set agent type if editing an agent
-    setIsAgentType(partner.profile?.type === "agent");
+    // Set agent type if editing an agent or area-agent
+    setIsAgentType(partner.profile?.type === "agent" || partner.profile?.type === "area-agent");
     setShowModal(true);
   };
 
@@ -332,7 +341,7 @@ const Partners = ({ embed = false }) => {
     const { name, value, type, checked } = e.target;
 
     if (name === "profile.type") {
-      const isAgent = value === "agent";
+      const isAgent = value === "agent" || value === "area-agent";
       setIsAgentType(isAgent);
     }
 
@@ -384,13 +393,13 @@ const Partners = ({ embed = false }) => {
       let response;
       if (editingId) {
         response = await axios.put(
-          `https://api.saer.pk/api/users/${editingId}/?organization=${getSelectedOrganization}`,
+          `http://127.0.0.1:8000/api/users/${editingId}/?organization=${getSelectedOrganization}`,
           userPayload,
           axiosConfig
         );
       } else {
         response = await axios.post(
-          `https://api.saer.pk/api/users/?organization=${getSelectedOrganization}`,
+          `http://127.0.0.1:8000/api/users/?organization=${getSelectedOrganization}`,
           userPayload,
           axiosConfig
         );
@@ -413,7 +422,7 @@ const Partners = ({ embed = false }) => {
     if (window.confirm("Are you sure you want to delete this partner?")) {
       setIsLoading(true);
       try {
-        await axios.delete(`https://api.saer.pk/api/users/${id}/?organization=${getSelectedOrganization}`, axiosConfig);
+        await axios.delete(`http://127.0.0.1:8000/api/users/${id}/?organization=${getSelectedOrganization}`, axiosConfig);
 
         // Clear the partners cache since we've made changes
         localStorage.removeItem(PARTNERS_CACHE_KEY);
@@ -434,7 +443,7 @@ const Partners = ({ embed = false }) => {
     setIsLoading(true);
     try {
       await axios.patch(
-        `https://api.saer.pk/api/users/${id}/?organization=${getSelectedOrganization}`,
+        `http://127.0.0.1:8000/api/users/${id}/?organization=${getSelectedOrganization}`,
         { is_active: newStatus === "Active" },
         axiosConfig
       );
@@ -463,7 +472,7 @@ const Partners = ({ embed = false }) => {
         const userId = decoded.user_id || decoded.id;
 
         const response = await axios.get(
-          `https://api.saer.pk/api/users/${userId}/?organization=${getSelectedOrganization}`,
+          `http://127.0.0.1:8000/api/users/${userId}/?organization=${getSelectedOrganization}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -521,8 +530,11 @@ const Partners = ({ embed = false }) => {
 
   const options = [
     { value: "agent", label: "Agent" },
+    { value: "area-agent", label: "Area Agent" },
     { value: "employee", label: "Employee" },
-    { value: "subagent", label: "Subagent" },
+    { value: "subagent", label: "Branch" },
+    { value: "admin", label: "Admin" },
+    { value: "superadmin", label: "Super Admin" },
   ];
 
   // Navigation is rendered by shared PartnersTabs
@@ -864,7 +876,7 @@ const Partners = ({ embed = false }) => {
                   )}
                   onChange={(selected) =>
                     handleChange({
-                      target: { name: "profile.type", value: selected.value },
+                      target: { name: "profile.type", value: selected ? selected.value : "" },
                     })
                   }
                 />

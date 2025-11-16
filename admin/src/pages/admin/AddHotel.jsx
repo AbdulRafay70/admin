@@ -66,7 +66,7 @@ const AddHotels = () => {
 
       try {
         const response = await axios.get(
-          `https://api.saer.pk/api/cities/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -452,7 +452,7 @@ const AddHotels = () => {
       };
 
       // Make API call
-      await axios.post(`https://api.saer.pk/api/hotels/`, data, {
+      await axios.post(`http://127.0.0.1:8000/api/hotels/`, data, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,

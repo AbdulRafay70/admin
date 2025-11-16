@@ -182,7 +182,7 @@ const AddDepositForm = () => {
     try {
       const orgId = getOrgId();
       const token = localStorage.getItem('accessToken');
-      const resp = await axios.get(`https://api.saer.pk/api/bank-accounts/?organization=${orgId}`, {
+      const resp = await axios.get(`http://127.0.0.1:8000/api/bank-accounts/?organization=${orgId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
@@ -229,7 +229,7 @@ const AddDepositForm = () => {
       const params = new URLSearchParams();
       if (orgId) params.append('organization', orgId);
       if (agencyId) params.append('agency', agencyId);
-      const url = `https://api.saer.pk/api/payments/?${params.toString()}`;
+      const url = `http://127.0.0.1:8000/api/payments/?${params.toString()}`;
       const resp = await axios.get(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setPayments(items);
@@ -247,7 +247,7 @@ const AddDepositForm = () => {
       console.debug('fetchAgencies - orgId:', orgId);
       const token = localStorage.getItem('accessToken');
       if (!orgId) { setAgencies([]); return; }
-      const resp = await axios.get(`https://api.saer.pk/api/agencies/?organization=${orgId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await axios.get(`http://127.0.0.1:8000/api/agencies/?organization=${orgId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencies(items);
     } catch (err) {
@@ -316,7 +316,7 @@ const AddDepositForm = () => {
           formPayload.append('image', slipFile);
         }
 
-        const resp = await axios.post('https://api.saer.pk/api/payments/', formPayload, {
+        const resp = await axios.post('http://127.0.0.1:8000/api/payments/', formPayload, {
           headers: {
             Authorization: token ? `Bearer ${token}` : undefined,
             // Let the browser set Content-Type with boundary for multipart
@@ -384,7 +384,7 @@ const AddDepositForm = () => {
     try {
       setRowLoading(paymentId, true);
       const token = localStorage.getItem('accessToken');
-      const url = `https://api.saer.pk/api/admin/payments/${paymentId}/approve/`;
+      const url = `http://127.0.0.1:8000/api/admin/payments/${paymentId}/approve/`;
       await axios.post(url, {}, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       await fetchPayments();
       window.alert('Payment approved');
@@ -404,7 +404,7 @@ const AddDepositForm = () => {
     try {
       setRowLoading(paymentId, true);
       const token = localStorage.getItem('accessToken');
-      const url = `https://api.saer.pk/api/payments/${paymentId}/`;
+      const url = `http://127.0.0.1:8000/api/payments/${paymentId}/`;
       await axios.patch(url, { status: 'Rejected' }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       await fetchPayments();
       window.alert('Payment rejected');
