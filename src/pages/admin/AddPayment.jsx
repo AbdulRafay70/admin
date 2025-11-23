@@ -281,7 +281,7 @@ const AddDepositForm = () => {
       const userId = decoded?.user_id || decoded?.user || decoded?.id;
       if (!userId) return null;
 
-      const resp = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
+      const resp = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const user = resp.data || null;
@@ -361,7 +361,7 @@ const AddDepositForm = () => {
     try {
       const orgId = getOrgId();
       const token = localStorage.getItem('accessToken');
-      const resp = await axios.get(`http://127.0.0.1:8000/api/bank-accounts/?organization=${orgId}`, {
+      const resp = await axios.get(`https://api.saer.pk/api/bank-accounts/?organization=${orgId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
@@ -403,7 +403,7 @@ const AddDepositForm = () => {
       const token = localStorage.getItem('accessToken');
       const params = new URLSearchParams();
       if (orgId) params.append('organization', orgId);
-      const baseUrl = `http://127.0.0.1:8000/api/payments/?${params.toString()}`;
+      const baseUrl = `https://api.saer.pk/api/payments/?${params.toString()}`;
       const items = await fetchAllPages(baseUrl, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       setPayments(items);
       setCurrentPage(1);
@@ -421,7 +421,7 @@ const AddDepositForm = () => {
     try {
       if (!agencyId) { setPayments([]); setLoadingPayments(false); return; }
       const token = localStorage.getItem('accessToken');
-      const url = `http://127.0.0.1:8000/api/payments/by-agency/${agencyId}/payments/`;
+      const url = `https://api.saer.pk/api/payments/by-agency/${agencyId}/payments/`;
       const items = await fetchAllPages(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       setPayments(items);
       setCurrentPage(1);
@@ -462,7 +462,7 @@ const AddDepositForm = () => {
       console.debug('fetchAgencies - orgId:', orgId);
       const token = localStorage.getItem('accessToken');
       if (!orgId) { setAgencies([]); return; }
-      const resp = await axios.get(`http://127.0.0.1:8000/api/agencies/?organization=${orgId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await axios.get(`https://api.saer.pk/api/agencies/?organization=${orgId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencies(items);
     } catch (err) {
@@ -471,29 +471,18 @@ const AddDepositForm = () => {
     }
   };
 
-  // Fetch agencies that have bank accounts using the special endpoint
+  // Fetch all agencies, regardless of bank accounts
   const searchAgenciesWithAccounts = async (query = '') => {
     try {
       const orgId = getOrgId();
       const token = localStorage.getItem('accessToken');
-      // If no organization selected, fall back to a general agencies search endpoint
-      if (!orgId) {
-        // Show a gentle hint so user knows org selection is recommended
-        showNotification('warning', 'No organization selected — searching all agencies. For best results, select an organization.');
-        const resp = await axios.get(`http://127.0.0.1:8000/api/agencies/`, { params: { search: query }, headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
-        setAgencySearchResults(items);
-        setShowAgencySearchDropdown(true);
-        return;
-      }
-
-      const url = `http://127.0.0.1:8000/api/bank-accounts/by-organization/${orgId}/agency-accounts/`;
-      const resp = await axios.get(url, { params: { search: query }, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      // Always fetch all agencies for search
+      const resp = await axios.get(`https://api.saer.pk/api/agencies/`, { params: { search: query, organization: orgId }, headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencySearchResults(items);
       setShowAgencySearchDropdown(true);
     } catch (e) {
-      console.error('Failed to search agencies with accounts', e);
+      console.error('Failed to search agencies', e);
       setAgencySearchResults([]);
     }
   };
@@ -503,7 +492,7 @@ const AddDepositForm = () => {
     try {
       if (!agencyId) { setAgencyAccounts([]); return; }
       const token = localStorage.getItem('accessToken');
-      const url = `http://127.0.0.1:8000/api/bank-accounts/by-agency/${agencyId}/`;
+      const url = `https://api.saer.pk/api/bank-accounts/by-agency/${agencyId}/`;
       const resp = await axios.get(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencyAccounts(items);
@@ -624,7 +613,7 @@ const AddDepositForm = () => {
           formPayload.append('image', slipFile);
         }
 
-        const resp = await axios.post('http://127.0.0.1:8000/api/payments/', formPayload, {
+        const resp = await axios.post('https://api.saer.pk/api/payments/', formPayload, {
           headers: {
             Authorization: token ? `Bearer ${token}` : undefined,
             // Let the browser set Content-Type with boundary for multipart
@@ -682,7 +671,7 @@ const AddDepositForm = () => {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
         let res = null;
         if (enableApi) {
-          res = await axios.get('http://127.0.0.1:8000/api/admin/payment-rules/', { headers });
+          res = await axios.get('https://api.saer.pk/api/admin/payment-rules/', { headers });
         }
         const rules = res ? (Array.isArray(res.data) ? res.data : (res.data.results || [])) : [];
         if (!mounted) return;
@@ -754,7 +743,7 @@ const AddDepositForm = () => {
     try {
       setRowLoading(paymentId, true);
       const token = localStorage.getItem('accessToken');
-      const url = `http://127.0.0.1:8000/api/admin/payments/${paymentId}/approve/`;
+      const url = `https://api.saer.pk/api/admin/payments/${paymentId}/approve/`;
       await axios.post(url, {}, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       await fetchPayments();
   showNotification('success', 'Payment approved');
@@ -774,7 +763,7 @@ const AddDepositForm = () => {
     try {
       setRowLoading(paymentId, true);
       const token = localStorage.getItem('accessToken');
-      const url = `http://127.0.0.1:8000/api/payments/${paymentId}/`;
+      const url = `https://api.saer.pk/api/payments/${paymentId}/`;
       await axios.patch(url, { status: 'Rejected' }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       await fetchPayments();
   showNotification('success', 'Payment rejected');
@@ -976,16 +965,19 @@ const AddDepositForm = () => {
                             >
                               {!selectedSearchAgency ? (
                                 <option value="">Select an agency first</option>
-                              ) : (
+                              ) : loadingBanks ? (
+                                <option>Loading...</option>
+                              ) : (agencyAccounts && agencyAccounts.length > 0) ? (
                                 <>
                                   <option value="">Select your agent account</option>
-                                  {loadingBanks ? <option>Loading...</option> : null}
-                                  {(agencyAccounts || []).map((b) => (
+                                  {agencyAccounts.map((b) => (
                                     <option key={b.id} value={b.id}>
                                       {(b.bankName || b.bank_name || b.accountTitle || b.account_title || '')} — {(b.accountTitle || b.account_title || '')} ({(b.accountNumber || b.account_number || '')})
                                     </option>
                                   ))}
                                 </>
+                              ) : (
+                                <option value="">No bank account found</option>
                               )}
                             </select>
                           </>

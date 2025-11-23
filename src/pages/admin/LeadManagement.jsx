@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Container,
   Row,
@@ -13,9 +13,11 @@ import {
   Table,
   InputGroup,
   Pagination,
+  Dropdown,
 } from "react-bootstrap";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
+import CRMTabs from "../../components/CRMTabs";
 import {
   Plus,
   Search,
@@ -25,17 +27,15 @@ import {
   Filter,
   Phone,
   Mail,
-  Calendar,
   FileText,
   User,
-  MapPin,
   CheckCircle,
-  XCircle,
   AlertCircle,
   Clock,
   DollarSign,
   BarChart3,
   TrendingUp,
+  MoreVertical,
 } from "lucide-react";
 import axios from "axios";
 import "./styles/leads.css";
@@ -60,6 +60,7 @@ const LeadManagement = () => {
     branch_id: "",
     interested_in: "",
     lead_source: "",
+    today_followups: false,
   });
 
   // Modal states
@@ -67,6 +68,12 @@ const LeadManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Validation errors for compact add form
+  const [validationErrors, setValidationErrors] = useState({});
+
+  // Create loan toggle when adding a lead
+  const [createLoanWithLead, setCreateLoanWithLead] = useState(false);
 
   // Selected item
   const [selectedLead, setSelectedLead] = useState(null);
@@ -88,16 +95,67 @@ const LeadManagement = () => {
     next_followup_date: "",
     next_followup_time: "",
     remarks: "",
+    last_contacted_date: "",
     loan_promise_date: "",
+    loan_amount: "",
     loan_status: "pending",
+    recovered_amount: "",
+    recovery_date: "",
+    loan_remarks: "",
     conversion_status: "not_converted",
   });
 
   // Get organization and auth details
   const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
-  const organizationId = orgData?.id;
+  const organizationId = orgData?.id || orgData?.organization || Number(localStorage.getItem('organizationId')) || Number(localStorage.getItem('organization')) || null;
   const token = localStorage.getItem("accessToken");
 
+  // normalize loan helper utilities
+  const toNumber = (v) => {
+    if (v == null) return 0;
+    if (typeof v === 'number') return v;
+    const n = Number(String(v).replace(/,/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+
+  // Normalize various date formats to YYYY-MM-DD for comparisons
+  const normalizeDateYMD = (val) => {
+    if (!val) return null;
+    if (val instanceof Date) {
+      const d = val;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    const s = String(val);
+    // If ISO format or already YYYY-MM-DD, take first 10 chars
+    const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+    // If contains T (with timezone), split
+    if (s.includes('T')) return s.split('T')[0];
+    // If contains space before time
+    if (s.includes(' ')) return s.split(' ')[0];
+    // Try common slash format dd/mm/yyyy or mm/dd/yyyy
+    const slashMatch = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+    if (slashMatch) {
+      // assume dd/mm/yyyy -> convert to yyyy-mm-dd
+      const [_, a, b, c] = slashMatch;
+      return `${c}-${b}-${a}`;
+    }
+    // last resort: try Date parser
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) return normalizeDateYMD(parsed);
+    return null;
+  };
+
+  const getLoanAmount = (l) => toNumber(l.amount ?? l.loan_amount ?? l.loanAmount ?? l.loanAmountRaw ?? 0);
+  const getRecoveredAmount = (l) => toNumber(l.recovered_amount ?? l.recoveredAmount ?? l.recovered_amount_raw ?? 0);
+  const getLoanDueDate = (l) => normalizeDateYMD(l.due_date ?? l.loan_promise_date ?? l.loanPromiseDate ?? l.next_followup_date ?? null);
+  const getRecoveryDate = (l) => normalizeDateYMD(
+    l.recovery_date ?? l.recoveryDate ?? l.recovery_date_raw ?? l.raw?.recovery_date ?? l.raw?.recoveryDate ?? l.raw?.updated_at ?? l.raw?.updatedAt ?? null
+  );
+
+  // Current user and branch from user-details API
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userBranchId, setUserBranchId] = useState(null);
   // Demo branches data
   const demoBranches = [
     { id: 1, name: "Lahore Main Branch" },
@@ -109,191 +167,312 @@ const LeadManagement = () => {
 
   // Demo leads data
   const demoLeads = [
-    {
-      id: 1,
-      customer_full_name: "Ahmed Ali",
-      passport_number: "AB1234567",
-      passport_expiry: "2028-03-01",
-      contact_number: "+923001234567",
-      email: "ahmed@example.com",
-      cnic_number: "35201-1234567-8",
-      address: "Lahore, Pakistan",
-      branch_id: 1,
-      branch_name: "Lahore Main Branch",
-      lead_source: "walk-in",
-      lead_status: "confirmed",
-      interested_in: "umrah_package",
-      interested_travel_date: "2025-12-01",
-      next_followup_date: "2025-11-20",
-      next_followup_time: "14:00",
-      remarks: "Customer wants to travel in December",
-      loan_promise_date: "2025-11-15",
-      loan_status: "cleared",
-      last_contacted_date: "2025-11-18",
-      conversion_status: "converted_to_booking",
-      booking_id: 101,
-      pex_id: null,
-      created_at: "2025-10-19",
-      updated_at: "2025-11-18",
-    },
-    {
-      id: 2,
-      customer_full_name: "Fatima Khan",
-      passport_number: "CD9876543",
-      passport_expiry: "2027-06-15",
-      contact_number: "+923012345678",
-      email: "fatima@example.com",
-      cnic_number: "35401-2345678-9",
-      address: "Karachi, Pakistan",
-      branch_id: 2,
-      branch_name: "Karachi Branch",
-      lead_source: "referral",
-      lead_status: "followup",
-      interested_in: "visa",
-      interested_travel_date: "2025-11-25",
-      next_followup_date: "2025-11-15",
-      next_followup_time: "10:00",
-      remarks: "Interested in Hajj visa, waiting for quotation",
-      loan_promise_date: "2025-11-25",
-      loan_status: "pending",
-      last_contacted_date: "2025-11-10",
-      conversion_status: "not_converted",
-      booking_id: null,
-      pex_id: null,
-      created_at: "2025-10-20",
-      updated_at: "2025-11-10",
-    },
-    {
-      id: 3,
-      customer_full_name: "Muhammad Hassan",
-      passport_number: "EF5555666",
-      passport_expiry: "2029-01-10",
-      contact_number: "+923023456789",
-      email: "hassan@example.com",
-      cnic_number: "31401-3456789-1",
-      address: "Islamabad, Pakistan",
-      branch_id: 3,
-      branch_name: "Islamabad Branch",
-      lead_source: "call",
-      lead_status: "new",
-      interested_in: "ticket",
-      interested_travel_date: "2025-12-15",
-      next_followup_date: "2025-11-22",
-      next_followup_time: "15:30",
-      remarks: "First inquiry, needs package details",
-      loan_promise_date: null,
-      loan_status: "pending",
-      last_contacted_date: "2025-11-18",
-      conversion_status: "not_converted",
-      booking_id: null,
-      pex_id: null,
-      created_at: "2025-11-18",
-      updated_at: "2025-11-18",
-    },
-    {
-      id: 4,
-      customer_full_name: "Aisha Malik",
-      passport_number: "GH7777888",
-      passport_expiry: "2026-09-20",
-      contact_number: "+923034567890",
-      email: "aisha@example.com",
-      cnic_number: "37201-4567890-2",
-      address: "Faisalabad, Pakistan",
-      branch_id: 4,
-      branch_name: "Faisalabad Branch",
-      lead_source: "facebook",
-      lead_status: "followup",
-      interested_in: "hotel",
-      interested_travel_date: "2025-11-30",
-      next_followup_date: "2025-11-19",
-      next_followup_time: "11:00",
-      remarks: "Needs hotel recommendations, 5-person group",
-      loan_promise_date: "2025-11-30",
-      loan_status: "overdue",
-      last_contacted_date: "2025-11-17",
-      conversion_status: "not_converted",
-      booking_id: null,
-      pex_id: null,
-      created_at: "2025-10-25",
-      updated_at: "2025-11-17",
-    },
-    {
-      id: 5,
-      customer_full_name: "Usman Ahmed",
-      passport_number: "IJ9999000",
-      passport_expiry: "2027-04-05",
-      contact_number: "+923045678901",
-      email: "usman@example.com",
-      cnic_number: "32201-5678901-3",
-      address: "Multan, Pakistan",
-      branch_id: 5,
-      branch_name: "Multan Branch",
-      lead_source: "whatsapp",
-      lead_status: "lost",
-      interested_in: "umrah_package",
-      interested_travel_date: "2025-12-20",
-      next_followup_date: null,
-      next_followup_time: null,
-      remarks: "Budget too low, customer moved to competitor",
-      loan_promise_date: null,
-      loan_status: "pending",
-      last_contacted_date: "2025-11-01",
-      conversion_status: "lost",
-      booking_id: null,
-      pex_id: null,
-      created_at: "2025-10-15",
-      updated_at: "2025-11-01",
-    },
-    {
-      id: 6,
-      customer_full_name: "Sara Hussain",
-      passport_number: "KL1111222",
-      passport_expiry: "2028-07-12",
-      contact_number: "+923056789012",
-      email: "sara@example.com",
-      cnic_number: "36201-6789012-4",
-      address: "Lahore, Pakistan",
-      branch_id: 1,
-      branch_name: "Lahore Main Branch",
-      lead_source: "walk-in",
-      lead_status: "confirmed",
-      interested_in: "transport",
-      interested_travel_date: "2025-11-28",
-      next_followup_date: "2025-11-20",
-      next_followup_time: "09:00",
-      remarks: "Booking confirmed for transport only",
-      loan_promise_date: "2025-11-20",
-      loan_status: "cleared",
-      last_contacted_date: "2025-11-18",
-      conversion_status: "converted_to_booking",
-      booking_id: 102,
-      pex_id: null,
-      created_at: "2025-11-10",
-      updated_at: "2025-11-18",
-    },
+    
   ];
+
+  // Demo loans data
+  const demoLoans = [
+    
+  ];
+
+  // Loans state (populated from API)
+  const [loans, setLoans] = useState([]);
+  // Tasks state (populated from API)
+  const [tasks, setTasks] = useState([]);
+  // Filtered versions used for table rendering
+  const [filteredLoans, setFilteredLoans] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
+  // editing loan id when opening Add Loan modal in edit mode
+  const [editingLoanId, setEditingLoanId] = useState(null);
+  const [selectedLoanForDelete, setSelectedLoanForDelete] = useState(null);
+  // Active tab
+  const [activeTab, setActiveTab] = useState("leads");
+
+  // New loan form
+  const [newLoanForm, setNewLoanForm] = useState({
+    customer_full_name: "",
+    contact_number: "",
+    cnic_number: "",
+    email: "",
+    amount: "",
+    reason: "",
+    loan_promise_date: "",
+    loan_status: "pending",
+    recovered_amount: "",
+    recovery_date: "",
+    loan_remarks: "",
+    last_contacted_date: "",
+    assigned_to: "",
+  });
+
+  // Add Loan modal
+  const [showAddLoanModal, setShowAddLoanModal] = useState(false);
+
+  // Add Task modal
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  // Loans filters state for Loans tab controls
+  const [loanFilters, setLoanFilters] = useState({ search: "", status: "", branch_id: "", today_followups: false });
+  // Tasks filters state for Tasks tab controls
+  const [taskFilters, setTaskFilters] = useState({ search: "", status: "", branch_id: "", today_followups: false });
+  const [taskForm, setTaskForm] = useState({
+    mode: 'customer',
+    customer_full_name: '',
+    contact_number: '',
+    email: '',
+    task_description: '',
+    task_type: 'call',
+    assigned_to: '',
+    status: 'pending',
+    lead_status: 'new',
+    loan_status: 'pending',
+    due_date: '',
+    time: '',
+  });
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const chatContainerRef = useRef(null);
+
+  const sendChatMessage = () => {
+    const text = (chatInput || "").trim();
+    if (!text) return;
+    const msg = { id: Date.now(), author: "You", text, timestamp: new Date().toISOString() };
+    setChatMessages((p) => [...p, msg]);
+    setChatInput("");
+  };
+
+  useEffect(() => {
+    try {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    } catch (e) {}
+  }, [chatMessages]);
+
+  const handleAddLoan = async () => {
+    const errors = {};
+    if (!newLoanForm.customer_full_name) errors.customer_full_name = true;
+    if (!newLoanForm.contact_number) errors.contact_number = true;
+    if (!newLoanForm.loan_promise_date && !newLoanForm.due_date) errors.loan_promise_date = true;
+    if (Object.keys(errors).length > 0) {
+      showAlert("danger", "Please fill required loan fields");
+      return;
+    }
+
+    if (!organizationId) {
+      showAlert('danger', 'Organization is required. Please select an organization in the top-right (Organization selector).');
+      return;
+    }
+
+    try {
+      const payload = {
+        customer_full_name: newLoanForm.customer_full_name,
+        contact_number: newLoanForm.contact_number,
+        cnic_number: newLoanForm.cnic_number || null,
+        email: newLoanForm.email || null,
+        branch: newLoanForm.branch_id ? Number(newLoanForm.branch_id) : (userBranchId || getUserBranchId()),
+        organization: organizationId,
+        loan_amount: newLoanForm.amount ? Number(String(newLoanForm.amount).replace(/,/g, '')) : 0,
+        loan_promise_date: newLoanForm.loan_promise_date || newLoanForm.due_date || null,
+        loan_status: newLoanForm.loan_status || 'pending',
+        recovered_amount: newLoanForm.recovered_amount ? Number(String(newLoanForm.recovered_amount).replace(/,/g, '')) : 0,
+        recovery_date: newLoanForm.recovery_date || null,
+        remarks: newLoanForm.reason || null,
+        last_contacted_date: newLoanForm.last_contacted_date || null,
+        assigned_to: newLoanForm.assigned_to || null,
+      };
+
+      if (editingLoanId) {
+        // Update existing loan (use PUT to update endpoint)
+        await axios.put(`https://api.saer.pk/api/leads/update/${editingLoanId}/`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        showAlert("success", "Loan updated successfully");
+      } else {
+        // Create new loan
+        await axios.post(`https://api.saer.pk/api/leads/create/`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        showAlert("success", "Loan created successfully");
+      }
+
+      setShowAddLoanModal(false);
+      setNewLoanForm({ customer_full_name: "", contact_number: "", cnic_number: "", email: "", amount: "", reason: "", loan_promise_date: "", loan_status: "pending", recovered_amount: "", recovery_date: "", loan_remarks: "", last_contacted_date: "", assigned_to: "" });
+      setChatMessages([]);
+      setChatInput("");
+      setEditingLoanId(null);
+      setActiveTab("loans");
+
+      // Refresh server data
+      fetchLeads();
+      fetchLoans();
+      fetchTasks();
+    } catch (error) {
+      console.error('Failed to create loan:', error);
+      showAlert('danger', 'Failed to create loan');
+    }
+  };
+
+  const openEditLoanModal = (loan) => {
+    setNewLoanForm({
+      customer_full_name: loan.customer_full_name || "",
+      contact_number: loan.contact_number || "",
+      cnic_number: loan.cnic_number || "",
+      email: loan.email || "",
+      amount: loan.amount || "",
+      reason: loan.reason || "",
+      loan_promise_date: loan.due_date || "",
+      loan_status: loan.status || "pending",
+      recovered_amount: loan.recovered_amount || loan.recovered || "",
+      recovery_date: loan.recovery_date || "",
+      loan_remarks: loan.remarks || loan.reason || "",
+      last_contacted_date: loan.last_contacted_date || "",
+      assigned_to: loan.assigned_to || loan.assigned_to_id || "",
+    });
+    setEditingLoanId(loan.id);
+    setShowAddLoanModal(true);
+  };
+
+  const openDeleteLoanModal = (loan) => {
+    // set the selected lead (loan entries are lead records with loan info)
+    setSelectedLoanForDelete(loan);
+    setSelectedLead(loan);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteLoan = () => {
+    if (!selectedLoanForDelete) return;
+    setLoans((prev) => prev.filter((l) => l.id !== selectedLoanForDelete.id));
+    setSelectedLoanForDelete(null);
+    setShowDeleteModal(false);
+    showAlert('success', 'Loan deleted');
+  };
 
   // Fetch leads
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://127.0.0.1:8000/api/leads/`, {
+      const response = await axios.get(`https://api.saer.pk/api/leads/list/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
-      setLeads(response.data && response.data.length > 0 ? response.data : demoLeads);
+      const all = Array.isArray(response.data) ? response.data : [];
+
+      // detection helpers
+      const asNumber = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      // A record is considered a "loan" if it has a positive loan_amount OR a positive recovered_amount.
+      // This follows the rule: if both loan_amount and recovered_amount are 0, don't show it in Loans.
+      const hasLoan = (item) => {
+        if (!item) return false;
+        const loanAmt = asNumber(item.loan_amount || item.amount || 0);
+        const recAmt = asNumber(item.recovered_amount || item.recovered || 0);
+        return loanAmt > 0 || recAmt > 0;
+      };
+
+      const hasTask = (item) => !!(
+        item && (
+          (Array.isArray(item.tasks) && item.tasks.length > 0) ||
+          item.is_internal_task ||
+          item.task_type ||
+          item.assigned_to ||
+          item.task_description
+        )
+      );
+
+      // Classify records: loans first, then tasks (exclusive), else leads
+      const rawLoans = all.filter(hasLoan);
+      const tasksArr = all.filter((it) => !hasLoan(it) && hasTask(it));
+      const leadsArr = all.filter((it) => !hasLoan(it) && !hasTask(it));
+
+      // Normalize loan objects so the Loans table can read consistent fields
+      const loansArr = rawLoans.map((item) => {
+        const amount = Number(item.loan_amount ?? item.amount ?? 0);
+        const recovered = Number(item.recovered_amount ?? item.recovered ?? 0);
+        // prefer next_followup_date/time when present as the due date/time
+        const dueDate = item.next_followup_date || item.loan_promise_date || item.due_date || null;
+        const dueTime = item.next_followup_time || item.time || null;
+        return {
+          id: item.id,
+          customer_full_name: item.customer_full_name,
+          contact_number: item.contact_number,
+          email: item.email,
+          amount: Number.isFinite(amount) ? amount : 0,
+          due_date: dueDate,
+          time: dueTime,
+          reason: item.remarks || item.reason || item.notes || null,
+          status: item.loan_status || item.status || 'pending',
+          recovered_amount: Number.isFinite(recovered) ? recovered : 0,
+          recovery_date: item.recovery_date || null,
+          branch_id: item.branch || item.branch_id || item.branch_id || null,
+          branch_name: item.branch_name || (branches.find(b => b.id === (item.branch || item.branch_id)) || {}).name || '',
+          // keep raw payload for other uses
+          raw: item,
+        };
+      });
+
+      setLeads(leadsArr.length > 0 ? leadsArr : leadsArr.length === 0 ? (leadsArr.length === 0 && leadsArr.length === 0 ? demoLeads : leadsArr) : leadsArr);
+      setLoans(loansArr);
+      // Normalize tasks: ensure due_date/time reflect next follow-up when available
+      const normalizedTasks = tasksArr.map((item) => {
+        return {
+          id: item.id,
+          customer_full_name: item.customer_full_name || item.customer_name || null,
+          contact_number: item.contact_number || null,
+          email: item.email || null,
+          assigned_to: item.assigned_to || item.assigned_to_id || null,
+          assigned_to_name: item.assigned_to_name || item.assigned_to_name || null,
+          task_type: item.task_type || item.type || null,
+          remarks: item.remarks || item.task_description || item.notes || null,
+          status: item.status || 'pending',
+          // preserve loan_status if present on the record
+          loan_status: item.loan_status || 'pending',
+          // include lead_status from the record (defaults to 'new')
+          lead_status: item.lead_status || 'new',
+          // prefer next_followup_date/time for due date/time display
+          due_date: item.next_followup_date || item.due_date || null,
+          time: item.next_followup_time || item.time || null,
+          branch_id: item.branch || item.branch_id || null,
+          is_internal: !!(item.is_internal_task || item.is_internal),
+          branch_name: item.branch_name || (branches.find(b => b.id === (item.branch || item.branch_id)) || {}).name || '',
+          raw: item,
+        };
+      });
+      setTasks(normalizedTasks);
     } catch (error) {
       console.error("Error fetching leads:", error);
+      // fallback to demo data for leads and loans
       setLeads(demoLeads);
+      setLoans(demoLoans);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch loans (using leads list API per request)
+  const fetchLoans = async () => {
+    // delegate to fetchLeads which classifies results into loans/tasks/leads
+    await fetchLeads();
+  };
+
+  // Fetch tasks (using leads list API per request)
+  const fetchTasks = async () => {
+    // delegate to fetchLeads which classifies results into loans/tasks/leads
+    await fetchLeads();
+  };
+
   // Fetch branches
   const fetchBranches = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
+      const response = await axios.get(`https://api.saer.pk/api/branches/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -305,9 +484,76 @@ const LeadManagement = () => {
   };
 
   useEffect(() => {
-    fetchBranches();
-    fetchLeads();
+    // fetch user details to get branch info, then load lists
+    const fetchCurrentUser = async () => {
+      try {
+        if (!token) return;
+        const decoded = decodeJwt(token);
+        const userId = decoded.user_id || decoded.id;
+        if (!userId) return;
+        const resp = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCurrentUser(resp.data);
+        // extract branch id from several possible shapes returned by user-details API
+        let b = null;
+        if (resp.data) {
+          if (resp.data.branch) b = resp.data.branch;
+          else if (resp.data.branch_id) b = resp.data.branch_id;
+          else if (resp.data.profile && resp.data.profile.branch_id) b = resp.data.profile.branch_id;
+          // new: some APIs return an array `branch_details`: [{id: 42, name: 'x'}, ...]
+          else if (Array.isArray(resp.data.branch_details) && resp.data.branch_details.length > 0) {
+            const first = resp.data.branch_details[0];
+            if (first && (first.id || first.id === 0)) b = first.id;
+            else b = first; // fallback if it's a raw number
+          }
+        }
+
+        if (b !== null && b !== undefined) setUserBranchId(Number(b));
+      } catch (err) {
+        console.error('Failed to fetch current user:', err);
+      }
+    };
+
+    fetchCurrentUser().finally(() => {
+      fetchBranches();
+      fetchLeads();
+      fetchLoans();
+      fetchTasks();
+    });
   }, []);
+
+  // Apply loan filters locally
+  useEffect(() => {
+    let filtered = loans || [];
+    if (loanFilters?.search) {
+      const s = loanFilters.search.toLowerCase();
+      filtered = filtered.filter(l => (l.customer_full_name || '').toLowerCase().includes(s) || (l.contact_number || '').includes(loanFilters.search) || (l.email || '').toLowerCase().includes(s));
+    }
+    if (loanFilters?.status) filtered = filtered.filter(l => ((l.status || l.loan_status || '')).toString() === loanFilters.status.toString());
+    if (loanFilters?.branch_id) filtered = filtered.filter(l => String(l.branch_id || l.branch_name || '') === String(loanFilters.branch_id));
+    if (loanFilters?.today_followups) {
+      const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      filtered = filtered.filter(l => (getLoanDueDate(l) === today) || ((l.recovery_date || l.recoveryDate) === today) || (l.next_followup_date === today));
+    }
+    setFilteredLoans(filtered);
+  }, [loanFilters, loans]);
+
+  // Apply task filters locally
+  useEffect(() => {
+    let filtered = tasks || [];
+    if (taskFilters?.search) {
+      const s = taskFilters.search.toLowerCase();
+      filtered = filtered.filter(t => (t.customer_full_name || '').toLowerCase().includes(s) || (t.contact_number || '').includes(taskFilters.search) || (t.remarks || '').toLowerCase().includes(s));
+    }
+    if (taskFilters?.status) filtered = filtered.filter(t => (t.status || '').toString() === taskFilters.status.toString());
+    if (taskFilters?.branch_id) filtered = filtered.filter(t => String(t.branch_id || t.branch_name || '') === String(taskFilters.branch_id));
+    if (taskFilters?.today_followups) {
+      const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      filtered = filtered.filter(t => (t.due_date === today) || (t.next_followup_date === today));
+    }
+    setFilteredTasks(filtered);
+  }, [taskFilters, tasks]);
 
   // Filter leads based on search and filters
   useEffect(() => {
@@ -335,6 +581,11 @@ const LeadManagement = () => {
     if (filters.lead_source)
       filtered = filtered.filter((lead) => lead.lead_source === filters.lead_source);
 
+    if (filters.today_followups) {
+      const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      filtered = filtered.filter((lead) => normalizeDateYMD(lead.next_followup_date) === today);
+    }
+
     setFilteredLeads(filtered);
     setCurrentPage(1);
   }, [filters, leads]);
@@ -352,42 +603,164 @@ const LeadManagement = () => {
     setTimeout(() => setAlert({ show: false, type: "", message: "" }), 5000);
   };
 
+  // Map task status to loan_status
+  const mapTaskStatusToLoanStatus = (status) => {
+    if (!status) return 'pending';
+    if (status === 'completed') return 'cleared';
+    if (status === 'overdue') return 'overdue';
+    return 'pending';
+  };
+
+  // Helper to derive a fallback branch id from available user info
+  const getUserBranchId = () => {
+    try {
+      if (userBranchId) return userBranchId;
+      if (!currentUser) return null;
+      const u = currentUser;
+      if (u.branch) return Number(u.branch);
+      if (u.branch_id) return Number(u.branch_id);
+      if (u.profile && u.profile.branch_id) return Number(u.profile.branch_id);
+      if (Array.isArray(u.branch_details) && u.branch_details.length > 0) {
+        const first = u.branch_details[0];
+        if (first && (first.id || first.id === 0)) return Number(first.id);
+        return Number(first);
+      }
+    } catch (e) {
+      // ignore and fallback to null
+    }
+    return null;
+  };
+
+  // Small JWT decode helper (no dependency) — returns decoded payload or {} on error
+  const decodeJwt = (token) => {
+    try {
+      if (!token) return {};
+      const parts = token.split('.');
+      if (parts.length < 2) return {};
+      const payload = parts[1];
+      // Replace URL-safe chars and pad
+      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+      const json = atob(padded);
+      return JSON.parse(decodeURIComponent(escape(json)));
+    } catch (e) {
+      try {
+        // fallback: try basic atob -> JSON.parse
+        const parts = token.split('.');
+        const json = atob(parts[1] || '');
+        return JSON.parse(json || '{}');
+      } catch (e2) {
+        return {};
+      }
+    }
+  };
+
   // Handle add lead
   const handleAddLead = async () => {
-    if (!leadForm.customer_full_name || !leadForm.contact_number || !leadForm.branch_id) {
-      showAlert("error", "Please fill all required fields");
-      return;
+    const errors = {};
+    if (!leadForm.customer_full_name) errors.customer_full_name = true;
+    if (!leadForm.contact_number) errors.contact_number = true;
+    if (!leadForm.next_followup_date) errors.next_followup_date = true;
+    if (!leadForm.next_followup_time) errors.next_followup_time = true;
+    if (!leadForm.remarks || !leadForm.remarks.trim()) errors.remarks = true;
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      showAlert('danger', 'Please fill required fields');
+      return; 
     }
 
     try {
+      // Normalize payload to API field names
       const payload = {
-        ...leadForm,
-        organization_id: organizationId,
+        customer_full_name: leadForm.customer_full_name,
+        passport_number: leadForm.passport_number || null,
+        passport_expiry: leadForm.passport_expiry || null,
+        contact_number: leadForm.contact_number,
+        email: leadForm.email || null,
+        cnic_number: leadForm.cnic_number || null,
+        address: leadForm.address || null,
+        branch: leadForm.branch_id ? Number(leadForm.branch_id) : (userBranchId || getUserBranchId()),
+        organization: organizationId,
+        lead_source: leadForm.lead_source,
+        lead_status: leadForm.lead_status,
+        interested_in: leadForm.interested_in === 'umrah_package' ? 'umrah' : leadForm.interested_in,
+        interested_travel_date: leadForm.interested_travel_date || null,
+        // next_followup_date/time will be posted separately to the followup API if present
+        remarks: leadForm.remarks || null,
+        conversion_status: leadForm.conversion_status || null,
       };
 
-      await axios.post(`http://127.0.0.1:8000/api/leads/`, payload, {
+      // Attach loan fields if requested
+      if (createLoanWithLead) {
+        if (leadForm.loan_amount) payload.loan_amount = Number(leadForm.loan_amount);
+        if (leadForm.loan_promise_date) payload.loan_promise_date = leadForm.loan_promise_date;
+        if (leadForm.loan_status) payload.loan_status = leadForm.loan_status;
+        if (leadForm.recovered_amount) payload.recovered_amount = Number(leadForm.recovered_amount);
+        if (leadForm.recovery_date) payload.recovery_date = leadForm.recovery_date;
+        if (leadForm.loan_remarks) payload.loan_remarks = leadForm.loan_remarks;
+      }
+
+      const createResp = await axios.post(`https://api.saer.pk/api/leads/create/`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      // If follow-up date/time were provided, post them to the followup endpoint
+      try {
+        const leadId = createResp?.data?.id || createResp?.data?.pk || null;
+        if ((leadForm.next_followup_date || leadForm.next_followup_time) && leadId) {
+          const followupPayload = {
+            lead: leadId,
+            next_followup_date: leadForm.next_followup_date || null,
+            next_followup_time: leadForm.next_followup_time || null,
+            remarks: leadForm.remarks || null,
+            organization: organizationId,
+            branch: leadForm.branch_id ? Number(leadForm.branch_id) : (userBranchId || getUserBranchId()),
+          };
+
+          await axios.post(`https://api.saer.pk/api/leads/followup/`, followupPayload, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      } catch (fupErr) {
+        console.error('Failed to post followup after lead create:', fupErr);
+      }
+
       showAlert("success", "Lead added successfully!");
       setShowAddModal(false);
+      // refresh lists from server
       fetchLeads();
+      fetchLoans();
+      fetchTasks();
+
       resetForm();
     } catch (error) {
-      showAlert("error", "Failed to add lead");
+      console.error('Failed to add lead:', error);
+      showAlert("danger", "Failed to add lead");
     }
   };
 
   // Handle edit lead
   const handleEditLead = async () => {
+    if (!leadForm.next_followup_date || !leadForm.next_followup_time || !leadForm.remarks) {
+      setValidationErrors({ next_followup_date: !leadForm.next_followup_date, next_followup_time: !leadForm.next_followup_time, remarks: !leadForm.remarks });
+      showAlert('danger', 'Follow-up date, time and remarks are required');
+      return;
+    }
+
     try {
-      await axios.put(
-        `http://127.0.0.1:8000/api/leads/${selectedLead.id}/`,
-        leadForm,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+        const payload = {
+          ...leadForm,
+          organization: organizationId,
+          branch: leadForm.branch_id ? Number(leadForm.branch_id) : (userBranchId || getUserBranchId()),
+        };
+
+        await axios.put(
+          `https://api.saer.pk/api/leads/update/${selectedLead.id}/`,
+          payload,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
       showAlert("success", "Lead updated successfully!");
       setShowEditModal(false);
@@ -401,7 +774,7 @@ const LeadManagement = () => {
   // Handle delete lead
   const handleDeleteLead = async () => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/leads/${selectedLead.id}/`, {
+      await axios.delete(`https://api.saer.pk/api/leads/${selectedLead.id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -410,6 +783,77 @@ const LeadManagement = () => {
       fetchLeads();
     } catch (error) {
       showAlert("error", "Failed to delete lead");
+    }
+  };
+
+  // Create task via leads API (tasks use leads API per requirement)
+  const handleCreateTask = async () => {
+    // validate
+    const errors = [];
+    if (taskForm.mode === 'customer') {
+      if (!taskForm.customer_full_name.trim()) errors.push('customer_full_name');
+      if (!taskForm.contact_number.trim()) errors.push('contact_number');
+    }
+    if (!taskForm.task_description.trim()) errors.push('task_description');
+    if (errors.length) { showAlert('danger', 'Please fill required fields for the task'); return; }
+
+    try {
+      const payload = {
+        // Always include customer fields if provided; backend can ignore when not needed.
+        customer_full_name: taskForm.customer_full_name && taskForm.customer_full_name.trim() ? taskForm.customer_full_name.trim() : null,
+        contact_number: taskForm.contact_number && taskForm.contact_number.trim() ? taskForm.contact_number.trim() : null,
+        organization: organizationId,
+        branch: taskForm.branch_id ? Number(taskForm.branch_id) : (userBranchId || getUserBranchId()),
+        is_internal_task: taskForm.mode === 'internal',
+      
+        next_followup_date: taskForm.due_date || null,
+        next_followup_time: taskForm.time || null,
+        remarks: taskForm.task_description || null,
+        task_type: taskForm.task_type || null,
+        assigned_to: taskForm.assigned_to || null,
+        status: taskForm.status || 'pending',
+        lead_status: taskForm.lead_status || 'new',
+        loan_status: mapTaskStatusToLoanStatus(taskForm.status),
+      };
+
+      if (editingTaskId) {
+        // Update existing task
+        await axios.put(`https://api.saer.pk/api/leads/update/${editingTaskId}/`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        showAlert('success', 'Task updated');
+      } else {
+        // Create new task
+        await axios.post(`https://api.saer.pk/api/leads/create/`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        showAlert('success', 'Task created');
+      }
+
+      setShowAddTaskModal(false);
+      setTaskForm({
+        mode: 'customer',
+        customer_full_name: '',
+        contact_number: '',
+        email: '',
+        task_description: '',
+        task_type: 'call',
+        assigned_to: '',
+        status: 'pending',
+        due_date: '',
+        time: '',
+      });
+      setEditingTaskId(null);
+
+      // refresh lists
+      fetchLeads();
+      fetchTasks();
+      fetchLoans();
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      showAlert('danger', 'Failed to create task');
     }
   };
 
@@ -431,16 +875,25 @@ const LeadManagement = () => {
       next_followup_date: "",
       next_followup_time: "",
       remarks: "",
+      last_contacted_date: "",
       loan_promise_date: "",
       loan_status: "pending",
+      recovered_amount: "",
+      recovery_date: "",
+      loan_remarks: "",
       conversion_status: "not_converted",
     });
+    setValidationErrors({});
+    setCreateLoanWithLead(false);
+    setChatMessages([]);
+    setChatInput("");
   };
 
   // Open edit modal
   const openEditModal = (lead) => {
     setSelectedLead(lead);
     setLeadForm(lead);
+    setValidationErrors({});
     setShowEditModal(true);
   };
 
@@ -448,6 +901,54 @@ const LeadManagement = () => {
   const openViewModal = (lead) => {
     setSelectedLead(lead);
     setShowViewModal(true);
+  };
+
+  // Open view modal for task (map task to selectedLead-like structure)
+  const openViewTaskModal = (task) => {
+    const mapped = {
+      customer_full_name: task.customer_full_name || "",
+      contact_number: task.contact_number || "",
+      email: "",
+      address: "",
+      branch_name: "",
+      lead_source: "",
+      lead_status: "",
+      interested_in: "",
+      interested_travel_date: "",
+      conversion_status: "",
+      next_followup_date: task.due_date,
+      next_followup_time: task.time,
+      loan_promise_date: "",
+      loan_status: "",
+      remarks: task.remarks,
+    };
+    setSelectedLead(mapped);
+    setShowViewModal(true);
+  };
+
+  const openEditTask = (task) => {
+    // Populate taskForm and open task modal for editing
+    setTaskForm({
+      mode: task.is_internal ? 'internal' : 'customer',
+      customer_full_name: task.customer_full_name || "",
+      contact_number: task.contact_number || "",
+      email: task.email || "",
+      task_description: task.remarks || "",
+      task_type: task.task_type || task.type || 'call',
+      assigned_to: task.assigned_to || task.assigned_to_id || '',
+      status: task.status || 'pending',
+      lead_status: task.lead_status || 'new',
+      loan_status: task.loan_status || (task.status ? (task.status === 'completed' ? 'cleared' : task.status === 'overdue' ? 'overdue' : 'pending') : 'pending'),
+      due_date: task.due_date || "",
+      time: task.time || "",
+    });
+    setEditingTaskId(task.id);
+    setShowAddTaskModal(true);
+  };
+
+  const handleDeleteTask = (taskId) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    showAlert('success', 'Task deleted');
   };
 
   // Open delete modal
@@ -479,680 +980,1356 @@ const LeadManagement = () => {
 
   // Get loan status badge
   const getLoanStatusBadge = (status) => {
-    const statuses = {
+    const statuses = {  
       pending: { bg: "warning", label: "Pending" },
-      cleared: { bg: "success", label: "Cleared" },
+      cleared: { bg: "success", label: "Cleared" }, 
       overdue: { bg: "danger", label: "Overdue" },
-    };
+    }
+
     return statuses[status] || { bg: "secondary", label: status };
   };
+
+  // Map loan_status back to task-style status for display
+  const mapLoanStatusToTaskStatus = (loanStatus) => {
+    if (!loanStatus) return 'pending';
+    if (loanStatus === 'cleared') return 'completed';
+    if (loanStatus === 'overdue') return 'overdue';
+    return 'pending';
+  };
+
+  const getTaskDisplayStatus = (task) => {
+    // prefer explicit task.status if it's set to something meaningful
+    if (task?.status && task.status !== 'pending') return task.status;
+    if (task?.loan_status) return mapLoanStatusToTaskStatus(task.loan_status);
+    return task?.status || 'pending';
+  };
+
+  const getTaskStatusBadge = (status) => {
+    if (status === 'completed') return { bg: 'success', label: 'Completed' };
+    if (status === 'overdue') return { bg: 'danger', label: 'Overdue' };
+    return { bg: 'warning', label: status };
+  };
+
 
   // Calculate statistics
   const stats = {
     total: leads.length,
     new: leads.filter((l) => l.lead_status === "new").length,
     converted: leads.filter((l) => l.conversion_status === "converted_to_booking").length,
+    walkin: leads.filter((l) => ((l.lead_source || l.source || '')).toString().toLowerCase() === 'walk-in' || ((l.lead_source || l.source || '')).toString().toLowerCase() === 'walkin').length,
     conversionRate:
       leads.length > 0
         ? Math.round(
-            (leads.filter((l) => l.conversion_status === "converted_to_booking").length /
-              leads.length) *
-              100
-          )
+          (leads.filter((l) => l.conversion_status === "converted_to_booking").length /
+            leads.length) *
+          100
+        )
         : 0,
   };
 
+  // Styling with Fixes for Dropdown Overlap
+  const tableStyles = `
+    .lead-management-table th,
+    .lead-management-table td {
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    .lead-management-table th:first-child,
+    .lead-management-table td:first-child {
+      position: sticky;
+      left: 0;
+      background-color: white;
+      z-index: 1;
+    }
+    .lead-management-table thead th:first-child { z-index: 2; }
+    .lead-management-table th {
+      background: #1B78CE !important;
+      color: white !important;
+      font-weight: 600 !important;
+      padding: 12px !important;
+      border: none !important;
+      font-size: 0.9rem !important;
+    }
+    .lead-management-table td {
+      padding: 12px !important;
+      border-bottom: 1px solid #dee2e6 !important;
+      font-size: 0.85rem !important;
+    }
+    .lead-management-table tbody tr:hover { background-color: #f8fafc !important; }
+    .stat-card { border-radius: 6px; }
+    
+    /* Dropdown styling & Overlap Fix */
+    .lead-management-table .dropdown-toggle {
+      border: none !important;
+      background: transparent !important;
+      color: #6c757d !important;
+      padding: 4px !important;
+      border-radius: 4px !important;
+      transition: all 0.2s ease !important;
+      width: 32px !important;
+      height: 32px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .lead-management-table .dropdown-toggle:hover {
+      background: #e9ecef !important;
+      color: #495057 !important;
+    }
+    .lead-management-table .dropdown-toggle:focus {
+      box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25) !important;
+    }
+    .lead-management-table .dropdown-menu {
+      min-width: 120px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border-radius: 6px;
+      padding: 4px 0;
+      /* The Fix: Ensure high z-index so it sits on top of next rows */
+      z-index: 9999 !important; 
+    }
+    .lead-management-table .dropdown-item {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      color: #495057;
+      transition: all 0.2s ease;
+    }
+    .lead-management-table .dropdown-item:hover {
+      background-color: #f8f9fa;
+      color: #212529;
+    }
+    .lead-management-table .dropdown-item svg {
+      margin-right: 8px;
+    }
+    /* Ensure dropdown container doesn't clip */
+    .lead-management-table td:last-child {
+      position: relative; 
+      width: 60px;
+      min-width: 60px;
+      text-align: center;
+      overflow: visible !important;
+    }
+    .table-responsive {
+      overflow-x: auto; 
+      -webkit-overflow-scrolling: touch;
+      /* Ensure vertical overflow isn't hidden if table is short */
+      min-height: 300px; 
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 991px) {
+      .page-hero h1 { font-size: 1.35rem; }
+      .lead-management-table th, .lead-management-table td { padding: 8px !important; font-size: 0.8rem !important; }
+      .stat-card .icon { width: 22px; height: 22px; }
+      .stat-card h4, .stat-card h3, .stat-card h5 { font-size: 1rem; }
+    }
+    @media (max-width: 768px) {
+      .stat-card { margin-bottom: 8px; }
+      .stat-card .card-body { display:flex; align-items:center; justify-content:space-between; }
+      .stat-card .value { font-size:1rem; }
+      .page-subtitle { font-size: 0.92rem; }
+      .lead-management-table th:first-child,
+      .lead-management-table td:first-child { position: static; left: auto; z-index: auto; background: transparent; }
+      .lead-management-table th, .lead-management-table td { white-space: normal; }
+      .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+    @media (max-width: 480px) {
+      .lead-management-table th, .lead-management-table td { padding: 6px !important; font-size: 0.75rem !important; }
+      .stat-card .icon { width: 18px; height: 18px; }
+      .page-hero h1 { font-size: 1.1rem; }
+      .page-hero .page-subtitle { display: none; }
+    }
+    .stat-card { border-radius: 6px; box-shadow: 0 1px 4px rgba(23, 43, 77, 0.04); padding: 0; }
+    .stat-card .card-body { padding: 12px 14px; }
+    .stat-card p.text-muted { margin-bottom: 4px; font-size: 0.85rem; }
+    .stat-card h4, .stat-card h3, .stat-card h5 { margin: 0; }
+    .stat-card .icon { opacity: 0.9; }
+    .loan-stat .card-body, .task-stat .card-body { display:flex; justify-content:space-between; align-items:center; }
+    .loan-stat .value, .task-stat .value { font-weight:700; }
+    .lead-management-nav .nav-link { padding: 0.35rem 0.75rem; font-size: 0.95rem; }
+  `;
+
   return (
     <div className="d-flex">
-      <Sidebar />
+
       <div className="flex-grow-1">
-        <Header />
-        <Container fluid className="py-4 px-3 px-md-4">
-          {/* Alert */}
-          {alert.show && (
-            <Alert variant={alert.type} dismissible onClose={() => setAlert({ ...alert, show: false })}>
-              {alert.message}
-            </Alert>
-          )}
 
-          {/* Statistics Cards */}
-          <Row className="mb-4">
-            <Col xs={12} sm={6} lg={3} className="mb-3">
-              <Card className="stat-card h-100">
-                <Card.Body>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <p className="text-muted mb-1">Total Leads</p>
-                      <h3 className="mb-0">{stats.total}</h3>
-                    </div>
-                    <BarChart3 size={40} className="text-primary opacity-50" />
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
 
-            <Col xs={12} sm={6} lg={3} className="mb-3">
-              <Card className="stat-card h-100">
-                <Card.Body>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <p className="text-muted mb-1">New Leads</p>
-                      <h3 className="mb-0">{stats.new}</h3>
-                    </div>
-                    <AlertCircle size={40} className="text-warning opacity-50" />
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            <Col xs={12} sm={6} lg={3} className="mb-3">
-              <Card className="stat-card h-100">
-                <Card.Body>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <p className="text-muted mb-1">Converted</p>
-                      <h3 className="mb-0">{stats.converted}</h3>
-                    </div>
-                    <CheckCircle size={40} className="text-success opacity-50" />
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            <Col xs={12} sm={6} lg={3} className="mb-3">
-              <Card className="stat-card h-100">
-                <Card.Body>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <p className="text-muted mb-1">Conversion Rate</p>
-                      <h3 className="mb-0">{stats.conversionRate}%</h3>
-                    </div>
-                    <TrendingUp size={40} className="text-info opacity-50" />
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Main Content Card */}
-          <Card className="border-0 shadow-sm">
-            <Card.Header className="bg-white border-bottom py-3">
-              <Row className="align-items-center">
-                <Col xs={12} md={6}>
-                  <h5 className="mb-0">Lead Management</h5>
-                </Col>
-                <Col xs={12} md={6} className="text-md-end mt-3 mt-md-0">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      resetForm();
-                      setShowAddModal(true);
-                    }}
-                    className="btn-sm"
-                  >
-                    <Plus size={16} className="me-2" />
-                    Add Lead
-                  </Button>
-                </Col>
-              </Row>
-            </Card.Header>
-
-            <Card.Body className="p-0">
-              {/* Filters */}
-              <div className="p-3 border-bottom bg-light">
-                <Row className="g-2">
-                  <Col xs={12} sm={6} lg={3}>
-                    <InputGroup size="sm">
-                      <InputGroup.Text className="bg-white border-end-0">
-                        <Search size={16} />
-                      </InputGroup.Text>
-                      <Form.Control
-                        placeholder="Search by name, phone, email..."
-                        value={filters.search}
-                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        className="border-start-0"
-                      />
-                    </InputGroup>
-                  </Col>
-
-                  <Col xs={12} sm={6} lg={3}>
-                    <Form.Select
-                      size="sm"
-                      value={filters.lead_status}
-                      onChange={(e) => setFilters({ ...filters, lead_status: e.target.value })}
-                    >
-                      <option value="">All Lead Status</option>
-                      <option value="new">New</option>
-                      <option value="followup">Follow-up</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="lost">Lost</option>
-                    </Form.Select>
-                  </Col>
-
-                  <Col xs={12} sm={6} lg={3}>
-                    <Form.Select
-                      size="sm"
-                      value={filters.branch_id}
-                      onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
-                    >
-                      <option value="">All Branches</option>
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Col>
-
-                  <Col xs={12} sm={6} lg={3}>
-                    <Form.Select
-                      size="sm"
-                      value={filters.interested_in}
-                      onChange={(e) => setFilters({ ...filters, interested_in: e.target.value })}
-                    >
-                      <option value="">All Services</option>
-                      <option value="ticket">Ticket</option>
-                      <option value="umrah_package">Umrah Package</option>
-                      <option value="visa">Visa</option>
-                      <option value="transport">Transport</option>
-                      <option value="hotel">Hotel</option>
-                    </Form.Select>
-                  </Col>
-
-                  <Col xs={12} sm={6} lg={3}>
-                    <Form.Select
-                      size="sm"
-                      value={filters.conversion_status}
-                      onChange={(e) => setFilters({ ...filters, conversion_status: e.target.value })}
-                    >
-                      <option value="">All Conversions</option>
-                      <option value="not_converted">Not Converted</option>
-                      <option value="converted_to_booking">Converted</option>
-                      <option value="lost">Lost</option>
-                    </Form.Select>
-                  </Col>
-
-                  <Col xs={12} sm={6} lg={3}>
-                    <Form.Select
-                      size="sm"
-                      value={filters.lead_source}
-                      onChange={(e) => setFilters({ ...filters, lead_source: e.target.value })}
-                    >
-                      <option value="">All Sources</option>
-                      <option value="walk-in">Walk-in</option>
-                      <option value="call">Call</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="facebook">Facebook</option>
-                      <option value="referral">Referral</option>
-                    </Form.Select>
-                  </Col>
-
-                  <Col xs={12}>
-                    <Button
-                      variant="outline-secondary"
-                      size="sm"
-                      onClick={() => {
-                        setFilters({
-                          search: "",
-                          lead_status: "",
-                          conversion_status: "",
-                          branch_id: "",
-                          interested_in: "",
-                          lead_source: "",
-                        });
-                      }}
-                    >
-                      Clear Filters
-                    </Button>
-                  </Col>
-                </Row>
+        <div className="page-inner" style={{ margin: 0, padding: 0 }}>
+          <Container fluid className=" ">
+            {/* Page Header */}
+            <div className="row mb-3">
+              <div className="col-12">
+                <h4 className="mb-1" style={{ color: '#1B78CE', fontWeight: '600' }}>Follow-up Dashboard</h4>
+                <p className="text-muted mb-0" style={{ fontSize: '0.9rem' }}>Overview of leads and quick follow-up actions — focus on today's priorities and convert faster.</p>
               </div>
+            </div>
+            {/* Alert */}
+            <style dangerouslySetInnerHTML={{ __html: tableStyles }} />
+            {alert.show && (
+              <Alert
+                variant={alert.type}
+                dismissible
+                onClose={() => setAlert({ ...alert, show: false })}
+                style={{ borderLeft: `6px solid ${alert.type === 'success' ? '#28a745' : alert.type === 'danger' ? '#dc3545' : '#1B78CE'}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+              >
+                <div style={{ fontWeight: 600 }}>{alert.message}</div>
+              </Alert>
+            )}
 
-              {/* Loading */}
-              {loading ? (
-                <div className="text-center py-5">
-                  <Spinner animation="border" variant="primary" />
-                </div>
-              ) : paginatedLeads.length === 0 ? (
-                <div className="text-center py-5">
-                  <p className="text-muted">No leads found</p>
-                </div>
-              ) : (
-                <>
-                  {/* Table */}
-                  <div className="table-responsive">
-                    <Table hover className="mb-0">
-                      <thead className="bg-light">
-                        <tr>
-                          <th className="text-nowrap">Name</th>
-                          <th className="text-nowrap">Contact</th>
-                          <th className="text-nowrap">Branch</th>
-                          <th className="text-nowrap">Lead Status</th>
-                          <th className="text-nowrap">Interested In</th>
-                          <th className="text-nowrap">Source</th>
-                          <th className="text-nowrap">Conversion</th>
-                          <th className="text-nowrap">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedLeads.map((lead) => (
-                          <tr key={lead.id}>
-                            <td>
-                              <div className="d-flex align-items-center">
-                                <div
-                                  className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                                  style={{ width: "32px", height: "32px", marginRight: "8px" }}
-                                >
-                                  <User size={16} />
-                                </div>
-                                <div>
-                                  <p className="mb-0 fw-500">{lead.customer_full_name}</p>
-                                  <small className="text-muted">{lead.passport_number}</small>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="text-nowrap">
-                              <div>
-                                <p className="mb-0 d-flex align-items-center">
-                                  <Phone size={14} className="me-2 text-muted" />
-                                  {lead.contact_number}
-                                </p>
-                                <small className="text-muted d-flex align-items-center">
-                                  <Mail size={14} className="me-2" />
-                                  {lead.email}
-                                </small>
-                              </div>
-                            </td>
-                            <td>
-                              <small>{lead.branch_name}</small>
-                            </td>
-                            <td>
-                              <Badge bg={getStatusBadge(lead.lead_status).bg}>
-                                {getStatusBadge(lead.lead_status).label}
-                              </Badge>
-                            </td>
-                            <td>
-                              <Badge bg="info">
-                                {lead.interested_in === "umrah_package"
-                                  ? "Umrah"
-                                  : lead.interested_in.charAt(0).toUpperCase() +
-                                    lead.interested_in.slice(1)}
-                              </Badge>
-                            </td>
-                            <td>
-                              <small className="text-capitalize">{lead.lead_source}</small>
-                            </td>
-                            <td>
-                              <Badge bg={getConversionBadge(lead.conversion_status).bg}>
-                                {getConversionBadge(lead.conversion_status).label}
-                              </Badge>
-                            </td>
-                            <td>
-                              <div className="d-flex gap-1">
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  onClick={() => openViewModal(lead)}
-                                  title="View"
-                                >
-                                  <Eye size={14} />
-                                </Button>
-                                <Button
-                                  variant="outline-warning"
-                                  size="sm"
-                                  onClick={() => openEditModal(lead)}
-                                  title="Edit"
-                                >
-                                  <Edit2 size={14} />
-                                </Button>
-                                <Button
-                                  variant="outline-danger"
-                                  size="sm"
-                                  onClick={() => openDeleteModal(lead)}
-                                  title="Delete"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
+            {/* Main Content Card */}
+            <Card className="border-0 shadow-sm">
+              
+              <Card.Body className="p-0">
+                {/* Styled nav */}
+                <div className="row mb-3">
+                  <div className="col-12">
+                    <nav>
+                      <div className="nav d-flex flex-wrap gap-2 lead-management-nav">
+                        <button
+                          className={`nav-link btn btn-link ${activeTab === 'leads' ? 'fw-bold' : ''}`}
+                          onClick={() => setActiveTab('leads')}
+                          style={{
+                            color: activeTab === 'leads' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeTab === 'leads' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <FileText size={16} className="me-2" />
+                          Leads
+                        </button>
+                        <button
+                          className={`nav-link btn btn-link ${activeTab === 'loans' ? 'fw-bold' : ''}`}
+                          onClick={() => setActiveTab('loans')}
+                          style={{
+                            color: activeTab === 'loans' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeTab === 'loans' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <DollarSign size={16} className="me-2" />
+                          Loans
+                        </button>
+                        <button
+                          className={`nav-link btn btn-link ${activeTab === 'tasks' ? 'fw-bold' : ''}`}
+                          onClick={() => setActiveTab('tasks')}
+                          style={{
+                            color: activeTab === 'tasks' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeTab === 'tasks' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <BarChart3 size={16} className="me-2" />
+                          Tasks
+                        </button>
+                      </div>
+                    </nav>
                   </div>
+                </div>
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="p-3 border-top d-flex justify-content-center">
-                      <Pagination size="sm" className="mb-0">
-                        <Pagination.First
-                          onClick={() => setCurrentPage(1)}
-                          disabled={currentPage === 1}
-                        />
-                        <Pagination.Prev
-                          onClick={() => setCurrentPage(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        />
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let page;
-                          if (totalPages <= 5) {
-                            page = i + 1;
-                          } else if (currentPage <= 3) {
-                            page = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            page = totalPages - 4 + i;
-                          } else {
-                            page = currentPage - 2 + i;
-                          }
-                          return (
-                            <Pagination.Item
-                              key={page}
-                              active={page === currentPage}
-                              onClick={() => setCurrentPage(page)}
-                            >
-                              {page}
-                            </Pagination.Item>
-                          );
-                        })}
-                        <Pagination.Next
-                          onClick={() => setCurrentPage(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        />
-                        <Pagination.Last
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={currentPage === totalPages}
-                        />
-                      </Pagination>
+                {/* Content based on Active Tab */}
+                
+                {/* Leads Content */}
+                {activeTab === 'leads' && (
+                    <>
+                    <div className="p-3">
+                      <Row className="mb-4">
+                        <Col xs={12} sm={6} lg={3} className="mb-3">
+                          <Card className="stat-card h-10 p-2" style={{ borderLeft: '4px solid #1B78CE' }}>
+                            <Card.Body>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <p className="text-muted mb-1">Total Leads</p>
+                                  <h3 className="mb-0" style={{ color: '#1B78CE' }}>{stats.total}</h3>
+                                </div>
+                                <BarChart3 size={32} style={{ color: '#1B78CE', opacity: 0.8 }} />
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+
+                        <Col xs={12} sm={6} lg={3} className="mb-3">
+                          <Card className="stat-card h-100" style={{ borderLeft: '4px solid #ffc107' }}>
+                            <Card.Body>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <p className="text-muted mb-1">New Leads</p>
+                                  <h3 className="mb-0" style={{ color: '#ffc107' }}>{stats.new}</h3>
+                                </div>
+                                <AlertCircle size={32} style={{ color: '#ffc107', opacity: 0.8 }} />
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+
+                        <Col xs={12} sm={6} lg={3} className="mb-3">
+                          <Card className="stat-card h-100" style={{ borderLeft: '4px solid #6f42c1' }}>
+                            <Card.Body>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <p className="text-muted mb-1">Walk-in Leads</p>
+                                  <h3 className="mb-0" style={{ color: '#6f42c1' }}>{stats.walkin}</h3>
+                                </div>
+                                <User size={32} style={{ color: '#6f42c1', opacity: 0.85 }} />
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+
+                        <Col xs={12} sm={6} lg={3} className="mb-3">
+                          <Card className="stat-card h-100" style={{ borderLeft: '4px solid #28a745' }}>
+                            <Card.Body>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <p className="text-muted mb-1">Converted</p>
+                                  <h3 className="mb-0" style={{ color: '#28a745' }}>{stats.converted}</h3>
+                                </div>
+                                <CheckCircle size={32} style={{ color: '#28a745', opacity: 0.8 }} />
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+
+                        <Col xs={12} sm={6} lg={3} className="mb-3">
+                          <Card className="stat-card h-100" style={{ borderLeft: '4px solid #17a2b8' }}>
+                            <Card.Body>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <p className="text-muted mb-1">Conversion Rate</p>
+                                  <h3 className="mb-0" style={{ color: '#17a2b8' }}>{stats.conversionRate}%</h3>
+                                </div>
+                                <TrendingUp size={32} style={{ color: '#17a2b8', opacity: 0.8 }} />
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                      </Row>
                     </div>
-                  )}
-                </>
-              )}
-            </Card.Body>
-          </Card>
-        </Container>
+                    <div className="row mb-4">
+                      <div className="col-12">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                          {/* Filters & Search */}
+                          <div className="d-flex flex-wrap gap-2 align-items-center">
+                            <InputGroup style={{ maxWidth: '300px' }} size="sm">
+                                <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
+                                  <Search size={16} />
+                                </InputGroup.Text>
+                                <Form.Control
+                                  type="text"
+                                  placeholder="Search leads..."
+                                  value={filters.search}
+                                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                  style={{ border: '1px solid #dee2e6', maxWidth: 300 }}
+                                />
+                              </InputGroup>
+                            <Form.Select size="sm" value={filters.lead_status} onChange={(e) => setFilters({ ...filters, lead_status: e.target.value })} style={{ minWidth: 140, maxWidth: 180 }}>
+                              <option value="">All Status</option>
+                              <option value="new">New</option>
+                              <option value="followup">Follow-up</option>
+                              <option value="confirmed">Confirmed</option>
+                              <option value="lost">Lost</option>
+                            </Form.Select>
+                            <Form.Select size="sm" value={filters.interested_in} onChange={(e) => setFilters({ ...filters, interested_in: e.target.value })} style={{ minWidth: 140, maxWidth: 180 }}>
+                              <option value="">All Services</option>
+                              <option value="ticket">Ticket</option>
+                              <option value="umrah_package">Umrah Package</option>
+                              <option value="visa">Visa</option>
+                              <option value="transport">Transport</option>
+                              <option value="hotel">Hotel</option>
+                            </Form.Select>
+                            <Form.Select
+                              size="sm"
+                              value={filters.conversion_status}
+                              onChange={(e) => setFilters({ ...filters, conversion_status: e.target.value })}
+                              style={{ minWidth: 100, maxWidth: 140 }}
+                            >
+                              <option value="">All Conversions</option>
+                              <option value="not_converted">Not Converted</option>
+                              <option value="converted_to_booking">Converted</option>
+                              <option value="lost">Lost</option>
+                            </Form.Select>
+                            <Form.Select
+                              size="sm"
+                              value={filters.lead_source}
+                              onChange={(e) => setFilters({ ...filters, lead_source: e.target.value })}
+                              style={{ minWidth: 100, maxWidth: 140 }}
+                            >
+                              <option value="">All Sources</option>
+                              <option value="walk-in">Walk-in</option>
+                              <option value="call">Call</option>
+                              <option value="whatsapp">WhatsApp</option>
+                              <option value="facebook">Facebook</option>
+                              <option value="referral">Referral</option>
+                            </Form.Select>
+                              <Form.Check
+                                type="checkbox"
+                                id="leads-today-followups"
+                                label="Today's follow-ups"
+                                checked={!!filters.today_followups}
+                                onChange={(e) => setFilters({ ...filters, today_followups: e.target.checked })}
+                                className="ms-2"
+                              />
+                            <Button
+                              variant="outline-secondary"
+                              size="sm"
+                              onClick={() => {
+                                setFilters({
+                                  search: "",
+                                  lead_status: "",
+                                  conversion_status: "",
+                                  branch_id: "",
+                                  interested_in: "",
+                                    lead_source: "",
+                                    today_followups: false,
+                                });
+                              }}
+                              style={{ whiteSpace: 'nowrap' }}
+                            >
+                              Clear Filters
+                            </Button>
+                          </div>
+                          {/* Add Lead Button */}
+                          <Button
+                            style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                            onClick={() => setShowAddModal(true)}
+                          >
+                            <Plus size={16} className="me-1" />
+                            Add Lead
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Loading */}
+                    {loading ? (
+                      <div className="text-center py-5">
+                        <Spinner animation="border" variant="primary" />
+                      </div>
+                    ) : paginatedLeads.length === 0 ? (
+                      <div className="text-center py-5">
+                        <p className="text-muted">No leads found</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Table */}
+                        <div className="table-responsive">
+                          <Table hover className="mb-0 lead-management-table">
+                            <thead className="bg-light">
+                              <tr>
+                                <th className="text-nowrap">Name</th>
+                                <th className="text-nowrap">Contact</th>
+
+                                <th className="text-nowrap">Lead Status</th>
+                                <th className="text-nowrap">Interested In</th>
+                                <th className="text-nowrap">Source</th>
+                                <th className="text-nowrap">Conversion</th>
+                                <th className="text-nowrap">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paginatedLeads.map((lead) => (
+                                <tr key={lead.id}>
+                                  <td>
+                                    <div className="d-flex align-items-center">
+                                      <div
+                                        className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                        style={{ width: "32px", height: "32px", marginRight: "8px" }}
+                                      >
+                                        <User size={16} />
+                                      </div>
+                                      <div>
+                                        <p className="mb-0 fw-500">{lead.customer_full_name}</p>
+                                        <small className="text-muted">{lead.passport_number}</small>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="text-nowrap">
+                                    <div>
+                                      <p className="mb-0 d-flex align-items-center">
+                                        <Phone size={14} className="me-2 text-muted" />
+                                        {lead.contact_number}
+                                      </p>
+                                      <small className="text-muted d-flex align-items-center">
+                                        <Mail size={14} className="me-2" />
+                                        {lead.email}
+                                      </small>
+                                    </div>
+                                  </td>
+                                 
+                                  <td>
+                                    <Badge bg={getStatusBadge(lead.lead_status).bg}>
+                                      {getStatusBadge(lead.lead_status).label}
+                                    </Badge>
+                                  </td>
+                                  <td>
+                                    <Badge bg="info">
+                                      {lead.interested_in === "umrah_package"
+                                        ? "Umrah"
+                                        : (lead.interested_in ? lead.interested_in.charAt(0).toUpperCase() + lead.interested_in.slice(1) : "-")}
+                                    </Badge>
+                                  </td>
+                                  <td>
+                                    <small className="text-capitalize">{lead.lead_source}</small>
+                                  </td>
+                                  <td>
+                                    <Badge bg={getConversionBadge(lead.conversion_status).bg}>
+                                      {getConversionBadge(lead.conversion_status).label}
+                                    </Badge>
+                                  </td>
+                                  <td>
+                                    <Dropdown>
+                                      <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
+                                        <MoreVertical size={16} />
+                                      </Dropdown.Toggle>
+                                      <Dropdown.Menu align="end">
+                                        <Dropdown.Item onClick={() => openViewModal(lead)}>
+                                          <Eye size={14} className="me-2" /> View
+                                        </Dropdown.Item>
+                                                <Dropdown.Item onClick={() => openEditModal(lead)}>
+                                                  <Edit2 size={14} className="me-2" /> Edit
+                                                </Dropdown.Item>
+                                                <Dropdown.Item onClick={() => { setSelectedLead(lead); setShowDeleteModal(true); }}>
+                                                  <Trash2 size={14} className="me-2" /> Delete
+                                                </Dropdown.Item>
+                                        
+                                      </Dropdown.Menu>
+                                    </Dropdown>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="p-3 border-top d-flex justify-content-center">
+                            <Pagination size="sm" className="mb-0">
+                              <Pagination.First
+                                onClick={() => setCurrentPage(1)}
+                                disabled={currentPage === 1}
+                              />
+                              <Pagination.Prev
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                disabled={currentPage === 1}
+                              />
+                              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                let page;
+                                if (totalPages <= 5) {
+                                  page = i + 1;
+                                } else if (currentPage <= 3) {
+                                  page = i + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                  page = totalPages - 4 + i;
+                                } else {
+                                  page = currentPage - 2 + i;
+                                }
+                                return (
+                                  <Pagination.Item
+                                    key={page}
+                                    active={page === currentPage}
+                                    onClick={() => setCurrentPage(page)}
+                                  >
+                                    {page}
+                                  </Pagination.Item>
+                                );
+                              })}
+                              <Pagination.Next
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                              />
+                              <Pagination.Last
+                                onClick={() => setCurrentPage(totalPages)}
+                                disabled={currentPage === totalPages}
+                              />
+                            </Pagination>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    </>
+                )}
+                
+                {/* Loans Content */}
+                {activeTab === 'loans' && (
+                    <div className="p-3">
+                      {/* Loan Stats */}
+                      <Row className="mb-3">
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card loan-stat h-100" style={{ borderLeft: '4px solid #1B78CE' }}>
+                            <Card.Body>
+                              <div>
+                                <p className="text-muted mb-1">Total Loan Amount</p>
+                                <div className="value">Rs. {loans.reduce((s, l) => s + getLoanAmount(l), 0).toLocaleString()}</div>
+                              </div>
+                              <DollarSign size={28} className="icon" style={{ color: '#1B78CE' }} />
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card loan-stat h-100" style={{ borderLeft: '4px solid #17a2b8' }}>
+                            <Card.Body>
+                              <div>
+                                <p className="text-muted mb-1">Loan Persons</p>
+                                <div className="value">{loans.length}</div>
+                              </div>
+                              <User size={26} className="icon" style={{ color: '#17a2b8' }} />
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card loan-stat h-100" style={{ borderLeft: '4px solid #ffc107' }}>
+                            <Card.Body>
+                              <div>
+                                <p className="text-muted mb-1">Total Recovery Pending</p>
+                                <div className="value">Rs. {loans.reduce((s, l) => s + (getLoanAmount(l) - getRecoveredAmount(l)), 0).toLocaleString()}</div>
+                              </div>
+                              <TrendingUp size={26} className="icon" style={{ color: '#ffc107' }} />
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card loan-stat h-100" style={{ borderLeft: '4px solid #28a745' }}>
+                            <Card.Body>
+                              <div>
+                                <p className="text-muted mb-1">Today Recover / Today Recovered</p>
+                                <div className="value">{(() => { const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; const todayDue = loans.filter(l => getLoanDueDate(l) === today).reduce((s, l) => s + getLoanAmount(l), 0); const todayRecovered = loans.filter(l => getRecoveryDate(l) === today).reduce((s, l) => s + getRecoveredAmount(l), 0); return `${todayDue.toLocaleString()} / ${todayRecovered.toLocaleString()}` })()}</div>
+                              </div>
+                              <CheckCircle size={26} className="icon" style={{ color: '#28a745' }} />
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                      </Row>
+                      {/* Filters, Search, Add Loan Button */}
+                      <div className="row mb-4">
+                        <div className="col-12">
+                          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            {/* Filters & Search */}
+                            <div className="d-flex flex-wrap gap-2 align-items-center">
+                              <InputGroup style={{ maxWidth: '300px' }} size="sm">
+                                <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
+                                  <Search size={16} />
+                                </InputGroup.Text>
+                                <Form.Control
+                                  type="text"
+                                  placeholder="Search loans..."
+                                    value={loanFilters?.search || ''}
+                                    onChange={(e) => setLoanFilters({ ...loanFilters, search: e.target.value })}
+                                    style={{ border: '1px solid #dee2e6', maxWidth: 300 }}
+                                />
+                              </InputGroup>
+                                <Form.Select size="sm" value={loanFilters?.status || ''} onChange={(e) => setLoanFilters({ ...loanFilters, status: e.target.value })} style={{ minWidth: 140, maxWidth: 180 }}>
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="cleared">Cleared</option>
+                                <option value="overdue">Overdue</option>
+                              </Form.Select>
+                              {/* Branch filter removed per request */}
+                              <Form.Check
+                                type="checkbox"
+                                id="loans-today-followups"
+                                label="Today's follow-ups"
+                                checked={!!loanFilters?.today_followups}
+                                onChange={(e) => setLoanFilters({ ...loanFilters, today_followups: e.target.checked })}
+                                className="ms-2"
+                              />
+                              <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={() => setLoanFilters({ search: '', status: '', branch_id: '', today_followups: false })}
+                                style={{ whiteSpace: 'nowrap' }}
+                              >
+                                Clear Filters
+                              </Button>
+                            </div>
+                            {/* Add Loan Button */}
+                            <Button
+                              style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                              onClick={() => setShowAddLoanModal(true)}
+                            >
+                              <Plus size={16} className="me-1" />
+                              Add Loan
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Loans Table */}
+                      <div className="table-responsive">
+                        <Table hover className="mb-0 lead-management-table">
+                          <thead className="bg-light">
+                            <tr>
+                              <th>Customer</th>
+                              <th>Contact</th>
+                              <th>Amount</th>
+                              <th>Due Date</th>
+                              <th>Reason</th>
+                              <th>Status</th>
+                              <th>Recovered</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredLoans.map(loan => (
+                              <tr key={loan.id}>
+                                <td>
+                                  <div className="d-flex align-items-center">
+                                    <div className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, marginRight: 8 }}>
+                                      <User size={14} />
+                                    </div>
+                                    <div>
+                                      <div className="fw-500">{loan.customer_full_name}</div>
+                                      <small className="text-muted">{loan.branch_name}</small>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>{loan.contact_number}<br /><small className="text-muted">{loan.email}</small></td>
+                                <td>Rs. {getLoanAmount(loan).toLocaleString()}</td>
+                                <td>{getLoanDueDate(loan) || loan.due_date || loan.loan_promise_date || '-'}</td>
+                                <td>{loan.reason || loan.remarks || loan.loan_remarks}</td>
+                                <td><Badge bg={(loan.loan_status || loan.status) === 'pending' ? 'warning' : (loan.loan_status || loan.status) === 'cleared' ? 'success' : 'danger'}>{loan.loan_status || loan.status}</Badge></td>
+                                <td>Rs. {getRecoveredAmount(loan).toLocaleString()}</td>
+                                <td>
+                                  <Dropdown>
+                                    <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
+                                      <MoreVertical size={16} />
+                                    </Dropdown.Toggle>
+                                    <Dropdown.Menu align="end">
+                                      <Dropdown.Item onClick={() => openViewModal({ ...loan, loan_status: loan.status, loan_promise_date: loan.due_date })}>
+                                        <Eye size={14} className="me-2" /> View
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => openEditLoanModal(loan)}>
+                                      <Edit2 size={14} className="me-2" /> Edit
+                                    </Dropdown.Item>
+                                    <Dropdown.Item onClick={() => openDeleteLoanModal(loan)}>
+                                      <Trash2 size={14} className="me-2" /> Delete
+                                    </Dropdown.Item>
+                                   
+                                  </Dropdown.Menu>
+                                </Dropdown>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tasks Content */}
+                {activeTab === 'tasks' && (
+                  <div className="p-3">
+                    <Row className="mb-4">
+                      <Col xs={12} sm={6} lg={3} className="mb-2">
+                        <Card className="stat-card task-stat h-100 p-2" style={{ borderLeft: '4px solid #1B78CE' }}>
+                          <Card.Body>
+                            <div>
+                              <p className="text-muted mb-1">Total Tasks</p>
+                              <div className="value">{tasks.length}</div>
+                            </div>
+                            <BarChart3 size={28} className="icon" style={{ color: '#1B78CE' }} />
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={6} lg={3} className="mb-2">
+                        <Card className="stat-card task-stat h-100" style={{ borderLeft: '4px solid #ffc107' }}>
+                          <Card.Body>
+                            <div>
+                              <p className="text-muted mb-1">Pending</p>
+                              <div className="value">{tasks.filter(t => getTaskDisplayStatus(t) === 'pending').length}</div>
+                            </div>
+                            <Clock size={26} className="icon" style={{ color: '#ffc107' }} />
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={6} lg={3} className="mb-2">
+                        <Card className="stat-card task-stat h-100" style={{ borderLeft: '4px solid #dc3545' }}>
+                          <Card.Body>
+                            <div>
+                              <p className="text-muted mb-1">Overdue</p>
+                              <div className="value">{tasks.filter(t => getTaskDisplayStatus(t) === 'overdue').length}</div>
+                            </div>
+                            <AlertCircle size={26} className="icon" style={{ color: '#dc3545' }} />
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={6} lg={3} className="mb-2">
+                        <Card className="stat-card task-stat h-100" style={{ borderLeft: '4px solid #6f42c1' }}>
+                          <Card.Body>
+                            <div>
+                              <p className="text-muted mb-1">Internal Tasks</p>
+                              <div className="value">{tasks.filter(t => !!t.is_internal).length}</div>
+                            </div>
+                            <FileText size={26} className="icon" style={{ color: '#6f42c1' }} />
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
+                    {/* Filters, Search, Add Task Button */}
+                    <div className="row mb-4">
+                      <div className="col-12">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                          {/* Filters & Search */}
+                          <div className="d-flex flex-wrap gap-2 align-items-center">
+                            <InputGroup style={{ maxWidth: '250px' }} size="sm">
+                              <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
+                                <Search size={16} />
+                              </InputGroup.Text>
+                              <Form.Control
+                                type="text"
+                                placeholder="Search tasks..."
+                                value={taskFilters?.search || ''}
+                                onChange={(e) => setTaskFilters({ ...taskFilters, search: e.target.value })}
+                                style={{ border: '1px solid #dee2e6' }}
+                              />
+                            </InputGroup>
+                            <Form.Select size="sm" value={taskFilters?.status || ''} onChange={(e) => setTaskFilters({ ...taskFilters, status: e.target.value })} style={{ minWidth: 140, maxWidth: 180 }}>
+                              <option value="">All Status</option>
+                              <option value="pending">Pending</option>
+                              <option value="overdue">Overdue</option>
+                            </Form.Select>
+                            {/* Branch filter removed per request */}
+                            <Form.Check
+                              type="checkbox"
+                              id="tasks-today-followups"
+                              label="Today's follow-ups"
+                              checked={!!taskFilters?.today_followups}
+                              onChange={(e) => setTaskFilters({ ...taskFilters, today_followups: e.target.checked })}
+                              className="ms-2"
+                            />
+                            <Button
+                              variant="outline-secondary"
+                              size="sm"
+                              onClick={() => setTaskFilters({ search: '', status: '', branch_id: '', today_followups: false })}
+                              style={{ whiteSpace: 'nowrap' }}
+                            >
+                              Clear Filters
+                            </Button>
+                          </div>
+                          {/* Add Task Button */}
+                          <Button
+                            style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                            onClick={() => { setEditingTaskId(null); setTaskForm({ mode: 'customer', customer_full_name: '', contact_number: '', email: '', task_description: '', task_type: 'call', assigned_to: '', status: 'pending', due_date: '', time: '' }); setShowAddTaskModal(true); }}
+                          >
+                            <Plus size={16} className="me-1" />
+                            Add Task
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                   
+                    <div className="table-responsive">
+                      <Table hover className="mb-0 lead-management-table">
+                        <thead className="bg-light">
+                          <tr>
+                                <th>Assigned To</th>
+                                <th>Task Type</th>
+                                <th>Lead Status</th>
+                                <th>Due Date</th>
+                                <th>Time</th>
+                                <th>Remarks</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTasks.map(task => (
+                            <tr key={task.id}>
+                              <td>{task.assigned_to_name || task.assigned_to || <small className="text-muted">—</small>}</td>
+                              <td className="text-capitalize">{task.task_type || task.type || '-'}</td>
+                              <td><Badge bg={getStatusBadge(task.lead_status).bg}>{getStatusBadge(task.lead_status).label}</Badge></td>
+                              <td>{task.due_date}</td>
+                              <td>{task.time}</td>
+                              <td>{task.remarks}</td>
+                              {
+                                (() => {
+                                  const disp = getTaskDisplayStatus(task);
+                                  const badge = getTaskStatusBadge(disp);
+                                  return <td><Badge bg={badge.bg}>{badge.label}</Badge></td>;
+                                })()
+                              }
+                              <td>
+                                <Dropdown>
+                                  <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
+                                    <MoreVertical size={16} />
+                                  </Dropdown.Toggle>
+                                  <Dropdown.Menu align="end">
+                                    <Dropdown.Item onClick={() => openViewTaskModal(task)}>
+                                      <Eye size={14} className="me-2" /> View
+                                    </Dropdown.Item>
+                                    <Dropdown.Item onClick={() => openEditTask(task)}>
+                                      <Edit2 size={14} className="me-2" /> Edit
+                                    </Dropdown.Item>
+                                    <Dropdown.Item onClick={() => { setSelectedLead(task); setShowDeleteModal(true); }}>
+                                      <Trash2 size={14} className="me-2" /> Delete
+                                    </Dropdown.Item>
+                                  
+                                  </Dropdown.Menu>
+                                </Dropdown>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+              </Card.Body>
+            </Card>
+          </Container>
+        </div>
 
         {/* Add/Edit Lead Modal */}
         <Modal show={showAddModal || showEditModal} onHide={() => {
           setShowAddModal(false);
           setShowEditModal(false);
           resetForm();
-        }} size="lg">
+        }} size={showAddModal ? "md" : "lg"}>
           <Modal.Header closeButton>
             <Modal.Title>{showEditModal ? "Edit Lead" : "Add New Lead"}</Modal.Title>
           </Modal.Header>
           <Modal.Body className="max-height-modal">
-            <Form>
-              {/* Row 1 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Full Name *</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={leadForm.customer_full_name}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, customer_full_name: e.target.value })
-                      }
-                      placeholder="Enter full name"
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Contact Number *</Form.Label>
-                    <Form.Control
-                      type="tel"
-                      value={leadForm.contact_number}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, contact_number: e.target.value })
-                      }
-                      placeholder="+92-300-1234567"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+            {/* Compact Add Form when adding new lead; full form when editing */}
+            {showAddModal ? (
+              <Form>
+                <Row className="g-2">
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Full Name *</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.customer_full_name}
+                        isInvalid={!!validationErrors.customer_full_name}
+                        onChange={(e) => setLeadForm({ ...leadForm, customer_full_name: e.target.value })}
+                        placeholder="Full name"
+                      />
+                      <Form.Control.Feedback type="invalid">Full name is required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 2 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Email</Form.Label>
-                    <Form.Control
-                      type="email"
-                      value={leadForm.email}
-                      onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
-                      placeholder="example@email.com"
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Passport Number</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={leadForm.passport_number}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, passport_number: e.target.value })
-                      }
-                      placeholder="AB1234567"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Contact *</Form.Label>
+                      <Form.Control
+                        type="tel"
+                        value={leadForm.contact_number}
+                        isInvalid={!!validationErrors.contact_number}
+                        onChange={(e) => setLeadForm({ ...leadForm, contact_number: e.target.value })}
+                        placeholder="+92-300-1234567"
+                      />
+                      <Form.Control.Feedback type="invalid">Contact is required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">CNIC</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.cnic_number}
+                        onChange={(e) => setLeadForm({ ...leadForm, cnic_number: e.target.value })}
+                        placeholder="35201-1234567-8"
+                      />
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 3 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Passport Expiry</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={leadForm.passport_expiry}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, passport_expiry: e.target.value })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">CNIC Number</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={leadForm.cnic_number}
-                      onChange={(e) => setLeadForm({ ...leadForm, cnic_number: e.target.value })}
-                      placeholder="35201-1234567-8"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Passport Number</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.passport_number}
+                        onChange={(e) => setLeadForm({ ...leadForm, passport_number: e.target.value })}
+                        placeholder="AB1234567"
+                      />
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 4 */}
-              <Row>
-                <Col md={12} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Address</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={leadForm.address}
-                      onChange={(e) => setLeadForm({ ...leadForm, address: e.target.value })}
-                      placeholder="Enter address"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Passport Expiry</Form.Label>
+                      <Form.Control
+                        type="date"
+                        value={leadForm.passport_expiry}
+                        onChange={(e) => setLeadForm({ ...leadForm, passport_expiry: e.target.value })}
+                      />
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 5 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Branch *</Form.Label>
-                    <Form.Select
-                      value={leadForm.branch_id}
-                      onChange={(e) => setLeadForm({ ...leadForm, branch_id: e.target.value })}
-                    >
-                      <option value="">Select Branch</option>
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Lead Source</Form.Label>
-                    <Form.Select
-                      value={leadForm.lead_source}
-                      onChange={(e) => setLeadForm({ ...leadForm, lead_source: e.target.value })}
-                    >
-                      <option value="walk-in">Walk-in</option>
-                      <option value="call">Call</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="facebook">Facebook</option>
-                      <option value="referral">Referral</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Email</Form.Label>
+                      <Form.Control type="email" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} placeholder="Email (optional)" />
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 6 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Lead Status</Form.Label>
-                    <Form.Select
-                      value={leadForm.lead_status}
-                      onChange={(e) => setLeadForm({ ...leadForm, lead_status: e.target.value })}
-                    >
-                      <option value="new">New</option>
-                      <option value="followup">Follow-up</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="lost">Lost</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Interested In</Form.Label>
-                    <Form.Select
-                      value={leadForm.interested_in}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, interested_in: e.target.value })
-                      }
-                    >
-                      <option value="ticket">Ticket</option>
-                      <option value="umrah_package">Umrah Package</option>
-                      <option value="visa">Visa</option>
-                      <option value="transport">Transport</option>
-                      <option value="hotel">Hotel</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Interested In</Form.Label>
+                      <Form.Select size="sm" value={leadForm.interested_in} onChange={(e) => setLeadForm({ ...leadForm, interested_in: e.target.value })}>
+                        <option value="umrah_package">Umrah</option>
+                        <option value="visa">Visa</option>
+                        <option value="ticket">Ticket</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="transport">Transport</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 7 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Interested Travel Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={leadForm.interested_travel_date}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, interested_travel_date: e.target.value })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Next Follow-up Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={leadForm.next_followup_date}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, next_followup_date: e.target.value })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Follow-up Date *</Form.Label>
+                      <Form.Control type="date" value={leadForm.next_followup_date} isInvalid={!!validationErrors.next_followup_date} onChange={(e) => setLeadForm({ ...leadForm, next_followup_date: e.target.value })} />
+                      <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 8 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Next Follow-up Time</Form.Label>
-                    <Form.Control
-                      type="time"
-                      value={leadForm.next_followup_time}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, next_followup_time: e.target.value })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Loan Promise Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={leadForm.loan_promise_date}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, loan_promise_date: e.target.value })
-                      }
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Follow-up Time *</Form.Label>
+                      <Form.Control type="time" value={leadForm.next_followup_time} isInvalid={!!validationErrors.next_followup_time} onChange={(e) => setLeadForm({ ...leadForm, next_followup_time: e.target.value })} />
+                      <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
 
-              {/* Row 9 */}
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Loan Status</Form.Label>
-                    <Form.Select
-                      value={leadForm.loan_status}
-                      onChange={(e) => setLeadForm({ ...leadForm, loan_status: e.target.value })}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="cleared">Cleared</option>
-                      <option value="overdue">Overdue</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Group>
-                    <Form.Label className="fw-500">Conversion Status</Form.Label>
-                    <Form.Select
-                      value={leadForm.conversion_status}
-                      onChange={(e) =>
-                        setLeadForm({ ...leadForm, conversion_status: e.target.value })
-                      }
-                    >
-                      <option value="not_converted">Not Converted</option>
-                      <option value="converted_to_booking">Converted to Booking</option>
-                      <option value="lost">Lost</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
+                  <Col xs={12} md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Source</Form.Label>
+                      <Form.Select size="sm" value={leadForm.lead_source} onChange={(e) => setLeadForm({ ...leadForm, lead_source: e.target.value })}>
+                        <option value="walk-in">Walk-in</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="call">Call</option>
+                        <option value="referral">Referral</option>
+                        <option value="facebook">Facebook</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
 
-              {/* Remarks */}
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-500">Remarks</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  value={leadForm.remarks}
-                  onChange={(e) => setLeadForm({ ...leadForm, remarks: e.target.value })}
-                  placeholder="Add any remarks or notes..."
+                  <Col xs={12} md={4} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Conversion Status</Form.Label>
+                      <Form.Select size="sm" value={leadForm.conversion_status} onChange={(e) => setLeadForm({ ...leadForm, conversion_status: e.target.value })}>
+                        <option value="not_converted">Not Converted</option>
+                        <option value="converted_to_booking">Converted to Booking</option>
+                        <option value="lost">Lost</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+
+                  <Col xs={12}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Remarks *</Form.Label>
+                      <Form.Control as="textarea" rows={3} value={leadForm.remarks} isInvalid={!!validationErrors.remarks} onChange={(e) => setLeadForm({ ...leadForm, remarks: e.target.value })} placeholder="Short note for follow-up" />
+                      <Form.Control.Feedback type="invalid">Remarks required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                  
+                </Row>
+
+                <Form.Check
+                    type="switch"
+                    id="create-loan-switch"
+                    label="Create Loan with this Lead"
+                    checked={createLoanWithLead}
+                    onChange={(e) => setCreateLoanWithLead(e.target.checked)}
+                    className="mt-3"
                 />
-              </Form.Group>
-            </Form>
+
+                {createLoanWithLead && (
+                    <Row className="g-2 mt-1">
+                        <Col xs={12} md={6}>
+                            <Form.Group>
+                                <Form.Label className="fw-500">Loan Amount</Form.Label>
+                                <Form.Control
+                                    type="number"
+                                    value={leadForm.loan_amount}
+                                    onChange={(e) => setLeadForm({ ...leadForm, loan_amount: e.target.value })}
+                                    placeholder="Enter loan amount"
+                                />
+                            </Form.Group>
+                        </Col>
+                        <Col xs={12} md={6}>
+                            <Form.Group>
+                                <Form.Label className="fw-500">Loan Promise Date</Form.Label>
+                                <Form.Control
+                                    type="date"
+                                    value={leadForm.loan_promise_date}
+                                    onChange={(e) => setLeadForm({ ...leadForm, loan_promise_date: e.target.value })}
+                                />
+                            </Form.Group>
+                        </Col>
+                    <Col xs={12} md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-500">Loan Status</Form.Label>
+                        <Form.Select size="sm" value={leadForm.loan_status} onChange={(e) => setLeadForm({ ...leadForm, loan_status: e.target.value })}>
+                          <option value="pending">Pending</option>
+                          <option value="cleared">Cleared</option>
+                          <option value="overdue">Overdue</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-500">Recovered Amount</Form.Label>
+                        <Form.Control
+                          type="number"
+                          value={leadForm.recovered_amount}
+                          onChange={(e) => setLeadForm({ ...leadForm, recovered_amount: e.target.value })}
+                          placeholder="Recovered amount (optional)"
+                        />
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-500">Recovery Date</Form.Label>
+                        <Form.Control
+                          type="date"
+                          value={leadForm.recovery_date}
+                          onChange={(e) => setLeadForm({ ...leadForm, recovery_date: e.target.value })}
+                        />
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12}>
+                      <Form.Group>
+                        <Form.Label className="fw-500">Loan Remarks</Form.Label>
+                        <Form.Control as="textarea" rows={2} value={leadForm.loan_remarks} onChange={(e) => setLeadForm({ ...leadForm, loan_remarks: e.target.value })} placeholder="Notes about the loan (optional)" />
+                      </Form.Group>
+                    </Col>
+                    </Row>
+                )}
+
+                {/* Compact chat area for Add Lead (local only) */}
+                <div className="mt-3">
+                  <h6 className="fw-500">Chat</h6>
+                  <div ref={chatContainerRef} style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid #e9ecef', padding: 8, borderRadius: 6 }}>
+                    {chatMessages.length ? (
+                      chatMessages.map((m) => (
+                        <div key={m.id} className="mb-2">
+                          <small className="text-muted">{m.author} • {new Date(m.timestamp).toLocaleString()}</small>
+                          <div>{m.text}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-muted small">No messages yet.</div>
+                    )}
+                  </div>
+                  <InputGroup className="mt-2">
+                    <Form.Control type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message..." />
+                    <Button variant="primary" onClick={sendChatMessage}>Send</Button>
+                  </InputGroup>
+                </div>
+
+                </Form>
+
+                
+            ) : (
+              <Form>
+                {/* original full edit form without branch and loan fields */}
+                {/* Row 1 */}
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Full Name *</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.customer_full_name}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, customer_full_name: e.target.value })
+                        }
+                        placeholder="Enter full name"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Contact Number *</Form.Label>
+                      <Form.Control
+                        type="tel"
+                        value={leadForm.contact_number}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, contact_number: e.target.value })
+                        }
+                        placeholder="+92-300-1234567"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                {/* keep the rest of the edit fields but remove loan & branch fields */}
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Email</Form.Label>
+                      <Form.Control
+                        type="email"
+                        value={leadForm.email}
+                        onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                        placeholder="example@email.com"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Passport Number</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.passport_number}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, passport_number: e.target.value })
+                        }
+                        placeholder="AB1234567"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Passport Expiry</Form.Label>
+                      <Form.Control
+                        type="date"
+                        value={leadForm.passport_expiry}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, passport_expiry: e.target.value })
+                        }
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">CNIC Number</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.cnic_number}
+                        onChange={(e) => setLeadForm({ ...leadForm, cnic_number: e.target.value })}
+                        placeholder="35201-1234567-8"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={12} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Address</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={leadForm.address}
+                        onChange={(e) => setLeadForm({ ...leadForm, address: e.target.value })}
+                        placeholder="Enter address"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Lead Source</Form.Label>
+                      <Form.Select
+                        value={leadForm.lead_source}
+                        onChange={(e) => setLeadForm({ ...leadForm, lead_source: e.target.value })}
+                      >
+                        <option value="walk-in">Walk-in</option>
+                        <option value="call">Call</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="referral">Referral</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Interested In</Form.Label>
+                      <Form.Select
+                        value={leadForm.interested_in}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, interested_in: e.target.value })
+                        }
+                      >
+                        <option value="ticket">Ticket</option>
+                        <option value="umrah_package">Umrah Package</option>
+                        <option value="visa">Visa</option>
+                        <option value="transport">Transport</option>
+                        <option value="hotel">Hotel</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Next Follow-up Date</Form.Label>
+                      <Form.Control
+                        type="date"
+                        value={leadForm.next_followup_date}
+                        isInvalid={!!validationErrors.next_followup_date}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, next_followup_date: e.target.value })
+                        }
+                      />
+                      <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Next Follow-up Time</Form.Label>
+                      <Form.Control
+                        type="time"
+                        value={leadForm.next_followup_time}
+                        isInvalid={!!validationErrors.next_followup_time}
+                        onChange={(e) =>
+                          setLeadForm({ ...leadForm, next_followup_time: e.target.value })
+                        }
+                      />
+                      <Form.Control.Feedback type="invalid">Required</Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6} className="mb-3">
+                    <Form.Group>
+                      <Form.Label className="fw-500">Last Contacted Date</Form.Label>
+                      <Form.Control
+                        type="date"
+                        value={leadForm.last_contacted_date}
+                        onChange={(e) => setLeadForm({ ...leadForm, last_contacted_date: e.target.value })}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-500">Remarks</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    value={leadForm.remarks}
+                    isInvalid={!!validationErrors.remarks}
+                    onChange={(e) => setLeadForm({ ...leadForm, remarks: e.target.value })}
+                    placeholder="Add any remarks or notes..."
+                  />
+                  <Form.Control.Feedback type="invalid">Remarks required</Form.Control.Feedback>
+                </Form.Group>
+              </Form>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button
@@ -1174,8 +2351,108 @@ const LeadManagement = () => {
           </Modal.Footer>
         </Modal>
 
+        {/* Add Task Modal */}
+        <Modal show={showAddTaskModal} onHide={() => setShowAddTaskModal(false)} centered fullscreen="sm-down">
+          <Modal.Header closeButton>
+              <Modal.Title>{editingTaskId ? 'Edit Task' : 'Add Task'}</Modal.Title>
+            </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Row className="g-2">
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Task Mode</Form.Label>
+                    <Form.Select size="sm" value={taskForm.mode} onChange={(e) => setTaskForm({ ...taskForm, mode: e.target.value })}>
+                      <option value="customer">Customer Task</option>
+                      <option value="internal">Internal Task</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                <>
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Customer Name {taskForm.mode === 'customer' ? '*' : ''}</Form.Label>
+                      <Form.Control type="text" value={taskForm.customer_full_name} onChange={(e) => setTaskForm({ ...taskForm, customer_full_name: e.target.value })} />
+                    </Form.Group>
+                  </Col>
+
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Contact Number {taskForm.mode === 'customer' ? '*' : ''}</Form.Label>
+                      <Form.Control type="tel" value={taskForm.contact_number} onChange={(e) => setTaskForm({ ...taskForm, contact_number: e.target.value })} />
+                    </Form.Group>
+                  </Col>
+
+                  <Col xs={12} md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-500">Email</Form.Label>
+                      <Form.Control type="email" value={taskForm.email} onChange={(e) => setTaskForm({ ...taskForm, email: e.target.value })} />
+                    </Form.Group>
+                  </Col>
+                </>
+
+                <Col xs={12} md={12}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Task Description *</Form.Label>
+                    <Form.Control as="textarea" rows={3} value={taskForm.task_description} onChange={(e) => setTaskForm({ ...taskForm, task_description: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Task Type</Form.Label>
+                    <Form.Select size="sm" value={taskForm.task_type} onChange={(e) => setTaskForm({ ...taskForm, task_type: e.target.value })}>
+                      <option value="call">Call</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="email">Email</option>
+                      <option value="other">Other</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Assigned To (User ID)</Form.Label>
+                    <Form.Control type="text" value={taskForm.assigned_to} onChange={(e) => setTaskForm({ ...taskForm, assigned_to: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={4}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Status</Form.Label>
+                    <Form.Select size="sm" value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value })}>
+                      <option value="pending">Pending</option>
+                      <option value="completed">Completed</option>
+                      <option value="overdue">Overdue</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Due Date</Form.Label>
+                    <Form.Control type="date" value={taskForm.due_date} onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Time</Form.Label>
+                    <Form.Control type="time" value={taskForm.time} onChange={(e) => setTaskForm({ ...taskForm, time: e.target.value })} />
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => { setShowAddTaskModal(false); setEditingTaskId(null); }}>Cancel</Button>
+            <Button variant="primary" onClick={handleCreateTask}>{editingTaskId ? 'Update Task' : 'Create Task'}</Button>
+          </Modal.Footer>
+        </Modal>
+
         {/* View Lead Modal */}
-        <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg" fullscreen="sm-down">
           <Modal.Header closeButton>
             <Modal.Title>Lead Details</Modal.Title>
           </Modal.Header>
@@ -1301,7 +2578,7 @@ const LeadManagement = () => {
         </Modal>
 
         {/* Delete Modal */}
-        <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+        <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} fullscreen="sm-down">
           <Modal.Header closeButton>
             <Modal.Title>Delete Lead</Modal.Title>
           </Modal.Header>
@@ -1317,6 +2594,137 @@ const LeadManagement = () => {
               Delete Lead
             </Button>
           </Modal.Footer>
+        </Modal>
+
+        {/* Add Loan Modal */}
+        <Modal show={showAddLoanModal} onHide={() => setShowAddLoanModal(false)} centered fullscreen="sm-down">
+          <Modal.Header closeButton>
+            <Modal.Title>Add Loan</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Row className="g-2">
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Customer Name *</Form.Label>
+                    <Form.Control type="text" value={newLoanForm.customer_full_name} onChange={(e) => setNewLoanForm({ ...newLoanForm, customer_full_name: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Contact Number *</Form.Label>
+                    <Form.Control type="tel" value={newLoanForm.contact_number} onChange={(e) => setNewLoanForm({ ...newLoanForm, contact_number: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">CNIC</Form.Label>
+                    <Form.Control type="text" value={newLoanForm.cnic_number} onChange={(e) => setNewLoanForm({ ...newLoanForm, cnic_number: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Assigned To (User ID)</Form.Label>
+                    <Form.Control type="text" value={newLoanForm.assigned_to} onChange={(e) => setNewLoanForm({ ...newLoanForm, assigned_to: e.target.value })} placeholder="User ID or name (optional)" />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Email</Form.Label>
+                    <Form.Control type="email" value={newLoanForm.email} onChange={(e) => setNewLoanForm({ ...newLoanForm, email: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Loan Promise Date *</Form.Label>
+                    <Form.Control type="date" value={newLoanForm.loan_promise_date} onChange={(e) => setNewLoanForm({ ...newLoanForm, loan_promise_date: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Loan Status</Form.Label>
+                    <Form.Select size="sm" value={newLoanForm.loan_status} onChange={(e) => setNewLoanForm({ ...newLoanForm, loan_status: e.target.value })}>
+                      <option value="pending">Pending</option>
+                      <option value="cleared">Cleared</option>
+                      <option value="overdue">Overdue</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Loan Amount</Form.Label>
+                    <Form.Control type="number" value={newLoanForm.amount} onChange={(e) => setNewLoanForm({ ...newLoanForm, amount: e.target.value })} placeholder="Loan amount" />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Recovered Amount</Form.Label>
+                    <Form.Control type="number" value={newLoanForm.recovered_amount} onChange={(e) => setNewLoanForm({ ...newLoanForm, recovered_amount: e.target.value })} placeholder="Recovered amount (optional)" />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Recovery Date</Form.Label>
+                    <Form.Control type="date" value={newLoanForm.recovery_date} onChange={(e) => setNewLoanForm({ ...newLoanForm, recovery_date: e.target.value })} />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Loan Remarks</Form.Label>
+                    <Form.Control as="textarea" rows={2} value={newLoanForm.loan_remarks} onChange={(e) => setNewLoanForm({ ...newLoanForm, loan_remarks: e.target.value })} placeholder="Notes about the loan (optional)" />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label className="fw-500">Remarks</Form.Label>
+                    <Form.Control as="textarea" rows={3} value={newLoanForm.reason} onChange={(e) => setNewLoanForm({ ...newLoanForm, reason: e.target.value })} />
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Form>
+
+            {/* Chat area for Add Loan (local) */}
+            <div className="mt-3">
+              <h6 className="fw-500">Chat</h6>
+              <div ref={chatContainerRef} style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e9ecef', padding: 8, borderRadius: 6 }}>
+                {chatMessages.length ? (
+                  chatMessages.map((m) => (
+                    <div key={m.id} className="mb-2">
+                      <small className="text-muted">{m.author} • {new Date(m.timestamp).toLocaleString()}</small>
+                      <div>{m.text}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-muted small">No messages yet.</div>
+                )}
+              </div>
+              <InputGroup className="mt-2">
+                <Form.Control as="textarea" rows={2} value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message..." />
+                <Button variant="primary" onClick={sendChatMessage}>Send</Button>
+              </InputGroup>
+            </div>
+
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => { setShowAddLoanModal(false); setChatMessages([]); setChatInput(""); }}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleAddLoan}>
+              Add Loan
+            </Button>
+          </Modal.Footer>
+
         </Modal>
       </div>
     </div>

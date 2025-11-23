@@ -32,7 +32,7 @@ const ShimmerLoader = () => {
 };
 
 const Organization = () => {
-  const API_URL = "http://127.0.0.1:8000/api/organizations/";
+  const API_URL = "https://api.saer.pk/api/organizations/";
   const CACHE_KEY = "organizations_cache";
   const CACHE_TIMESTAMP_KEY = "organizations_cache_timestamp";
   const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes cache expiry
@@ -60,7 +60,7 @@ const Organization = () => {
   const accessToken = localStorage.getItem("accessToken");
 
   const api = axios.create({
-    baseURL: "http://127.0.0.1:8000",
+    baseURL: "https://api.saer.pk",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "multipart/form-data",
@@ -127,6 +127,11 @@ const Organization = () => {
 
   useEffect(() => {
     fetchOrganizations();
+    // debug: log when Organization mounts so we can verify routing
+    try {
+      // eslint-disable-next-line no-console
+      console.debug("Organization mounted", window.location.pathname);
+    } catch (e) {}
   }, []);
 
   // Handle search

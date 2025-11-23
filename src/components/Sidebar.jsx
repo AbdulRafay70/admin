@@ -139,11 +139,7 @@ const Sidebar = () => {
                     <BookOpen size={20} /> <span className="fs-6">Blog Management</span>
                   </NavLink>
                 </Nav.Item>
-                <Nav.Item className="mb-3">
-                  <NavLink to="/universal-register" className={getNavLinkClass}>
-                    <UserPlus size={20} /> <span className="fs-6">Register Entity</span>
-                  </NavLink>
-                </Nav.Item>
+                
                 <Nav.Item className="mb-3">
                   <NavLink to="/universal-list" className={getNavLinkClass}>
                     <Users size={20} /> <span className="fs-6">Universal Registry</span>
@@ -279,11 +275,7 @@ const Sidebar = () => {
               </Nav.Item>
 
               {/* CRM sub-links removed — use the CRM horizontal tabs inside pages for navigation */}
-              <Nav.Item className="mb-3">
-                <NavLink to="/universal-register" style={{ color: "black" }} className={getNavLinkClass}>
-                  <UserPlus size={20} /> <span className="fs-6">Register Entity</span>
-                </NavLink>
-              </Nav.Item>
+              
               <Nav.Item className="mb-3">
                 <NavLink to="/universal-list" style={{ color: "black" }} className={getNavLinkClass}>
                   <Users size={20} /> <span className="fs-6">Universal Registry</span>

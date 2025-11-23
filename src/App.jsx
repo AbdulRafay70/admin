@@ -13,9 +13,8 @@ import Hotels from "./pages/admin/Hotels";
 import AddHotels from "./pages/admin/AddHotel";
 import IntimationTable from "./pages/admin/Intimation";
 import Partners from "./pages/admin/Partners";
-import Request from "./pages/admin/Request";
 import Empolye from "./pages/admin/Empolye";
-import PartnerPortal from "./pages/admin/PartnerPortal";
+// Request and PartnerPortal removed from partners navigation
 import TicketBooking from "./pages/admin/TicketBooking";
 import TicketDetail from "./pages/admin/TicketDetail";
 import AddTicket from "./pages/admin/AddTicket";
@@ -96,7 +95,7 @@ function App() {
               both `/discounts` and `/admin/discounts` (when basename=/admin)
               resolve correctly. This avoids the "No routes matched" warning. */}
           <Route path="/discounts" element={<Navigate to="/partners/discounts" replace />} />
-          <Route path="/portal" element={<Navigate to="/partners/portal" replace />} />
+          {/* /portal redirect removed */}
           <Route path="/branche" element={<Navigate to="/partners/branche" replace />} />
 
           <Route
@@ -280,22 +279,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/partners/request"
-            element={
-              <PrivateRoute>
-                <Request />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/request"
-            element={
-              <PrivateRoute>
-                <Request />
-              </PrivateRoute>
-            }
-          />
+          {/* Request page removed from partners navigation */}
           <Route
             path="/partners/discounts"
             element={
@@ -393,22 +377,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/partners/portal"
-            element={
-              <PrivateRoute>
-                <PartnerPortal />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/portal"
-            element={
-              <PrivateRoute>
-                <PartnerPortal />
-              </PrivateRoute>
-            }
-          />
+          {/* Portal page removed from partners navigation */}
           {/* top-level /portal route removed — portal is now accessed under /partners/portal */}
           <Route
             path="/ticket-booking"

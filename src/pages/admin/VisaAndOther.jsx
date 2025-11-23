@@ -56,7 +56,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
+          `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -101,7 +101,7 @@ const Visa = () => {
     try {
       // First try to fetch existing rate to determine if we should update
       const existingResponse = await axios.get(
-        `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
+        `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -112,7 +112,7 @@ const Visa = () => {
       if (existingResponse.data && existingResponse.data.length > 0) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -128,7 +128,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          "http://127.0.0.1:8000/api/riyal-rates/",
+          "https://api.saer.pk/api/riyal-rates/",
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -187,7 +187,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/shirkas/?organization=${orgId}`,
+        `https://api.saer.pk/api/shirkas/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -218,7 +218,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "http://127.0.0.1:8000/api/shirkas/",
+        "https://api.saer.pk/api/shirkas/",
         {
           name: shirkaName,
           organization: orgId,
@@ -255,7 +255,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `http://127.0.0.1:8000/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
         {
           name: shirkaName,
           organization: orgId,
@@ -293,7 +293,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/shirkas/${removeShirka}/?organization=${orgId}`,
+        `https://api.saer.pk/api/shirkas/${removeShirka}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -339,13 +339,13 @@ const Visa = () => {
 
   // Function to fetch Cities
   const fetchCitiesSector = async () => {
-    setIsLoadingCities(true);
+    setIsLoadingCitiesSector(true);
     const orgId =
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -372,7 +372,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/sectors/?organization=${orgId}`,
+        `https://api.saer.pk/api/sectors/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -408,7 +408,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "http://127.0.0.1:8000/api/sectors/",
+        "https://api.saer.pk/api/sectors/",
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
@@ -468,7 +468,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `http://127.0.0.1:8000/api/sectors/${editingSectorId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/sectors/${editingSectorId}/?organization=${orgId}`,
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
@@ -513,7 +513,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/sectors/${removeSector}/?organization=${orgId}`,
+        `https://api.saer.pk/api/sectors/${removeSector}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -575,7 +575,11 @@ const Visa = () => {
   const fetchBigSectors = async () => {
     setLoadingBig(true);
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`);
+      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const res = await axios.get(
+        `https://api.saer.pk/api/big-sectors/?organization=${orgId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setBigSectors(res.data);
     } catch (err) {
       console.error("Error fetching big sectors", err);
@@ -588,7 +592,11 @@ const Visa = () => {
   // ✅ Fetch all SmallSectors
   const fetchSmallSectors = async () => {
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/sectors/?organization=${orgId}`);
+      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const res = await axios.get(
+        `https://api.saer.pk/api/sectors/?organization=${orgId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setSmallSectors(res.data);
     } catch (err) {
       console.error("Error fetching small sectors", err);
@@ -603,6 +611,7 @@ const Visa = () => {
   // ✅ Add BigSector with sequential validation
   const handleAdd = async () => {
     try {
+      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       if (selectedSmallSectors.length === 0) {
         toast.warning("Please select at least one sector");
         return;
@@ -633,10 +642,16 @@ const Visa = () => {
         }
       }
 
-      await axios.post("http://127.0.0.1:8000/api/big-sectors/", {
-        organization_id: parseInt(orgId),
-        small_sector_ids: selectedSmallSectors.map(Number),
-      });
+      await axios.post(
+        "https://api.saer.pk/api/big-sectors/",
+        {
+          organization_id: parseInt(orgId),
+          small_sector_ids: selectedSmallSectors.map(Number),
+        },
+        {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }
+      );
 
       fetchBigSectors();
       setSelectedSmallSectors([]);
@@ -650,6 +665,7 @@ const Visa = () => {
   // ✅ Update BigSector with sequential validation
   const handleUpdate = async () => {
     try {
+      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       if (selectedSmallSectors.length === 0) {
         toast.warning("Please select at least one sector");
         return;
@@ -679,10 +695,16 @@ const Visa = () => {
         }
       }
 
-      await axios.put(`http://127.0.0.1:8000/api/big-sectors/${editingIdBig}/`, {
-        organization_id: parseInt(orgId),
-        small_sector_ids: selectedSmallSectors.map(Number),
-      });
+      await axios.put(
+        `https://api.saer.pk/api/big-sectors/${editingIdBig}/`,
+        {
+          organization_id: parseInt(orgId),
+          small_sector_ids: selectedSmallSectors.map(Number),
+        },
+        {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }
+      );
 
       fetchBigSectors();
       setEditingIdBig(null);
@@ -844,7 +866,11 @@ const Visa = () => {
   // ✅ Delete BigSector
   const handleDeleteBig = async () => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/big-sectors/${removeId}/`);
+      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      await axios.delete(
+        `https://api.saer.pk/api/big-sectors/${removeId}/?organization=${orgId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       fetchBigSectors();
       setRemoveId("");
       setSelectedSmallSectors([]);
@@ -895,7 +921,7 @@ const Visa = () => {
       setIsVisaTypeLoading(true);
       const orgId = selectedOrg?.id || selectedOrg;
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`,
+        `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -945,8 +971,8 @@ const Visa = () => {
       };
 
       const url = visaTypeId
-        ? `http://127.0.0.1:8000/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
-        : `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`;
+        ? `https://api.saer.pk/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
+        : `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`;
 
       const method = visaTypeId ? "put" : "post";
 
@@ -1002,7 +1028,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1074,13 +1100,13 @@ const Visa = () => {
     try {
       if (editingVisaPriceId) {
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
           visaPriceData
         );
         toast.success("Visa prices updated successfully!");
       } else {
         const response = await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData
         );
         setEditingVisaPriceId(response.data.id); // Store the new ID
@@ -1121,7 +1147,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1203,7 +1229,7 @@ const Visa = () => {
       if (editingVisaLongPriceId) {
         // Update existing price
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1216,7 +1242,7 @@ const Visa = () => {
       } else {
         // Create new price
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1262,7 +1288,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1326,7 +1352,7 @@ const Visa = () => {
     try {
       if (editingVisa28OnlyPriceId) {
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1338,7 +1364,7 @@ const Visa = () => {
         toast.success("Visa prices updated successfully!");
       } else {
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1386,7 +1412,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1451,7 +1477,7 @@ const Visa = () => {
       if (editingVisaLongOnlyId) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1464,7 +1490,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1514,7 +1540,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1578,7 +1604,7 @@ const Visa = () => {
       if (editingTransportId) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1591,7 +1617,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1651,7 +1677,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1695,6 +1721,9 @@ const Visa = () => {
   const [adultPrice, setAdultPrice] = useState("");
   const [childPrice, setChildPrice] = useState("");
   const [infantPrice, setInfantPrice] = useState("");
+  // New fields: per-row purchase and selling prices for Visa Type Two
+  const [visaPurchasePrice, setVisaPurchasePrice] = useState("");
+  const [visaSellingPrice, setVisaSellingPrice] = useState("");
   const [withTransport, setWithTransport] = useState(false);
   const [selectedHotels, setSelectedHotels] = useState([]);
 
@@ -1702,20 +1731,24 @@ const Visa = () => {
 
   const fetchVehicleTypesForVisa = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/vehicle-types/?organization=${orgId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const response = await axios.get(
+        `https://api.saer.pk/api/vehicle-types/?organization=${orgId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       let data = response.data;
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
+      if (data && typeof data === "object" && !Array.isArray(data)) {
         data = data.results || data.data || [data];
       }
 
       setVehicleTypes(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching vehicle types for visa:', error);
+      console.error("Error fetching vehicle types for visa:", error);
     }
   };
 
@@ -1754,6 +1787,9 @@ const Visa = () => {
       adault_price: parseFloat(adultPrice),
       child_price: parseFloat(childPrice),
       infant_price: parseFloat(infantPrice),
+      // include new price fields when present
+      purchase_price: visaPurchasePrice !== "" ? parseFloat(visaPurchasePrice) : undefined,
+      selling_price: visaSellingPrice !== "" ? parseFloat(visaSellingPrice) : undefined,
       is_transport: withTransport,
       hotel_details: validHotelDetails.length > 0 ? validHotelDetails : [],
       vehicle_types: validVehicleTypes, // Add vehicle types to payload
@@ -1765,7 +1801,7 @@ const Visa = () => {
         // Verify the visa exists by trying to fetch it first
         try {
           await axios.get(
-            `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+            `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1778,7 +1814,7 @@ const Visa = () => {
 
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -1791,7 +1827,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -1828,6 +1864,8 @@ const Visa = () => {
     setWithTransport(false);
     setSelectedHotelIds([]);
     setSelectedVehicleTypeIds([]); // Clear vehicle types
+    setVisaPurchasePrice("");
+    setVisaSellingPrice("");
     setEditingVisaTypeTwoId(null);
   };
 
@@ -1861,6 +1899,9 @@ const Visa = () => {
           ?.filter((vtId) => vehicleTypes.some((vt) => vt.id === vtId)) || [];
 
         setSelectedVehicleTypeIds(validVehicleTypeIds);
+        // Populate purchase/selling price if available
+        setVisaPurchasePrice(selectedVisa.purchase_price?.toString() || "");
+        setVisaSellingPrice(selectedVisa.selling_price?.toString() || "");
       }
     } else {
       resetVisaTypeTwoForm();
@@ -1904,7 +1945,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1981,7 +2022,7 @@ const Visa = () => {
   //       // Verify the visa exists by trying to fetch it first
   //       try {
   //         await axios.get(
-  //           `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //           `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //           {
   //             headers: {
   //               Authorization: `Bearer ${token}`,
@@ -1996,7 +2037,7 @@ const Visa = () => {
 
   //       // Update existing
   //       await axios.put(
-  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //         `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2009,7 +2050,7 @@ const Visa = () => {
   //     } else {
   //       // Create new
   //       await axios.post(
-  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
+  //         `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2042,7 +2083,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/hotels/?organization=${orgId}`,
+        `https://api.saer.pk/api/hotels/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2139,7 +2180,7 @@ const Visa = () => {
       const orgId =
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       await axios.delete(
-        `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2174,6 +2215,8 @@ const Visa = () => {
   const [transportType2Infants, setTransportType2Infants] = useState("");
   const [transportType2VehicleType, setTransportType2VehicleType] =
     useState("");
+  const [transportType2Purchase, setTransportType2Purchase] = useState("");
+  const [transportType2Selling, setTransportType2Selling] = useState("");
   const [removeTransportType2, setRemoveTransportType2] = useState("");
   const [onlyTransportCharges, setOnlyTransportCharges] = useState("");
 
@@ -2185,7 +2228,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2222,6 +2265,8 @@ const Visa = () => {
         setTransportType2Adult(selectedSector.adault_price?.toString() || "");
         setTransportType2Child(selectedSector.child_price?.toString() || "");
         setTransportType2Infants(selectedSector.infant_price?.toString() || "");
+        setTransportType2Purchase(selectedSector.purchase_price?.toString() || "");
+        setTransportType2Selling(selectedSector.selling_price?.toString() || "");
         setWithVisa(selectedSector.is_visa || false);
         setOnlyTransportCharges(selectedSector.only_transport_charge || false);
         setEditingTransportType2Id(selectedSector.id);
@@ -2256,6 +2301,8 @@ const Visa = () => {
       adault_price: parseFloat(transportType2Adult),
       child_price: parseFloat(transportType2Child),
       infant_price: parseFloat(transportType2Infants),
+      purchase_price: transportType2Purchase !== "" ? parseFloat(transportType2Purchase) : undefined,
+      selling_price: transportType2Selling !== "" ? parseFloat(transportType2Selling) : undefined,
       is_visa: false,
       only_transport_charge: onlyTransportCharges,
       organization: orgId,
@@ -2264,7 +2311,7 @@ const Visa = () => {
     try {
       if (editingTransportType2Id) {
         await axios.put(
-          `http://127.0.0.1:8000/api/transport-sector-prices/${editingTransportType2Id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-sector-prices/${editingTransportType2Id}/?organization=${orgId}`,
           transportType2Data,
           {
             headers: {
@@ -2276,7 +2323,7 @@ const Visa = () => {
         toast.success("Transport Type2 sector updated successfully!");
       } else {
         await axios.post(
-          `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
           transportType2Data,
           {
             headers: {
@@ -2309,7 +2356,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/transport-sector-prices/${removeTransportType2}/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-sector-prices/${removeTransportType2}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2333,6 +2380,8 @@ const Visa = () => {
     setTransportType2Adult("");
     setTransportType2Child("");
     setTransportType2Infants("");
+    setTransportType2Purchase("");
+    setTransportType2Selling("");
     setEditingTransportType2Id(null);
     setRemoveTransportType2("");
   };
@@ -2351,6 +2400,8 @@ const Visa = () => {
   const [onlyVisaAdult, setOnlyVisaAdult] = useState("");
   const [onlyVisaChild, setOnlyVisaChild] = useState("");
   const [onlyVisaInfant, setOnlyVisaInfant] = useState("");
+  const [onlyVisaPurchase, setOnlyVisaPurchase] = useState("");
+  const [onlyVisaSelling, setOnlyVisaSelling] = useState("");
   const [minDays, setMinDays] = useState("");
   const [maxDays, setMaxDays] = useState("");
   const [airportId, setAirportId] = useState("");
@@ -2384,6 +2435,8 @@ const Visa = () => {
       adault_price: parseFloat(onlyVisaAdult),
       child_price: parseFloat(onlyVisaChild),
       infant_price: parseFloat(onlyVisaInfant),
+      purchase_price: onlyVisaPurchase !== "" ? parseFloat(onlyVisaPurchase) : undefined,
+      selling_price: onlyVisaSelling !== "" ? parseFloat(onlyVisaSelling) : undefined,
       min_days: minDays.toString(),
       max_days: maxDays.toString(),
       city_id: parseInt(airportId),
@@ -2398,7 +2451,7 @@ const Visa = () => {
         // Check if selectedVisaPrice exists first
         // Update existing visa price
         response = await axios.put(
-          `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2411,7 +2464,7 @@ const Visa = () => {
       } else {
         // Create new visa price
         response = await axios.post(
-          `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2448,6 +2501,8 @@ const Visa = () => {
     setAirport("");
     setStatus(""); // Reset to active
     setSelectedVisaPrice(null);
+    setOnlyVisaPurchase("");
+    setOnlyVisaSelling("");
   };
   // Delete function
   const handleDeleteVisaPrice = async () => {
@@ -2467,7 +2522,7 @@ const Visa = () => {
     setIsDeleting(true);
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+        `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Visa price deleted successfully");
@@ -2487,7 +2542,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // console.log("API Response:", response.data);
@@ -2524,6 +2579,8 @@ const Visa = () => {
   const [vehicleTypeName, setVehicleTypeName] = useState('');
   const [vehicleTypeType, setVehicleTypeType] = useState('');
   const [vehicleTypePrice, setVehicleTypePrice] = useState('');
+  const [vehicleTypePurchase, setVehicleTypePurchase] = useState('');
+  const [vehicleTypeSelling, setVehicleTypeSelling] = useState('');
   const [vehicleTypeNote, setVehicleTypeNote] = useState('');
   const [vehicleTypeVisaType, setVehicleTypeVisaType] = useState('type2');
   const [vehicleTypeStatus, setVehicleTypeStatus] = useState('active');
@@ -2588,7 +2645,7 @@ const Visa = () => {
   // Fetch vehicle types with proper sector data
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`http://127.0.0.1:8000/api/vehicle-types/?organization=${orgId}`, {
+  //     const response = await axios.get(`https://api.saer.pk/api/vehicle-types/?organization=${orgId}`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       },
@@ -2629,6 +2686,8 @@ const Visa = () => {
       vehicle_name: vehicleTypeName,
       vehicle_type: vehicleTypeType,
       price: parseFloat(vehicleTypePrice),
+      purchase_price: vehicleTypePurchase !== "" ? parseFloat(vehicleTypePurchase) : undefined,
+      selling_price: vehicleTypeSelling !== "" ? parseFloat(vehicleTypeSelling) : undefined,
       note: vehicleTypeNote,
       visa_type: "type2",
       status: vehicleTypeStatus,
@@ -2650,7 +2709,7 @@ const Visa = () => {
       if (editingVehicleTypeId) {
         // Update existing vehicle type
         await axios.put(
-          `http://127.0.0.1:8000/api/vehicle-types/${editingVehicleTypeId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/vehicle-types/${editingVehicleTypeId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2663,7 +2722,7 @@ const Visa = () => {
       } else {
         // Create new vehicle type
         await axios.post(
-          `http://127.0.0.1:8000/api/vehicle-types/?organization=${orgId}`,
+          `https://api.saer.pk/api/vehicle-types/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2688,7 +2747,7 @@ const Visa = () => {
   // ✅ Enhanced fetchVehicleTypes to handle API response structure
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/vehicle-types/?organization=${orgId}`, {
+      const response = await axios.get(`https://api.saer.pk/api/vehicle-types/?organization=${orgId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -2721,6 +2780,8 @@ const Visa = () => {
         setVehicleTypeType(selectedVehicleType.vehicle_type);
         setVehicleTypePrice(selectedVehicleType.price?.toString() || '');
         setVehicleTypeNote(selectedVehicleType.note || '');
+        setVehicleTypePurchase(selectedVehicleType.purchase_price?.toString() || '');
+        setVehicleTypeSelling(selectedVehicleType.selling_price?.toString() || '');
         setVehicleTypeVisaType(selectedVehicleType.visa_type || 'type2');
         setVehicleTypeStatus(selectedVehicleType.status || 'active');
 
@@ -2751,7 +2812,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/vehicle-types/${selectedVehicleTypeId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/vehicle-types/${selectedVehicleTypeId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2798,7 +2859,7 @@ const Visa = () => {
   // const fetchAllSectors = async () => {
   //   try {
   //     // Fetch small sectors using axios
-  //     const smallResponse = await axios.get(`http://127.0.0.1:8000/api/sectors/?organization=${orgId}`);
+  //     const smallResponse = await axios.get(`https://api.saer.pk/api/sectors/?organization=${orgId}`);
   //     const smallData = smallResponse.data;
   //     const smallSectors = (smallData.results || smallData).map(sector => ({
   //       ...sector,
@@ -2807,7 +2868,7 @@ const Visa = () => {
   //     }));
 
   //     // Fetch big sectors using axios
-  //     const bigResponse = await axios.get(`http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`);
+  //     const bigResponse = await axios.get(`https://api.saer.pk/api/big-sectors/?organization=${orgId}`);
   //     const bigData = bigResponse.data;
   //     const bigSectors = (bigData.results || bigData).map(sector => ({
   //       ...sector,
@@ -2825,7 +2886,7 @@ const Visa = () => {
   // Fetch vehicle types with axios
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`http://127.0.0.1:8000/api/vehicle-types/?organization=${orgId}`);
+  //     const response = await axios.get(`https://api.saer.pk/api/vehicle-types/?organization=${orgId}`);
   //     const data = response.data;
   //     setVehicleTypes(data.results || data);
   //   } catch (error) {
@@ -2843,6 +2904,8 @@ const Visa = () => {
     setVehicleTypeName('');
     setVehicleTypeType('');
     setVehicleTypePrice('');
+    setVehicleTypePurchase('');
+    setVehicleTypeSelling('');
     setVehicleTypeNote('');
     setVehicleTypeVisaType('type2');
     setVehicleTypeStatus('active');
@@ -2861,7 +2924,9 @@ const Visa = () => {
     organization: "",
     city_id: "",
     description: "",
-    price: ""
+    price: "",
+    purchase_price: "",
+    selling_price: ""
   });
 
   const [foodCities, setFoodCities] = useState([]);
@@ -2875,8 +2940,8 @@ const Visa = () => {
   const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
   // API base URLs
-  const FOOD_PRICES_API_URL = `http://127.0.0.1:8000/api/food-prices/?organization=${orgId}`;
-  const CITIES_API_URL = `http://127.0.0.1:8000/api/cities/?organization=${orgId}`;
+  const FOOD_PRICES_API_URL = `https://api.saer.pk/api/food-prices/?organization=${orgId}`;
+  const CITIES_API_URL = `https://api.saer.pk/api/cities/?organization=${orgId}`;
 
   // Fetch food prices and cities on component mount
   useEffect(() => {
@@ -2936,6 +3001,8 @@ const Visa = () => {
         min_pex: parseInt(foodFormData.min_pex) || 0,
         per_pex: parseInt(foodFormData.per_pex) || 0,
         price: parseInt(foodFormData.price) || 0,
+        purchase_price: foodFormData.purchase_price !== "" ? parseFloat(foodFormData.purchase_price) : undefined,
+        selling_price: foodFormData.selling_price !== "" ? parseFloat(foodFormData.selling_price) : undefined,
         city_id: parseInt(foodFormData.city_id) || 0,
         title: foodFormData.title.trim(),
         description: foodFormData.description.trim(),
@@ -2945,7 +3012,7 @@ const Visa = () => {
       if (isEditing && currentId) {
         // Update existing record
         await axios.put(
-          `http://127.0.0.1:8000/api/food-prices/${currentId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/food-prices/${currentId}/?organization=${orgId}`,
           dataToSend,
           {
             headers: {
@@ -2983,7 +3050,9 @@ const Visa = () => {
       organization: orgId,
       city_id: foodPrice.city?.id || "", // Fix: access city ID from nested object
       description: foodPrice.description || "",
-      price: foodPrice.price || ""
+      price: foodPrice.price || "",
+      purchase_price: foodPrice.purchase_price || "",
+      selling_price: foodPrice.selling_price || ""
     });
     setIsEditing(true);
     setCurrentId(foodPrice.id);
@@ -2999,7 +3068,9 @@ const Visa = () => {
       organization: orgId,
       city_id: "",
       description: "",
-      price: ""
+      price: "",
+      purchase_price: "",
+      selling_price: ""
     });
     setIsEditing(false);
     setCurrentId(null);
@@ -3010,7 +3081,7 @@ const Visa = () => {
       try {
         setLoading(true);
         await axios.delete(
-          `http://127.0.0.1:8000/api/food-prices/${id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/food-prices/${id}/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3045,6 +3116,8 @@ const Visa = () => {
     contact_person: "",
     contact_number: "",
     price: "",
+    purchase_price: "",
+    selling_price: "",
     status: "active",
     min_pex: "",
     max_pex: "",
@@ -3058,7 +3131,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3079,7 +3152,7 @@ const Visa = () => {
     const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3120,6 +3193,8 @@ const Visa = () => {
       contact_person: ziaratFormData.contact_person.trim(),
       contact_number: ziaratFormData.contact_number.trim(),
       price: parseFloat(ziaratFormData.price) || 0,
+      purchase_price: ziaratFormData.purchase_price !== "" ? parseFloat(ziaratFormData.purchase_price) : undefined,
+      selling_price: ziaratFormData.selling_price !== "" ? parseFloat(ziaratFormData.selling_price) : undefined,
       status: ziaratFormData.status,
       min_pex: parseInt(ziaratFormData.min_pex) || 0,
       max_pex: parseInt(ziaratFormData.max_pex) || 0,
@@ -3130,7 +3205,7 @@ const Visa = () => {
       if (editingZiaratId) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3143,7 +3218,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3174,7 +3249,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/ziarat-prices/${id}/?organization=${orgId}`,
+        `https://api.saer.pk/api/ziarat-prices/${id}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3201,6 +3276,8 @@ const Visa = () => {
       contact_person: "",
       contact_number: "",
       price: "",
+      purchase_price: "",
+      selling_price: "",
       status: "active",
       min_pex: "",
       max_pex: "",
@@ -3218,6 +3295,8 @@ const Visa = () => {
       contact_person: ziarat.contact_person || "",
       contact_number: ziarat.contact_number || "",
       price: ziarat.price ? ziarat.price.toString() : "",
+      purchase_price: ziarat.purchase_price ? ziarat.purchase_price.toString() : "",
+      selling_price: ziarat.selling_price ? ziarat.selling_price.toString() : "",
       status: ziarat.status || "active",
       min_pex: ziarat.min_pex ? ziarat.min_pex.toString() : "",
       max_pex: ziarat.max_pex ? ziarat.max_pex.toString() : "",
@@ -3277,7 +3356,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/airlines/?organization=${orgId}`,
+        `https://api.saer.pk/api/airlines/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3330,7 +3409,7 @@ const Visa = () => {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/airlines/",
+        "https://api.saer.pk/api/airlines/",
         formData,
         {
           headers: {
@@ -3365,7 +3444,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/airlines/${removeFlight}/?organization=${orgId}`,
+        `https://api.saer.pk/api/airlines/${removeFlight}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3404,7 +3483,7 @@ const Visa = () => {
       }
 
       await axios.put(
-        `http://127.0.0.1:8000/api/airlines/${editingFlightId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/airlines/${editingFlightId}/?organization=${orgId}`,
         formData,
         {
           headers: {
@@ -3434,7 +3513,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
       await axios.put(
-        `http://127.0.0.1:8000/api/cities/${editingCityId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/${editingCityId}/?organization=${orgId}`,
         {
           name: cityName,
           code: cityCode,
@@ -3474,7 +3553,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3506,7 +3585,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "http://127.0.0.1:8000/api/cities/",
+        "https://api.saer.pk/api/cities/",
         {
           name: cityName,
           code: cityCode,
@@ -3540,7 +3619,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/cities/${removeCity}/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/${removeCity}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3570,7 +3649,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/booking-expiry/?organization=${orgId}`,
+          `https://api.saer.pk/api/booking-expiry/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3614,7 +3693,7 @@ const Visa = () => {
       if (expiryId) {
         // Update existing record
         await axios.put(
-          `http://127.0.0.1:8000/api/booking-expiry/${expiryId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/booking-expiry/${expiryId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -3627,7 +3706,7 @@ const Visa = () => {
       } else {
         // Create new record
         const response = await axios.post(
-          "http://127.0.0.1:8000/api/booking-expiry/",
+          "https://api.saer.pk/api/booking-expiry/",
           payload,
           {
             headers: {
@@ -5282,6 +5361,34 @@ const Visa = () => {
                                     }
                                   />
                                 </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Purchase Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="Purchase"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    value={visaPurchasePrice}
+                                    onChange={(e) => setVisaPurchasePrice(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Selling Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="Selling"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    value={visaSellingPrice}
+                                    onChange={(e) => setVisaSellingPrice(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
                               </div>
 
                               <div className="d-flex align-items-center gap-3 mt-4 flex-wrap">
@@ -5555,6 +5662,34 @@ const Visa = () => {
                                   />
                                 </div>
 
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Purchase Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Purchase"
+                                    value={onlyVisaPurchase}
+                                    onChange={(e) => setOnlyVisaPurchase(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Selling Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Selling"
+                                    value={onlyVisaSelling}
+                                    onChange={(e) => setOnlyVisaSelling(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
                                 {/* Action Buttons */}
                                 <div className=" d-flex flex-wrap gap-2 align-items-center">
                                   <div className="col-md-2">
@@ -5655,6 +5790,8 @@ const Visa = () => {
                                           setMinDays(selected.min_days?.toString() || "");
                                           setMaxDays(selected.max_days?.toString() || "");
                                           setStatus(selected.status || "");
+                                          setOnlyVisaPurchase(selected.purchase_price?.toString() || "");
+                                          setOnlyVisaSelling(selected.selling_price?.toString() || "");
 
                                           // Correctly set the airport ID from the city object
                                           if (selected.city && selected.city.id) {
@@ -5791,6 +5928,34 @@ const Visa = () => {
                                 />
                               </div>
 
+                              <div>
+                                <label htmlFor="" className="Control-label">
+                                  Purchase Price
+                                </label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none  px-1 py-2"
+                                  value={transportType2Purchase}
+                                  onChange={(e) => setTransportType2Purchase(e.target.value)}
+                                  placeholder="Purchase"
+                                  step="0.01"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="" className="Control-label">
+                                  Selling Price
+                                </label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none  px-1 py-2"
+                                  value={transportType2Selling}
+                                  onChange={(e) => setTransportType2Selling(e.target.value)}
+                                  placeholder="Selling"
+                                  step="0.01"
+                                />
+                              </div>
+
                               <div className="form-check d-flex align-items-center gap-2">
                                 <input
                                   className="form-check-input border border-black"
@@ -5912,6 +6077,30 @@ const Visa = () => {
                                   value={vehicleTypePrice}
                                   onChange={(e) => setVehicleTypePrice(e.target.value)}
                                   placeholder="600"
+                                  step="0.01"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="" className="control-label">Purchase Price</label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none px-1 py-2"
+                                  value={vehicleTypePurchase}
+                                  onChange={(e) => setVehicleTypePurchase(e.target.value)}
+                                  placeholder="Purchase"
+                                  step="0.01"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="" className="control-label">Selling Price</label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none px-1 py-2"
+                                  value={vehicleTypeSelling}
+                                  onChange={(e) => setVehicleTypeSelling(e.target.value)}
+                                  placeholder="Selling"
                                   step="0.01"
                                 />
                               </div>
@@ -6149,6 +6338,38 @@ const Visa = () => {
                                 onChange={(e) => handleInputChange(e)}
                                 name="price"
                                 min="0"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">
+                                Purchase Price
+                              </label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none  px-1 py-2"
+                                placeholder="Purchase"
+                                value={foodFormData.purchase_price}
+                                onChange={(e) => handleInputChange(e)}
+                                name="purchase_price"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">
+                                Selling Price
+                              </label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none  px-1 py-2"
+                                placeholder="Selling"
+                                value={foodFormData.selling_price}
+                                onChange={(e) => handleInputChange(e)}
+                                name="selling_price"
+                                min="0"
+                                step="0.01"
                               />
                             </div>
 
@@ -6395,6 +6616,38 @@ const Visa = () => {
                                 value={ziaratFormData.price}
                                 onChange={handleZiaratInputChange}
                                 min="0"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">
+                                Purchase Price
+                              </label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none px-1 py-2"
+                                placeholder="Purchase"
+                                name="purchase_price"
+                                value={ziaratFormData.purchase_price}
+                                onChange={handleZiaratInputChange}
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">
+                                Selling Price
+                              </label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none px-1 py-2"
+                                placeholder="Selling"
+                                name="selling_price"
+                                value={ziaratFormData.selling_price}
+                                onChange={handleZiaratInputChange}
+                                min="0"
+                                step="0.01"
                               />
                             </div>
 

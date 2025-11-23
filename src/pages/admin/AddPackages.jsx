@@ -82,75 +82,73 @@ const FlightModal = ({
                 </tr>
               </thead>
               <tbody>
-                {flights.map((flight) => {
-                  const departureTrip = flight.trip_details?.find(
-                    (t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "departure"
-                  );
-                  const returnTrip = flight.trip_details?.find(
-                    (t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "return"
-                  );
+                {flights.map((flightRaw) => {
+                  // Support different API shapes: some endpoints return a wrapper
+                  // object with `ticket_info` or `ticket`, others return the ticket
+                  // fields at top-level. Normalize to `ticket` for rendering.
+                  const ticket = flightRaw.ticket_info ?? flightRaw.ticket ?? flightRaw;
 
+                  // Prefer explicit trip_type markers, but fall back to the
+                  // first trip_details element when trip_type is not provided
+                  // (many ticket objects only include an array of segments).
+                  const departureTrip =
+                    ticket.trip_details?.find((t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "departure")
+                    || (ticket.trip_details && ticket.trip_details.length > 0 ? ticket.trip_details[0] : undefined);
+                  const returnTrip =
+                    ticket.trip_details?.find((t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "return")
+                    || undefined;
+
+                  const safeNumber = (v) => {
+                    const n = Number(v);
+                    return Number.isFinite(n) ? n : 0;
+                  };
+
+                  const formatPrice = (v) => {
+                    try {
+                      return safeNumber(v).toLocaleString();
+                    } catch (e) {
+                      return String(v || "0");
+                    }
+                  };
+
+                  const airlineName = airlinesMap[ticket.airline ?? ticket.airline_id]?.name || "N/A";
+                  const pnr = ticket.pnr ?? ticket.ticket_pnr ?? "N/A";
+                  const seats = ticket.left_seats ?? flightRaw.left_seats ?? "N/A";
 
                   return (
-                    <tr key={flight.id}>
-                      <td>{airlinesMap[flight.airline]?.name || "N/A"}</td>
-                      <td>{flight.pnr || "N/A"}</td>
+                    <tr key={ticket.id ?? flightRaw.id}>
+                      <td>{airlineName}</td>
+                      <td>{pnr}</td>
                       <td>
-                        {returnTrip ? "Round Trip" : "One Way"}
-                        {flight.is_umrah_seat && " (Umrah)"}
+                        {ticket.trip_type ? ticket.trip_type : (returnTrip ? "Round Trip" : "One Way")}
+                        {ticket.is_umrah_seat && " (Umrah)"}
                       </td>
                       <td>
                         {departureTrip?.departure_date_time
-                          ? new Date(
-                            departureTrip.departure_date_time
-                          ).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                          : "N/A"}
+                          ? new Date(departureTrip.departure_date_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                          : departureTrip?.departure_date || departureTrip?.departure_date_time || "N/A"}
                       </td>
                       <td>
                         {returnTrip?.arrival_date_time
-                          ? new Date(
-                            returnTrip.arrival_date_time
-                          ).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                          : "N/A"}
+                          ? new Date(returnTrip.arrival_date_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                          : returnTrip?.arrival_date || returnTrip?.arrival_date_time || "-"}
                       </td>
                       <td>
                         {departureTrip?.departure_city
-                          ? citiesMap[departureTrip.departure_city]?.code ||
-                          "N/A"
+                          ? (citiesMap[departureTrip.departure_city]?.code || citiesMap[departureTrip.departure_city]?.name || "-")
                           : "N/A"}
                       </td>
                       <td>
                         {departureTrip?.arrival_city
-                          ? citiesMap[departureTrip.arrival_city]?.code || "N/A"
-                          : "N/A"}
+                          ? (citiesMap[departureTrip.arrival_city]?.code || citiesMap[departureTrip.arrival_city]?.name || "-")
+                          : "-"}
                       </td>
-                      <td className="text-success fw-bold">
-                        Rs. {flight.adult_price?.toLocaleString() || "0"}
-                      </td>
-                      <td className="text-success fw-bold">
-                        Rs. {flight.child_price?.toLocaleString() || "0"}
-                      </td>
-                      <td className="text-success fw-bold">
-                        Rs. {flight.infant_price?.toLocaleString() || "0"}
-                      </td>
-                      <td>{flight.seats || "N/A"}</td>
+                      <td className="text-success fw-bold">Rs. {formatPrice(ticket.adult_price ?? ticket.adult_fare ?? ticket.adultFare ?? ticket.adult ?? ticket.adault_price ?? 0)}</td>
+                      <td className="text-success fw-bold">Rs. {formatPrice(ticket.child_price ?? ticket.child_fare ?? ticket.childFare ?? ticket.child ?? 0)}</td>
+                      <td className="text-success fw-bold">Rs. {formatPrice(ticket.infant_price ?? ticket.infant_fare ?? ticket.infantFare ?? ticket.infant ?? 0)}</td>
+                      <td>{seats}</td>
                       <td>
-                        <button
-                          className="btn btn-sm btn-primary"
-                          onClick={() => onSelect(flight)}
-                        >
+                        <button className="btn btn-sm btn-primary" onClick={() => onSelect(ticket)}>
                           Select
                         </button>
                       </td>
@@ -291,7 +289,7 @@ const AddPackages = ({ mode = "add" }) => {
         setSelectedOrganization({ id: 11, name: "Org 11" });
       } catch (e) {}
 
-      const baseUrl = "http://127.0.0.1:8000/api/umrah-packages/";
+      const baseUrl = "https://api.saer.pk/api/umrah-packages/";
       const requestUrl = `${baseUrl}?organization=11`;
 
       // Minimal payload accepted by backend for testing
@@ -346,9 +344,9 @@ const AddPackages = ({ mode = "add" }) => {
     }
 
     const endpoints = [
-      { name: "Food Prices", url: "http://127.0.0.1:8000/api/food-prices/?organization=11" },
-      { name: "Ziarat Prices", url: "http://127.0.0.1:8000/api/ziarat-prices/?organization=11" },
-      { name: "Tickets", url: "http://127.0.0.1:8000/api/tickets/?organization=11" },
+      { name: "Food Prices", url: "https://api.saer.pk/api/food-prices/?organization=11" },
+      { name: "Ziarat Prices", url: "https://api.saer.pk/api/ziarat-prices/?organization=11" },
+      { name: "Tickets", url: "https://api.saer.pk/api/tickets/?organization=11" },
     ];
 
     for (const ep of endpoints) {
@@ -416,6 +414,8 @@ const AddPackages = ({ mode = "add" }) => {
 
 
   const [flightNumber, setFlightNumber] = useState("");
+  const [airlineName, setAirlineName] = useState("");
+  const [fromSector, setFromSector] = useState("");
   const [toSector, setToSector] = useState("");
   const [departureDate, setDepartureDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
@@ -452,7 +452,7 @@ const AddPackages = ({ mode = "add" }) => {
           const decoded = decodeJwt(token);
           const userId = decoded.user_id || decoded.id;
 
-          const userRes = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
+          const userRes = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -491,7 +491,7 @@ const AddPackages = ({ mode = "add" }) => {
         try {
           const token = localStorage.getItem("accessToken");
           const response = await axios.get(
-            `http://127.0.0.1:8000/api/umrah-packages/${id}/`,
+            `https://api.saer.pk/api/umrah-packages/${id}/`,
             {
               params: { organization: organizationId },
               headers: {
@@ -561,9 +561,18 @@ const AddPackages = ({ mode = "add" }) => {
     const hotelDetails = pkgData.hotel_details.map((hotel) => ({
       hotelName: hotel.hotel_info?.name || "",
       hotelId: hotel.hotel,
-      checkIn: hotel.check_in_time,
-      nights: hotel.number_of_nights,
-      checkOut: hotel.check_out_time,
+      checkIn: (() => {
+        const d = hotel.check_in_date ?? hotel.check_in_time ?? hotel.check_in ?? hotel.checkIn ?? null;
+        return d ? formatDateForInput(new Date(d)) : "";
+      })(),
+      nights: (() => {
+        const n = hotel.number_of_nights ?? hotel.number_of_nights_count ?? hotel.nights ?? hotel.numberOfNights ?? "";
+        return n !== null && n !== undefined ? (String(n) === "" ? "" : Number(n)) : "";
+      })(),
+      checkOut: (() => {
+        const d = hotel.check_out_date ?? hotel.check_out_time ?? hotel.check_out ?? hotel.checkOut ?? null;
+        return d ? formatDateForInput(new Date(d)) : "";
+      })(),
       // try to populate new selling/purchase fields if backend provides them,
       // fall back to existing single price fields for compatibility
       // Treat a selling price of 0 as "not provided" and fall back to legacy price
@@ -729,7 +738,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("http://127.0.0.1:8000/api/hotels/", {
+      const response = await axios.get("https://api.saer.pk/api/hotels/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -743,7 +752,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       // Fallback: if org-scoped request returned empty, try global list
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("http://127.0.0.1:8000/api/hotels/", {
+        const fallback = await axios.get("https://api.saer.pk/api/hotels/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -755,7 +764,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching hotels — your token may be expired or your account lacks permissions.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
+        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
       } else {
         toast.error(error?.response?.data?.detail || "Failed to fetch hotels");
       }
@@ -779,7 +788,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       // Build URL explicitly including the organization query param to avoid
       // any serializer/interceptor removing params unexpectedly.
-      const baseUrl = "http://127.0.0.1:8000/api/tickets/";
+      const baseUrl = "https://api.saer.pk/api/tickets/";
       const requestUrl = organizationId
         ? `${baseUrl}?organization=${encodeURIComponent(organizationId)}`
         : baseUrl;
@@ -795,7 +804,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
 
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("http://127.0.0.1:8000/api/tickets/", {
+        const fallback = await axios.get("https://api.saer.pk/api/tickets/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -814,7 +823,7 @@ const AddPackages = ({ mode = "add" }) => {
         // Optionally clear token to force re-auth
         // localStorage.removeItem('accessToken');
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error") || error?.message?.includes("ECONNRESET")) {
-        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
+        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
       } else {
         toast.error(error?.response?.data?.detail || "Failed to fetch tickets");
       }
@@ -832,7 +841,7 @@ const AddPackages = ({ mode = "add" }) => {
       }
 
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/transport-sector-prices/",
+        "https://api.saer.pk/api/transport-sector-prices/",
         {
           params: { organization: organizationId },
           headers: {
@@ -846,7 +855,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching transport sectors — check permissions or token.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
+        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
       } else {
         toast.error("Failed to fetch transport sectors");
       }
@@ -859,7 +868,7 @@ const AddPackages = ({ mode = "add" }) => {
       const token = localStorage.getItem("accessToken");
       const params = {};
       if (organizationId) params.organization = organizationId;
-      const response = await axios.get("http://127.0.0.1:8000/api/food-prices/", {
+      const response = await axios.get("https://api.saer.pk/api/food-prices/", {
         params,
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -872,7 +881,7 @@ const AddPackages = ({ mode = "add" }) => {
       } else {
         // Fallback: some deployments expose daily food endpoint with names at /api/daily/food/
         try {
-          const fallbackUrl = "http://127.0.0.1:8000/api/daily/food/" + (organizationId ? `?organization=${encodeURIComponent(organizationId)}` : "");
+          const fallbackUrl = "https://api.saer.pk/api/daily/food/" + (organizationId ? `?organization=${encodeURIComponent(organizationId)}` : "");
           console.debug("fetchFoodOptions: falling back to", fallbackUrl);
           const fb = await axios.get(fallbackUrl, { headers: { Authorization: `Bearer ${token}` } });
           // Normalize possible shapes from daily food API into {id, name, selling_price, purchase_price}
@@ -919,7 +928,7 @@ const AddPackages = ({ mode = "add" }) => {
       const token = localStorage.getItem("accessToken");
       const params = {};
       if (organizationId) params.organization = organizationId;
-      const response = await axios.get("http://127.0.0.1:8000/api/ziarat-prices/", {
+      const response = await axios.get("https://api.saer.pk/api/ziarat-prices/", {
         params,
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -945,7 +954,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("http://127.0.0.1:8000/api/airlines/", {
+      const response = await axios.get("https://api.saer.pk/api/airlines/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -957,7 +966,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
 
       if (data.length === 0 && organizationId) {
-        const fallback = await axios.get("http://127.0.0.1:8000/api/airlines/", {
+        const fallback = await axios.get("https://api.saer.pk/api/airlines/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -973,7 +982,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching airlines — check permissions or token.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
+        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
       } else {
         toast.error("Failed to fetch airlines");
       }
@@ -992,7 +1001,7 @@ const AddPackages = ({ mode = "add" }) => {
       const params = {};
       if (organizationId) params.organization = organizationId;
 
-      const response = await axios.get("http://127.0.0.1:8000/api/cities/", {
+      const response = await axios.get("https://api.saer.pk/api/cities/", {
         params,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1005,7 +1014,7 @@ const AddPackages = ({ mode = "add" }) => {
 
       if (data.length === 0 && organizationId) {
         // try global fallback
-        const fallback = await axios.get("http://127.0.0.1:8000/api/cities/", {
+        const fallback = await axios.get("https://api.saer.pk/api/cities/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         data = Array.isArray(fallback.data) ? fallback.data : fallback.data?.results ?? [];
@@ -1021,7 +1030,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (error?.response?.status === 403) {
         toast.error("Access denied (403) when fetching cities — check permissions or token.");
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error")) {
-        toast.error("Cannot reach backend API — is the server running? (check http://127.0.0.1:8000)");
+        toast.error("Cannot reach backend API — is the server running? (check https://api.saer.pk)");
       } else {
         toast.error("Failed to fetch cities");
       }
@@ -1554,6 +1563,13 @@ const AddPackages = ({ mode = "add" }) => {
 
       const token = localStorage.getItem("accessToken");
 
+      if (!token) {
+        // No token: avoid sending unauthenticated requests and guide user to login
+        toast.error("Not authenticated — please log in.");
+        navigate("/login");
+        return;
+      }
+
       // Debug: log package payload to browser console so we can verify which
       // top-level extras and hotel fields are being sent to the API.
       try {
@@ -1588,7 +1604,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (mode === "edit") {
         // Update existing package
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-packages/${id}/`,
+          `https://api.saer.pk/api/umrah-packages/${id}/`,
           packageData,
           {
             params: { organization: organizationId },
@@ -1602,7 +1618,7 @@ const AddPackages = ({ mode = "add" }) => {
       } else {
         // Create new package
         await axios.post(
-          "http://127.0.0.1:8000/api/umrah-packages/",
+          "https://api.saer.pk/api/umrah-packages/",
           packageData,
           {
             params: { organization: organizationId },
@@ -1622,8 +1638,17 @@ const AddPackages = ({ mode = "add" }) => {
         navigate("/packages");
       }
     } catch (error) {
-      console.error("Error saving package:", error);
-      toast.error(error.response?.data?.message || "Failed to save package");
+      console.error("Error saving package:", error, error?.response?.data);
+      const status = error?.response?.status;
+      const serverMsg = error?.response?.data?.message || error?.response?.data?.detail || JSON.stringify(error?.response?.data || {});
+      if (status === 401) {
+        toast.error("Unauthorized (401) — your session may have expired. Please log in again.");
+        // Clear possibly expired token and redirect to login
+        try { localStorage.removeItem("accessToken"); } catch (e) {}
+        navigate("/login");
+      } else {
+        toast.error(serverMsg || `Failed to save package (${status || "error"})`);
+      }
     }
   };
 
@@ -1693,7 +1718,7 @@ const AddPackages = ({ mode = "add" }) => {
 
           // Fetch Airlines
           const airlinesResponse = await axios.get(
-            "http://127.0.0.1:8000/api/airlines/",
+            "https://api.saer.pk/api/airlines/",
             {
               params: { organization: organizationId },
               headers: { Authorization: `Bearer ${token}` },
@@ -1703,7 +1728,7 @@ const AddPackages = ({ mode = "add" }) => {
 
           // Fetch Cities
           const citiesResponse = await axios.get(
-            "http://127.0.0.1:8000/api/cities/",
+            "https://api.saer.pk/api/cities/",
             {
               params: { organization: organizationId },
               headers: { Authorization: `Bearer ${token}` },
@@ -1802,7 +1827,7 @@ const AddPackages = ({ mode = "add" }) => {
         }
 
         const response = await axios.post(
-          "http://127.0.0.1:8000/api/tickets/",
+          "https://api.saer.pk/api/tickets/",
           payload,
           {
             headers: {
@@ -1895,7 +1920,7 @@ const AddPackages = ({ mode = "add" }) => {
         }
 
         const response = await axios.post(
-          "http://127.0.0.1:8000/api/tickets/",
+          "https://api.saer.pk/api/tickets/",
           payload,
           {
             headers: {
