@@ -239,7 +239,7 @@ const AgentPackages = () => {
 
         // Fetch packages and airlines for all organization IDs (agent may be linked to a parent org)
         const packagePromises = orgIds.map((id) =>
-          axios.get(`https://api.saer.pk/api/umrah-packages/?organization=${id}`, {
+          axios.get(`http://127.0.0.1:8000/api/umrah-packages/?organization=${id}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -248,7 +248,7 @@ const AgentPackages = () => {
         );
 
         const airlinePromises = orgIds.map((id) =>
-          axios.get("https://api.saer.pk/api/airlines/", {
+          axios.get("http://127.0.0.1:8000/api/airlines/", {
             params: { organization: id },
             headers: {
               Authorization: `Bearer ${token}`,

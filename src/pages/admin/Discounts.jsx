@@ -35,7 +35,7 @@ const Discounts = () => {
   const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("https://api.saer.pk/api/discount-groups/", {
+      const res = await axios.get("http://127.0.0.1:8000/api/discount-groups/", {
         params: organizationId ? { organization: organizationId } : {},
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -87,9 +87,9 @@ const Discounts = () => {
 
     try {
       if (editing && editing.id) {
-        await axios.patch(`https://api.saer.pk/api/discount-groups/${editing.id}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        await axios.patch(`http://127.0.0.1:8000/api/discount-groups/${editing.id}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       } else {
-        await axios.post("https://api.saer.pk/api/discount-groups/", payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        await axios.post("http://127.0.0.1:8000/api/discount-groups/", payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       }
       closeModal();
       fetchGroups();
@@ -102,7 +102,7 @@ const Discounts = () => {
   const removeGroup = async (id) => {
     if (!confirm("Delete this discount group?")) return;
     try {
-      await axios.delete(`https://api.saer.pk/api/discount-groups/${id}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      await axios.delete(`http://127.0.0.1:8000/api/discount-groups/${id}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       fetchGroups();
     } catch (e) {
       console.error("Failed to delete discount group", e);

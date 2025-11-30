@@ -2,12 +2,12 @@ import axios from "axios";
 
 // Use Vite env variable when available, otherwise fall back to production backend.
 // Ensure the baseURL includes the `/api` prefix so `api.get('/agencies/')` => `${baseURL}/agencies/` targets `/api/agencies/`.
-const rawBase = import.meta.env.VITE_API_BASE || "https://api.saer.pk";
+const rawBase = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 const baseURL = rawBase.endsWith("/api") ? rawBase : rawBase.replace(/\/$/, "") + "/api";
 
 const api = axios.create({
   baseURL,
-  headers: { "Content-Type": "application/json" },
+  // headers: { "Content-Type": "application/json" },
   timeout: 30000, // 10 seconds timeout
   // do NOT set withCredentials by default — use token auth via headers unless you specifically
   // need cookie-based sessions. Setting withCredentials without enabling CORS_ALLOW_CREDENTIALS

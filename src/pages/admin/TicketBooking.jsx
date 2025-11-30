@@ -62,47 +62,53 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
   // Resolve city name with additional fallbacks using the trip/stopover object
   const resolveCityName = (cityRef, contextObj) => {
-    // Primary lookup
-    const primary = getCityName(cityRef);
-    // If primary gives a numeric string equal to the ref or 'Unknown City', try fallbacks
     const isNumericString = (s) => typeof s === 'string' && /^\d+$/.test(s.trim());
+
+    // If there's no explicit cityRef, try sensible context fallbacks (trip arrival, nested names)
+    if (cityRef === null || cityRef === undefined || (typeof cityRef === 'string' && cityRef.trim() === '')) {
+      if (contextObj && typeof contextObj === 'object') {
+        const candidates = [
+          contextObj.name,
+          contextObj.city_name,
+          contextObj.departure_city_name,
+          contextObj.arrival_city_name,
+          contextObj.display_name,
+          contextObj.label,
+        ];
+        for (const c of candidates) {
+          if (c && typeof c === 'string' && c.trim() !== '') return c;
+        }
+        const nested = contextObj.departure_city || contextObj.arrival_city || contextObj.stopover_city;
+        if (nested && typeof nested === 'object') {
+          if (nested.name) return nested.name;
+          if (nested.city_name) return nested.city_name;
+        }
+        if (contextObj.arrival_city) {
+          const arrivalFallback = getCityName(contextObj.arrival_city);
+          if (arrivalFallback && arrivalFallback !== 'Unknown City' && !isNumericString(arrivalFallback)) return arrivalFallback;
+        }
+      }
+      return 'Unknown City';
+    }
+
+    // We have an explicit cityRef (could be id, object, or name). Prefer it.
+    const primary = getCityName(cityRef);
+
+    // If the primary lookup returned a readable name (non-numeric and not Unknown), use it
     if (primary && primary !== 'Unknown City' && !isNumericString(primary)) return primary;
 
-    // Check common context fields that may contain readable names
-    if (contextObj && typeof contextObj === 'object') {
-      const candidates = [
-        contextObj.name,
-        contextObj.city_name,
-        contextObj.departure_city_name,
-        contextObj.arrival_city_name,
-        contextObj.display_name,
-        contextObj.label,
-      ];
-      for (const c of candidates) {
-        if (c && typeof c === 'string' && c.trim() !== '') return c;
-      }
-
-      // Sometimes the context contains nested objects with a name
-      const nested = contextObj.departure_city || contextObj.arrival_city || contextObj.stopover_city;
-      if (nested && typeof nested === 'object') {
-        if (nested.name) return nested.name;
-        if (nested.city_name) return nested.city_name;
-      }
+    // If we have a numeric id or unresolved primary, try lazy-fallback maps first
+    const idKey = (typeof cityRef === 'object' && (cityRef.id !== undefined && cityRef.id !== null)) ? String(cityRef.id).trim() : String(cityRef).trim();
+    if (idKey) {
+      if (fallbackCities[idKey]) return fallbackCities[idKey];
     }
 
-    // If primary looks numeric, check our lazy-fetched fallback names first
-    if (primary && (typeof primary === 'string' && /^\d+$/.test(primary))) {
-      const fb = fallbackCities[String(primary)];
-      if (fb) return fb;
+    // If primary is numeric string but no fallback available yet, return a sensible placeholder
+    if (primary && isNumericString(primary)) {
+      return `City (${primary})`;
     }
 
-    // Last resort: return primary even if numeric, or Unknown City
-    // Also check fallbackCities directly for numeric cityRef
-    if ((typeof cityRef === 'number' || (typeof cityRef === 'string' && /^\d+$/.test(String(cityRef).trim())))) {
-      const fb2 = fallbackCities[String(cityRef).trim()];
-      if (fb2) return fb2;
-    }
-
+    // Fallback to the raw primary value or Unknown City
     return primary || 'Unknown City';
   };
 
@@ -170,10 +176,27 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     console.warn(`Ticket ${ticket.id} has a return trip but no flight number in trip_details`, returnTrip, ticket);
   }
 
-  const outboundStopover = stopoverDetails.find(
-    (s) => s.trip_type === "Departure"
-  );
-  const returnStopover = stopoverDetails.find((s) => s.trip_type === "Return");
+  // Prefer explicit trip_type on stopovers, but accept legacy shape where
+  // stopover entries lack trip_type by falling back to positional entries.
+  const outboundStopover = stopoverDetails.find((s) => s.trip_type === "Departure") || (stopoverDetails.length ? stopoverDetails[0] : undefined);
+  const returnStopover = stopoverDetails.find((s) => s.trip_type === "Return") || (stopoverDetails.length > 1 ? stopoverDetails[1] : undefined);
+
+  // Debug: log resolved city names and raw values to diagnose stopover vs arrival mapping
+  useEffect(() => {
+    try {
+      console.debug("FlightCard debug:", {
+        ticketId: ticket && ticket.id,
+        outboundTrip: outboundTrip,
+        outboundStopover: outboundStopover,
+        stopoverCityRaw: outboundStopover?.stopover_city,
+        resolvedStopover: resolveCityName(outboundStopover?.stopover_city, outboundStopover),
+        resolvedArrival: resolveCityName(outboundTrip?.arrival_city, outboundTrip),
+        cityMapKeys: Object.keys(cityMap || {}).slice(0, 20),
+      });
+    } catch (e) {
+      console.debug('FlightCard debug failed', e);
+    }
+  }, [ticket, outboundTrip, outboundStopover, cityMap]);
 
   // If this ticket belongs to another organization (shared inventory), try to fetch any missing
   // city names by id from the owning organization so linked org can display names.
@@ -223,7 +246,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     candidateIds.forEach((id) => {
       (async () => {
         try {
-          const res = await axios.get(`https://api.saer.pk/api/cities/${id}/`, {
+          const res = await axios.get(`http://127.0.0.1:8000/api/cities/${id}/`, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -255,6 +278,29 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
     // normalize to string keys and check fallbackAirlines/airlineMap
     for (const idRaw of potentialIds) {
+      if (idRaw === null || idRaw === undefined) continue;
+      // If idRaw is an object like { id, name }, prefer readable name if present
+      if (typeof idRaw === 'object') {
+        if (idRaw.name) {
+          // Directly return the provided name on the trip/stopover when available
+          return { name: idRaw.name || "Unknown Airline", logo: idRaw.logo || "" };
+        }
+        // If object contains an id, try to resolve by that id
+        if (idRaw.id !== undefined && idRaw.id !== null) {
+          const idStrObj = String(idRaw.id).trim();
+          if (/^\d+$/.test(idStrObj)) {
+            if (fallbackAirlines[idStrObj] && fallbackAirlines[idStrObj].name) {
+              return { name: fallbackAirlines[idStrObj].name, logo: fallbackAirlines[idStrObj].logo || fromMap?.logo || "" };
+            }
+            if (airlineMap[idStrObj] && airlineMap[idStrObj].name) {
+              return { name: airlineMap[idStrObj].name, logo: airlineMap[idStrObj].logo || fromMap?.logo || "" };
+            }
+          }
+        }
+        // otherwise fall through to next candidate
+        continue;
+      }
+
       const idStr = String(idRaw).trim();
       if (/^\d+$/.test(idStr)) {
         if (fallbackAirlines[idStr] && fallbackAirlines[idStr].name) {
@@ -331,7 +377,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     candidateIds.forEach((id) => {
       (async () => {
         try {
-          const url = `https://api.saer.pk/api/airlines/${encodeURIComponent(id)}/`;
+          const url = `http://127.0.0.1:8000/api/airlines/${encodeURIComponent(id)}/`;
           const res = await axios.get(url, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
@@ -354,7 +400,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // If single fetch failed or returned no name/logo, try the owner's airlines list
         try {
-          const listRes = await axios.get(`https://api.saer.pk/api/airlines/`, {
+          const listRes = await axios.get(`http://127.0.0.1:8000/api/airlines/`, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -373,7 +419,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // Try fetching the airline without organization (global single)
         try {
-          const res2 = await axios.get(`https://api.saer.pk/api/airlines/${encodeURIComponent(id)}/`, {
+          const res2 = await axios.get(`http://127.0.0.1:8000/api/airlines/${encodeURIComponent(id)}/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data2 = res2?.data || {};
@@ -390,7 +436,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // Finally, try fetching the global airlines list and match id
         try {
-          const globalListRes = await axios.get(`https://api.saer.pk/api/airlines/`, {
+          const globalListRes = await axios.get(`http://127.0.0.1:8000/api/airlines/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const globalList = Array.isArray(globalListRes?.data) ? globalListRes.data : (Array.isArray(globalListRes?.data?.results) ? globalListRes.data.results : []);
@@ -1181,20 +1227,56 @@ const TicketBooking = () => {
           // Initialize airline filters (only for airlines that appear in tickets)
           const initialAirlineFilters = {};
           try {
-            const airlineIdsInTickets = new Set(
-              (cachedData.tickets || []).map((t) => (t && typeof t.airline === 'object' ? t.airline.id : t.airline)).filter(Boolean)
-            );
+            // Collect airline ids and names present in cached tickets (also inspect trip_details)
+            const airlineIdsInTickets = new Set();
+            const airlineNamesInTickets = new Set();
+            (cachedData.tickets || []).forEach((t) => {
+              if (!t) return;
+              // top-level airline (could be id or object)
+              if (t.airline && typeof t.airline === 'object') {
+                if (t.airline.id) airlineIdsInTickets.add(t.airline.id);
+                if (t.airline.name) airlineNamesInTickets.add(t.airline.name);
+              } else if (t.airline) {
+                airlineIdsInTickets.add(t.airline);
+              }
+              if (t.airline_id) airlineIdsInTickets.add(t.airline_id);
+              if (t.airline_name) airlineNamesInTickets.add(t.airline_name);
+              if (t.airlineName) airlineNamesInTickets.add(t.airlineName);
+
+              // inspect trip_details entries (some APIs put airline info at trip-level)
+              if (Array.isArray(t.trip_details)) {
+                t.trip_details.forEach((trip) => {
+                  if (!trip) return;
+                  if (trip.airline && typeof trip.airline === 'object') {
+                    if (trip.airline.id) airlineIdsInTickets.add(trip.airline.id);
+                    if (trip.airline.name) airlineNamesInTickets.add(trip.airline.name);
+                  } else if (trip.airline) {
+                    airlineIdsInTickets.add(trip.airline);
+                  }
+                  if (trip.airline_id) airlineIdsInTickets.add(trip.airline_id);
+                  if (trip.airline_name) airlineNamesInTickets.add(trip.airline_name);
+                  if (trip.airlineName) airlineNamesInTickets.add(trip.airlineName);
+                });
+              }
+            });
+
+            // Add names from airlineMap for ids present in tickets
             Object.keys(cachedData.airlineMap).forEach((airlineId) => {
               if (airlineIdsInTickets.has(Number(airlineId)) || airlineIdsInTickets.has(airlineId)) {
                 const airlineName = cachedData.airlineMap[airlineId].name;
-                initialAirlineFilters[airlineName] = false;
+                if (airlineName) airlineNamesInTickets.add(airlineName);
               }
+            });
+
+            // Initialize filters using collected names
+            airlineNamesInTickets.forEach((name) => {
+              if (name) initialAirlineFilters[name] = false;
             });
           } catch (e) {
             // Fallback: include all known airlines if something goes wrong parsing cached data
             Object.keys(cachedData.airlineMap).forEach((airlineId) => {
               const airlineName = cachedData.airlineMap[airlineId].name;
-              initialAirlineFilters[airlineName] = false;
+              if (airlineName) initialAirlineFilters[airlineName] = false;
             });
           }
           setAirlineFilters(initialAirlineFilters);
@@ -1275,20 +1357,52 @@ const TicketBooking = () => {
         // Initialize airline filters only for airlines present in the ticket results
         const initialAirlineFilters = {};
         try {
-          const airlineIdsInTickets = new Set(
-            (ticketsData || []).map((t) => (t && typeof t.airline === 'object' ? t.airline.id : t.airline)).filter(Boolean)
-          );
-
-          airlinesData.forEach((airline) => {
-            // airline.id may be number or string depending on API
-            if (airlineIdsInTickets.has(Number(airline.id)) || airlineIdsInTickets.has(airline.id)) {
-              initialAirlineFilters[airline.name] = false;
+          // Collect airline ids and readable names from tickets (also inspect trip_details)
+          const airlineIdsInTickets = new Set();
+          const airlineNamesInTickets = new Set();
+          (ticketsData || []).forEach((t) => {
+            if (!t) return;
+            if (t.airline && typeof t.airline === 'object') {
+              if (t.airline.id) airlineIdsInTickets.add(t.airline.id);
+              if (t.airline.name) airlineNamesInTickets.add(t.airline.name);
+            } else if (t.airline) {
+              airlineIdsInTickets.add(t.airline);
             }
+            if (t.airline_id) airlineIdsInTickets.add(t.airline_id);
+            if (t.airline_name) airlineNamesInTickets.add(t.airline_name);
+            if (t.airlineName) airlineNamesInTickets.add(t.airlineName);
+
+            if (Array.isArray(t.trip_details)) {
+              t.trip_details.forEach((trip) => {
+                if (!trip) return;
+                if (trip.airline && typeof trip.airline === 'object') {
+                  if (trip.airline.id) airlineIdsInTickets.add(trip.airline.id);
+                  if (trip.airline.name) airlineNamesInTickets.add(trip.airline.name);
+                } else if (trip.airline) {
+                  airlineIdsInTickets.add(trip.airline);
+                }
+                if (trip.airline_id) airlineIdsInTickets.add(trip.airline_id);
+                if (trip.airline_name) airlineNamesInTickets.add(trip.airline_name);
+                if (trip.airlineName) airlineNamesInTickets.add(trip.airlineName);
+              });
+            }
+          });
+
+          // Add names for airlines that match ids in tickets
+          airlinesData.forEach((airline) => {
+            if (airlineIdsInTickets.has(Number(airline.id)) || airlineIdsInTickets.has(airline.id)) {
+              if (airline.name) airlineNamesInTickets.add(airline.name);
+            }
+          });
+
+          // Initialize filters using collected names
+          airlineNamesInTickets.forEach((name) => {
+            if (name) initialAirlineFilters[name] = false;
           });
         } catch (e) {
           // fallback: include all airlines
           airlinesData.forEach((airline) => {
-            initialAirlineFilters[airline.name] = false;
+            if (airline.name) initialAirlineFilters[airline.name] = false;
           });
         }
 
@@ -1485,7 +1599,16 @@ const TicketBooking = () => {
 
     if (selectedAirlines.length > 0) {
       result = result.filter((ticket) => {
-        const airlineName = airlineMap[ticket.airline]?.name;
+        // Resolve airline name robustly from multiple possible shapes
+        let airlineName = "";
+        if (ticket && ticket.airline) {
+          if (typeof ticket.airline === "object") {
+            airlineName = ticket.airline.name || ticket.airline.label || "";
+          } else {
+            airlineName = airlineMap[String(ticket.airline)]?.name || airlineMap[ticket.airline]?.name || "";
+          }
+        }
+        airlineName = airlineName || ticket.airline_name || ticket.airlineName || "";
         return airlineName && selectedAirlines.includes(airlineName);
       });
     }
@@ -1501,8 +1624,13 @@ const TicketBooking = () => {
           let cmp = 0;
           switch (key) {
             case "airline": {
-              const airlineA = airlineMap[a.airline]?.name || "";
-              const airlineB = airlineMap[b.airline]?.name || "";
+              const resolveName = (ticket) => {
+                if (!ticket) return "";
+                if (ticket.airline && typeof ticket.airline === "object") return ticket.airline.name || ticket.airline.label || "";
+                return airlineMap[String(ticket.airline)]?.name || airlineMap[ticket.airline]?.name || ticket.airline_name || ticket.airlineName || "";
+              };
+              const airlineA = resolveName(a);
+              const airlineB = resolveName(b);
               cmp = airlineA.localeCompare(airlineB);
               break;
             }
@@ -1590,7 +1718,25 @@ const TicketBooking = () => {
 
     const uniqueRoutes = {};
 
+    const hasAirline = (ticket) => {
+      if (!ticket) return false;
+      // top-level airline fields
+      if (ticket.airline && (typeof ticket.airline === 'object' ? (ticket.airline.name || ticket.airline.id) : ticket.airline)) return true;
+      if (ticket.airline_id || ticket.airline_name || ticket.airlineName) return true;
+      // inspect trip_details for trip-level airline info
+      if (Array.isArray(ticket.trip_details)) {
+        for (const trip of ticket.trip_details) {
+          if (!trip) continue;
+          if (trip.airline && (typeof trip.airline === 'object' ? (trip.airline.name || trip.airline.id) : trip.airline)) return true;
+          if (trip.airline_id || trip.airline_name || trip.airlineName) return true;
+        }
+      }
+      return false;
+    };
+
     tickets.forEach((ticket) => {
+      // Only include routes for tickets that have airline information
+      if (!hasAirline(ticket)) return;
       const route = getTicketRoute(ticket);
       uniqueRoutes[route] = true;
     });
@@ -1602,7 +1748,7 @@ const TicketBooking = () => {
     });
 
     setRouteFilters(newRouteFilters);
-  }, [tickets, cityCodeMap]);
+  }, [tickets, cityCodeMap, getTicketRoute]);
 
   const handleSearch = () => {
     console.log("Searching:", { pnr, destination, travelDate });
@@ -1612,13 +1758,7 @@ const TicketBooking = () => {
     setPnr("");
     setDestination("");
     setTravelDate("");
-    setRouteFilters({
-      "LHE-DXB": false,
-      "SKT-SHJ": false,
-      "ISB-LHR": false,
-    });
-
-    // Reset route filters
+    // Reset route filters to their default (no selected routes).
     setRouteFilters((prev) => {
       const reset = { ...prev };
       for (const key in reset) {

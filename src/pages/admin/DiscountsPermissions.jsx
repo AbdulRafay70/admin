@@ -53,7 +53,7 @@ const UpdateGroupPermissions = () => {
     const fetchHotels = async () => {
         try {
             // request hotels filtered by organization
-            const res = await axios.get("https://api.saer.pk/api/hotels/", {
+            const res = await axios.get("http://127.0.0.1:8000/api/hotels/", {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -69,7 +69,7 @@ const UpdateGroupPermissions = () => {
 
     const fetchGroups = async () => {
         try {
-            const res = await axios.get("https://api.saer.pk/api/discount-groups/", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+            const res = await axios.get("http://127.0.0.1:8000/api/discount-groups/", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
             const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.results) ? res.data.results : []);
             setGroups(data);
         } catch (e) {
@@ -81,7 +81,7 @@ const UpdateGroupPermissions = () => {
     const loadGroupDetails = async (groupId) => {
         if (!groupId) return;
         try {
-            const res = await axios.get(`https://api.saer.pk/api/discount-groups/${groupId}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+            const res = await axios.get(`http://127.0.0.1:8000/api/discount-groups/${groupId}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
             const data = res.data || {};
             // If the backend already stores these properties, prefill them. Otherwise leave defaults.
             setFormData((prev) => ({
@@ -140,7 +140,7 @@ const UpdateGroupPermissions = () => {
                                                 hotel_night_discounts: hd,
                                             };
                                             try {
-                                                await axios.patch(`https://api.saer.pk/api/discount-groups/${selectedGroupId}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                                                await axios.patch(`http://127.0.0.1:8000/api/discount-groups/${selectedGroupId}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                                                 alert('Updated successfully');
                                                 fetchGroups();
                                             } catch (e) {

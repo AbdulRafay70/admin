@@ -49,10 +49,10 @@ const TicketDetail = () => {
       const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       try {
         const [airlinesRes, citiesRes] = await Promise.all([
-          axios.get(`https://api.saer.pk/api/airlines/?organization=${orgId}`, {
+          axios.get(`http://127.0.0.1:8000/api/airlines/?organization=${orgId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get(`https://api.saer.pk/api/cities/?organization=${orgId}`, {
+          axios.get(`http://127.0.0.1:8000/api/cities/?organization=${orgId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -84,7 +84,7 @@ const TicketDetail = () => {
         console.debug("Fetching ticket and bookings", { id, selectedOrg });
         const [ticketResponse, bookingsResponse] = await Promise.all([
           axios.get(
-            `https://api.saer.pk/api/tickets/${id}/?organization=${orgId}`,
+            `http://127.0.0.1:8000/api/tickets/${id}/?organization=${orgId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -92,7 +92,7 @@ const TicketDetail = () => {
             }
           ),
           axios.get(
-            `https://api.saer.pk/api/bookings/`,
+            `http://127.0.0.1:8000/api/bookings/`,
             {
               params: { ticket_id: id, organization: orgId },
               headers: {
@@ -403,7 +403,7 @@ const TicketDetail = () => {
     setDeleting(true);
     setError(null);
     try {
-      await axios.delete(`https://api.saer.pk/api/tickets/${id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/tickets/${id}/`, {
         params: { organization: orgId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -874,7 +874,7 @@ const TicketDetail = () => {
                           {/* {agentData.logo && (
                             <div className="mt-3 text-center">
                               <img 
-                                src={`https://api.saer.pk/api/${agentData.logo}`} 
+                                src={`http://127.0.0.1:8000/api/${agentData.logo}`} 
                                 alt="Agency Logo" 
                                 style={{ maxWidth: '150px', maxHeight: '80px' }}
                                 className="img-thumbnail"

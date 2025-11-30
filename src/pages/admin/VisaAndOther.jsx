@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import api from "../../utils/Api";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import { Link, NavLink } from "react-router-dom";
 import { Modal, Button, ListGroup } from "react-bootstrap";
+import Select from 'react-select';
 import AdminFooter from "../../components/AdminFooter";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -17,6 +19,50 @@ const tabs = [
 const Visa = () => {
   const token = localStorage.getItem("accessToken");
   const selectedOrg = JSON.parse(localStorage.getItem("selectedOrganization"));
+
+  // Helper to safely get organization id. Protects against selectedOrg being null.
+  const getOrgId = () => (selectedOrg && typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg);
+
+  // Helper to convert arrays to react-select options
+  const toOptions = (arr, labelFn = (o) => (o?.name || String(o?.id)), valueFn = (o) => String(o?.id)) => {
+    if (!Array.isArray(arr)) return [];
+    return arr.map((item) => ({ value: String(valueFn(item)), label: labelFn(item) }));
+  };
+
+  const SearchableSelect = ({ options = [], value, onChange, placeholder = 'Select...', isDisabled = false, isClearable = true, isMulti = false }) => {
+    if (isMulti) {
+      // For multi-select, value is expected to be an array of values
+      // Support grouped options by flattening
+      const flatOptions = Array.isArray(options) && options.length > 0 && options[0].options ? options.flatMap(g => g.options) : options;
+      const strValues = Array.isArray(value) ? value.map(String) : [];
+      const selected = Array.isArray(value) ? flatOptions.filter((o) => strValues.includes(String(o.value))) : [];
+      return (
+        <Select
+          options={options}
+          value={selected}
+          onChange={(opt) => onChange(opt ? opt.map(o => o.value) : [])}
+          placeholder={placeholder}
+          isDisabled={isDisabled}
+          isClearable={isClearable}
+          isMulti
+        />
+      );
+    }
+
+    // Support grouped options by flattening
+    const flatOptions = Array.isArray(options) && options.length > 0 && options[0].options ? options.flatMap(g => g.options) : options;
+    const selected = flatOptions.find((o) => o.value === String(value)) || null;
+    return (
+      <Select
+        options={options}
+        value={selected}
+        onChange={(opt) => onChange(opt ? opt.value : '')}
+        placeholder={placeholder}
+        isDisabled={isDisabled}
+        isClearable={isClearable}
+      />
+    );
+  };
 
   const [isEditingVisa28, setIsEditingVisa28] = useState(false);
   const [isEditingVisaLong, setIsEditingVisaLong] = useState(false);
@@ -52,11 +98,10 @@ const Visa = () => {
   // Add this useEffect to fetch existing riyal rate on component mount
   useEffect(() => {
     const fetchRiyalRate = async () => {
-      const orgId =
-        typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const orgId = getOrgId();
       try {
         const response = await axios.get(
-          `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -88,8 +133,7 @@ const Visa = () => {
 
   // Modify the handleSetRiyalRate function to handle both create and update
   const handleSetRiyalRate = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (!riyalSettings.rate) {
       toast.warning("Please enter Riyal Rate");
@@ -101,7 +145,7 @@ const Visa = () => {
     try {
       // First try to fetch existing rate to determine if we should update
       const existingResponse = await axios.get(
-        `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -112,7 +156,7 @@ const Visa = () => {
       if (existingResponse.data && existingResponse.data.length > 0) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -128,7 +172,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          "https://api.saer.pk/api/riyal-rates/",
+          "http://127.0.0.1:8000/api/riyal-rates/",
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -179,15 +223,30 @@ const Visa = () => {
     fetchShirkas();
   }, []);
 
+  // New per-person price states for Transport Type2
+  const [transportType2AdultSelling, setTransportType2AdultSelling] = useState("");
+  const [transportType2AdultPurchase, setTransportType2AdultPurchase] = useState("");
+  const [transportType2ChildSelling, setTransportType2ChildSelling] = useState("");
+  const [transportType2ChildPurchase, setTransportType2ChildPurchase] = useState("");
+  const [transportType2InfantSelling, setTransportType2InfantSelling] = useState("");
+  const [transportType2InfantPurchase, setTransportType2InfantPurchase] = useState("");
+
+  // New per-person price states for Vehicle Type
+  const [vehicleTypeAdultSelling, setVehicleTypeAdultSelling] = useState("");
+  const [vehicleTypeAdultPurchase, setVehicleTypeAdultPurchase] = useState("");
+  const [vehicleTypeChildSelling, setVehicleTypeChildSelling] = useState("");
+  const [vehicleTypeChildPurchase, setVehicleTypeChildPurchase] = useState("");
+  const [vehicleTypeInfantSelling, setVehicleTypeInfantSelling] = useState("");
+  const [vehicleTypeInfantPurchase, setVehicleTypeInfantPurchase] = useState("");
+
   // Function to fetch shirkas
   const fetchShirkas = async () => {
     setIsLoadingShirkas(true);
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/shirkas/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/shirkas/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -208,8 +267,7 @@ const Visa = () => {
 
   // Function to add a new shirka
   const handleAddShirka = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (!shirkaName) {
       toast.warning("Please enter a shirka name");
@@ -218,7 +276,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "https://api.saer.pk/api/shirkas/",
+        "http://127.0.0.1:8000/api/shirkas/",
         {
           name: shirkaName,
           organization: orgId,
@@ -245,8 +303,7 @@ const Visa = () => {
   const [editingShirkaId, setEditingShirkaId] = useState(null);
 
   const handleUpdateShirka = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (!shirkaName || !editingShirkaId) {
       toast.warning("Please select a shirka to edit and enter a name");
@@ -255,7 +312,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `https://api.saer.pk/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
         {
           name: shirkaName,
           organization: orgId,
@@ -288,12 +345,11 @@ const Visa = () => {
       return;
     }
 
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/shirkas/${removeShirka}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/shirkas/${removeShirka}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -319,6 +375,8 @@ const Visa = () => {
   const [contactName, setContactName] = useState("");
   const [contactNumberSector, setContactNumberSector] = useState("");
   const [removeSector, setRemoveSector] = useState("");
+  // Small sector type: AIRPORT PICKUP | AIRPORT DROP | HOTEL TO HOTEL
+  const [smallSectorType, setSmallSectorType] = useState("AIRPORT PICKUP");
 
   // State for sectors and cities
   const [sectors, setSectors] = useState([]);
@@ -340,12 +398,11 @@ const Visa = () => {
   // Function to fetch Cities
   const fetchCitiesSector = async () => {
     setIsLoadingCitiesSector(true);
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/cities/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -367,12 +424,11 @@ const Visa = () => {
   // Function to fetch Sectors
   const fetchSectors = async () => {
     setIsLoadingSectors(true);
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/sectors/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -393,8 +449,7 @@ const Visa = () => {
 
   // Function to add a new Sector
   const handleAddSector = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (!departureCity || !arrivalCity) {
       toast.warning("Please select both departure and arrival citiesSector");
@@ -408,12 +463,20 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "https://api.saer.pk/api/sectors/",
+        "http://127.0.0.1:8000/api/small-sectors/",
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
           departure_city: parseInt(departureCity),
           arrival_city: parseInt(arrivalCity),
+          // also send explicit writeable keys expected by the API
+          departure_city_id: parseInt(departureCity),
+          arrival_city_id: parseInt(arrivalCity),
+          // Include sector type and explicit booleans so API can index by type
+          sector_type: smallSectorType,
+          is_airport_pickup: smallSectorType === "AIRPORT PICKUP",
+          is_airport_drop: smallSectorType === "AIRPORT DROP",
+          is_hotel_to_hotel: smallSectorType === "HOTEL TO HOTEL",
           organization: orgId,
         },
         {
@@ -430,6 +493,7 @@ const Visa = () => {
       setArrivalCity("");
       setContactName("");
       setContactNumberSector("");
+      setSmallSectorType("AIRPORT PICKUP");
     } catch (error) {
       console.error("Error adding Sector:", error.response?.data || error);
       toast.error(
@@ -453,8 +517,7 @@ const Visa = () => {
   };
 
   const handleUpdateSector = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (!departureCity || !arrivalCity || !editingSectorId) {
       toast.warning("Please select a Sector to edit and enter required fields");
@@ -467,13 +530,20 @@ const Visa = () => {
     }
 
     try {
-      await axios.put(
-        `https://api.saer.pk/api/sectors/${editingSectorId}/?organization=${orgId}`,
+        await axios.put(
+        `http://127.0.0.1:8000/api/small-sectors/${editingSectorId}/?organization=${orgId}`,
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
           departure_city: parseInt(departureCity),
           arrival_city: parseInt(arrivalCity),
+          // also send explicit writeable keys expected by the API
+          departure_city_id: parseInt(departureCity),
+          arrival_city_id: parseInt(arrivalCity),
+          sector_type: smallSectorType,
+          is_airport_pickup: smallSectorType === "AIRPORT PICKUP",
+          is_airport_drop: smallSectorType === "AIRPORT DROP",
+          is_hotel_to_hotel: smallSectorType === "HOTEL TO HOTEL",
           organization: orgId,
         },
         {
@@ -492,6 +562,7 @@ const Visa = () => {
       setContactNumberSector("");
       setEditingSectorId(null);
       setRemoveSector("");
+      setSmallSectorType("AIRPORT PICKUP");
     } catch (error) {
       console.error("Error updating Sector:", error.response?.data || error);
       toast.error(
@@ -508,12 +579,11 @@ const Visa = () => {
       return;
     }
 
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/sectors/${removeSector}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/${removeSector}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -539,10 +609,12 @@ const Visa = () => {
     if (sectorId) {
       const selectedSector = sectors.find((s) => s.id.toString() === sectorId);
       if (selectedSector) {
-        setDepartureCity(selectedSector.departure_city.toString());
-        setArrivalCity(selectedSector.arrival_city.toString());
+        setDepartureCity(selectedSector.departure_city?.toString() || "");
+        setArrivalCity(selectedSector.arrival_city?.toString() || "");
         setContactName(selectedSector.contact_name || "");
         setContactNumberSector(selectedSector.contact_number || "");
+        // populate smallSectorType if backend provides a type field, otherwise keep default
+        setSmallSectorType(selectedSector.type || "AIRPORT PICKUP");
         setEditingSectorId(selectedSector.id);
       }
     } else {
@@ -557,9 +629,8 @@ const Visa = () => {
 
   // Helper function to get city name by ID
   const getCityName = (cityId) => {
-    const city = citiesSector.find(
-      (c) => c.id.toString() === cityId.toString()
-    );
+    if (cityId === null || cityId === undefined) return "";
+    const city = citiesSector.find((c) => String(c.id) === String(cityId));
     return city ? `${city.name} (${city.code})` : `City ${cityId}`;
   };
 
@@ -575,9 +646,9 @@ const Visa = () => {
   const fetchBigSectors = async () => {
     setLoadingBig(true);
     try {
-      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const orgId = getOrgId();
       const res = await axios.get(
-        `https://api.saer.pk/api/big-sectors/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setBigSectors(res.data);
@@ -592,9 +663,9 @@ const Visa = () => {
   // ✅ Fetch all SmallSectors
   const fetchSmallSectors = async () => {
     try {
-      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const orgId = getOrgId();
       const res = await axios.get(
-        `https://api.saer.pk/api/sectors/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSmallSectors(res.data);
@@ -611,7 +682,7 @@ const Visa = () => {
   // ✅ Add BigSector with sequential validation
   const handleAdd = async () => {
     try {
-      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const orgId = getOrgId();
       if (selectedSmallSectors.length === 0) {
         toast.warning("Please select at least one sector");
         return;
@@ -642,16 +713,10 @@ const Visa = () => {
         }
       }
 
-      await axios.post(
-        "https://api.saer.pk/api/big-sectors/",
-        {
-          organization_id: parseInt(orgId),
-          small_sector_ids: selectedSmallSectors.map(Number),
-        },
-        {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        }
-      );
+      await api.post(`/big-sectors/`, {
+        organization_id: parseInt(orgId),
+        small_sector_ids: selectedSmallSectors.map(Number),
+      });
 
       fetchBigSectors();
       setSelectedSmallSectors([]);
@@ -665,7 +730,7 @@ const Visa = () => {
   // ✅ Update BigSector with sequential validation
   const handleUpdate = async () => {
     try {
-      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const orgId = getOrgId();
       if (selectedSmallSectors.length === 0) {
         toast.warning("Please select at least one sector");
         return;
@@ -695,16 +760,10 @@ const Visa = () => {
         }
       }
 
-      await axios.put(
-        `https://api.saer.pk/api/big-sectors/${editingIdBig}/`,
-        {
-          organization_id: parseInt(orgId),
-          small_sector_ids: selectedSmallSectors.map(Number),
-        },
-        {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        }
-      );
+      await api.put(`/big-sectors/${editingIdBig}/`, {
+        organization_id: parseInt(orgId),
+        small_sector_ids: selectedSmallSectors.map(Number),
+      });
 
       fetchBigSectors();
       setEditingIdBig(null);
@@ -866,11 +925,8 @@ const Visa = () => {
   // ✅ Delete BigSector
   const handleDeleteBig = async () => {
     try {
-      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
-      await axios.delete(
-        `https://api.saer.pk/api/big-sectors/${removeId}/?organization=${orgId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const orgId = getOrgId();
+      await api.delete(`/big-sectors/${removeId}/`, { params: { organization: orgId } });
       fetchBigSectors();
       setRemoveId("");
       setSelectedSmallSectors([]);
@@ -921,7 +977,7 @@ const Visa = () => {
       setIsVisaTypeLoading(true);
       const orgId = selectedOrg?.id || selectedOrg;
       const response = await axios.get(
-        `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -971,8 +1027,8 @@ const Visa = () => {
       };
 
       const url = visaTypeId
-        ? `https://api.saer.pk/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
-        : `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`;
+        ? `http://127.0.0.1:8000/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
+        : `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`;
 
       const method = visaTypeId ? "put" : "post";
 
@@ -1022,13 +1078,12 @@ const Visa = () => {
   const [isLoadingVisaPrices, setIsLoadingVisaPrices] = useState(false);
 
   const fetchVisaPrices = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
     setIsLoadingVisaPrices(true);
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1077,8 +1132,7 @@ const Visa = () => {
   };
   // both create and update
   const handleSetVisaPrice = async (type) => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (!visa28Adult || !visa28Child || !visa28Infants || !visa28MaxNights) {
       toast.warning("Please fill all fields for Short Stay with Hotel");
@@ -1090,9 +1144,9 @@ const Visa = () => {
     const visaPriceData = {
       visa_type: "type1",
       category: "short stay with hotel",
-      adault_price: parseFloat(visa28Adult),
-      child_price: parseFloat(visa28Child),
-      infant_price: parseFloat(visa28Infants),
+      adult_selling_price: parseFloat(visa28Adult),
+      child_selling_price: parseFloat(visa28Child),
+      infant_selling_price: parseFloat(visa28Infants),
       maximum_nights: parseInt(visa28MaxNights),
       organization: orgId,
     };
@@ -1100,13 +1154,13 @@ const Visa = () => {
     try {
       if (editingVisaPriceId) {
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
           visaPriceData
         );
         toast.success("Visa prices updated successfully!");
       } else {
         const response = await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData
         );
         setEditingVisaPriceId(response.data.id); // Store the new ID
@@ -1141,13 +1195,12 @@ const Visa = () => {
   const [isLoadingVisaLongPrices, setIsLoadingVisaLongPrices] = useState(false);
 
   const fetchVisaLongPrices = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
     setIsLoadingVisaLongPrices(true);
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1200,8 +1253,7 @@ const Visa = () => {
   }, []);
 
   const handleSetVisaLongPrice = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     if (
       !visaLongAdult ||
@@ -1218,9 +1270,9 @@ const Visa = () => {
     const visaPriceData = {
       visa_type: "type1",
       category: "long stay with hotel",
-      adault_price: parseFloat(visaLongAdult),
-      child_price: parseFloat(visaLongChild),
-      infant_price: parseFloat(visaLongInfants),
+      adult_selling_price: parseFloat(visaLongAdult),
+      child_selling_price: parseFloat(visaLongChild),
+      infant_selling_price: parseFloat(visaLongInfants),
       maximum_nights: parseInt(visaLongMaxNights),
       organization: orgId,
     };
@@ -1229,7 +1281,7 @@ const Visa = () => {
       if (editingVisaLongPriceId) {
         // Update existing price
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1242,7 +1294,7 @@ const Visa = () => {
       } else {
         // Create new price
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1288,7 +1340,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1343,16 +1395,16 @@ const Visa = () => {
     const visaPriceData = {
       visa_type: "type1",
       category: "short stay",
-      adault_price: parseFloat(visa28OnlyAdult),
-      child_price: parseFloat(visa28OnlyChild),
-      infant_price: parseFloat(visa28OnlyInfants),
+      adult_selling_price: parseFloat(visa28OnlyAdult),
+      child_selling_price: parseFloat(visa28OnlyChild),
+      infant_selling_price: parseFloat(visa28OnlyInfants),
       organization: orgId,
     };
 
     try {
       if (editingVisa28OnlyPriceId) {
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1364,7 +1416,7 @@ const Visa = () => {
         toast.success("Visa prices updated successfully!");
       } else {
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1412,7 +1464,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1467,9 +1519,9 @@ const Visa = () => {
     const visaPriceData = {
       visa_type: "type1",
       category: "long stay",
-      adault_price: parseFloat(visaLongOnlyAdult),
-      child_price: parseFloat(visaLongOnlyChild),
-      infant_price: parseFloat(visaLongOnlyInfants),
+      adult_selling_price: parseFloat(visaLongOnlyAdult),
+      child_selling_price: parseFloat(visaLongOnlyChild),
+      infant_selling_price: parseFloat(visaLongOnlyInfants),
       organization: orgId,
     };
 
@@ -1477,7 +1529,7 @@ const Visa = () => {
       if (editingVisaLongOnlyId) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1490,7 +1542,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1540,7 +1592,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1592,9 +1644,9 @@ const Visa = () => {
       reference: "type1",
       name: transportSector,
       vehicle_type: vehicleType,
-      adault_price: parseFloat(transportAdult),
-      child_price: parseFloat(transportChild),
-      infant_price: parseFloat(transportInfants),
+      adult_selling_price: parseFloat(transportAdult),
+      child_selling_price: parseFloat(transportChild),
+      infant_selling_price: parseFloat(transportInfants),
       is_visa: withVisa,
       only_transport_charge: false,
       organization: orgId,
@@ -1604,7 +1656,7 @@ const Visa = () => {
       if (editingTransportId) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1617,7 +1669,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1642,7 +1694,8 @@ const Visa = () => {
   };
 
   const handleTransportSelect = (e) => {
-    const sectorId = e.target.value;
+    // Accept either an event (from native select) or a value (from SearchableSelect)
+    const sectorId = e && e.target ? e.target.value : e;
     setRemoveTransport(sectorId);
 
     if (sectorId) {
@@ -1677,7 +1730,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1718,12 +1771,14 @@ const Visa = () => {
   const [visaTitle, setVisaTitle] = useState("");
   const [personFrom, setPersonFrom] = useState("");
   const [personTo, setPersonTo] = useState("");
-  const [adultPrice, setAdultPrice] = useState("");
-  const [childPrice, setChildPrice] = useState("");
-  const [infantPrice, setInfantPrice] = useState("");
-  // New fields: per-row purchase and selling prices for Visa Type Two
-  const [visaPurchasePrice, setVisaPurchasePrice] = useState("");
-  const [visaSellingPrice, setVisaSellingPrice] = useState("");
+
+  // New explicit per-person selling / purchase price fields
+  const [adultSellingPrice, setAdultSellingPrice] = useState("");
+  const [adultPurchasePrice, setAdultPurchasePrice] = useState("");
+  const [childSellingPrice, setChildSellingPrice] = useState("");
+  const [childPurchasePrice, setChildPurchasePrice] = useState("");
+  const [infantSellingPrice, setInfantSellingPrice] = useState("");
+  const [infantPurchasePrice, setInfantPurchasePrice] = useState("");
   const [withTransport, setWithTransport] = useState(false);
   const [selectedHotels, setSelectedHotels] = useState([]);
 
@@ -1731,9 +1786,9 @@ const Visa = () => {
 
   const fetchVehicleTypesForVisa = async () => {
     try {
-      const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+      const orgId = getOrgId();
       const response = await axios.get(
-        `https://api.saer.pk/api/vehicle-types/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-prices?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1754,16 +1809,26 @@ const Visa = () => {
 
   // Update the Visa Type Two submit function to include vehicle types
   const handleVisaTypeTwoSubmit = async () => {
-    const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
-    // Validate required fields
-    if (!visaTitle || !personFrom || !personTo || !adultPrice || !childPrice || !infantPrice) {
+    // Validate required fields (all six price fields required)
+    if (
+      !visaTitle || !personFrom || !personTo ||
+      !adultSellingPrice || !adultPurchasePrice ||
+      !childSellingPrice || !childPurchasePrice ||
+      !infantSellingPrice || !infantPurchasePrice
+    ) {
       toast.warning("Please fill all required fields");
       return;
     }
 
     // Validate numeric fields
-    if (isNaN(personFrom) || isNaN(personTo) || isNaN(adultPrice) || isNaN(childPrice) || isNaN(infantPrice)) {
+    if (
+      isNaN(personFrom) || isNaN(personTo) ||
+      isNaN(adultSellingPrice) || isNaN(adultPurchasePrice) ||
+      isNaN(childSellingPrice) || isNaN(childPurchasePrice) ||
+      isNaN(infantSellingPrice) || isNaN(infantPurchasePrice)
+    ) {
       toast.warning("Please enter valid numbers for all price and person fields");
       return;
     }
@@ -1784,12 +1849,13 @@ const Visa = () => {
       title: visaTitle,
       person_from: parseInt(personFrom),
       person_to: parseInt(personTo),
-      adault_price: parseFloat(adultPrice),
-      child_price: parseFloat(childPrice),
-      infant_price: parseFloat(infantPrice),
-      // include new price fields when present
-      purchase_price: visaPurchasePrice !== "" ? parseFloat(visaPurchasePrice) : undefined,
-      selling_price: visaSellingPrice !== "" ? parseFloat(visaSellingPrice) : undefined,
+      // explicit per-person selling / purchase fields
+      adult_selling_price: parseFloat(adultSellingPrice),
+      adult_purchase_price: parseFloat(adultPurchasePrice),
+      child_selling_price: parseFloat(childSellingPrice),
+      child_purchase_price: parseFloat(childPurchasePrice),
+      infant_selling_price: parseFloat(infantSellingPrice),
+      infant_purchase_price: parseFloat(infantPurchasePrice),
       is_transport: withTransport,
       hotel_details: validHotelDetails.length > 0 ? validHotelDetails : [],
       vehicle_types: validVehicleTypes, // Add vehicle types to payload
@@ -1801,7 +1867,7 @@ const Visa = () => {
         // Verify the visa exists by trying to fetch it first
         try {
           await axios.get(
-            `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+            `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1814,7 +1880,7 @@ const Visa = () => {
 
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -1827,7 +1893,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -1858,14 +1924,15 @@ const Visa = () => {
     setVisaTitle("type2");
     setPersonFrom("1");
     setPersonTo("1");
-    setAdultPrice("");
-    setChildPrice("");
-    setInfantPrice("");
+    setAdultSellingPrice("");
+    setAdultPurchasePrice("");
+    setChildSellingPrice("");
+    setChildPurchasePrice("");
+    setInfantSellingPrice("");
+    setInfantPurchasePrice("");
     setWithTransport(false);
     setSelectedHotelIds([]);
     setSelectedVehicleTypeIds([]); // Clear vehicle types
-    setVisaPurchasePrice("");
-    setVisaSellingPrice("");
     setEditingVisaTypeTwoId(null);
   };
 
@@ -1882,9 +1949,12 @@ const Visa = () => {
         setVisaTitle(selectedVisa.title || "type2");
         setPersonFrom(selectedVisa.person_from?.toString() || "1");
         setPersonTo(selectedVisa.person_to?.toString() || "1");
-        setAdultPrice(selectedVisa.adault_price?.toString() || "");
-        setChildPrice(selectedVisa.child_price?.toString() || "");
-        setInfantPrice(selectedVisa.infant_price?.toString() || "");
+        setAdultSellingPrice(selectedVisa.adult_selling_price?.toString() || selectedVisa.adault_price?.toString() || "");
+        setAdultPurchasePrice(selectedVisa.adult_purchase_price?.toString() || selectedVisa.purchase_price?.toString() || "");
+        setChildSellingPrice(selectedVisa.child_selling_price?.toString() || selectedVisa.child_price?.toString() || "");
+        setChildPurchasePrice(selectedVisa.child_purchase_price?.toString() || selectedVisa.purchase_price?.toString() || "");
+        setInfantSellingPrice(selectedVisa.infant_selling_price?.toString() || selectedVisa.infant_price?.toString() || "");
+        setInfantPurchasePrice(selectedVisa.infant_purchase_price?.toString() || selectedVisa.purchase_price?.toString() || "");
         setWithTransport(selectedVisa.is_transport || false);
 
         // Filter out any invalid hotel IDs
@@ -1899,9 +1969,7 @@ const Visa = () => {
           ?.filter((vtId) => vehicleTypes.some((vt) => vt.id === vtId)) || [];
 
         setSelectedVehicleTypeIds(validVehicleTypeIds);
-        // Populate purchase/selling price if available
-        setVisaPurchasePrice(selectedVisa.purchase_price?.toString() || "");
-        setVisaSellingPrice(selectedVisa.selling_price?.toString() || "");
+        // Note: per-person purchase/selling prices populated above
       }
     } else {
       resetVisaTypeTwoForm();
@@ -1928,6 +1996,26 @@ const Visa = () => {
   const handleCloseVehicleTypes = () => setShowVehicleTypeModal(false);
 
   const handleSaveVehicleTypes = () => {
+    // Map selected vehicle types to underlying sector ids (small or big)
+    try {
+      const sectorIds = [];
+      selectedVehicleTypeIds.forEach((vtId) => {
+        const vt = vehicleTypes.find((v) => v.id === vtId);
+        if (!vt) return;
+        // Only map to small sector ids: OnlyVisaPrice.sectors expects booking.Sector (small sectors)
+        if (vt.small_sector_id) sectorIds.push(vt.small_sector_id);
+        else if (vt.small_sector && vt.small_sector.id) sectorIds.push(vt.small_sector.id);
+        // Ignore big_sector mappings here — they are not booking.Sector PKs and will fail validation
+      });
+
+      // Unique numeric ids
+      const unique = Array.from(new Set(sectorIds.map((s) => parseInt(s)))).filter(Boolean);
+      // store as strings for select binding consistency
+      setSelectedVisaSectors(unique.map((i) => i.toString()));
+    } catch (err) {
+      console.error("Error mapping vehicle types to sectors", err);
+    }
+
     handleCloseVehicleTypes();
   };
 
@@ -1939,13 +2027,12 @@ const Visa = () => {
   }, []);
 
   const fetchVisaTypeTwoData = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
     setIsLoadingVisaTypeTwo(true);
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2022,7 +2109,7 @@ const Visa = () => {
   //       // Verify the visa exists by trying to fetch it first
   //       try {
   //         await axios.get(
-  //           `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //           `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //           {
   //             headers: {
   //               Authorization: `Bearer ${token}`,
@@ -2037,7 +2124,7 @@ const Visa = () => {
 
   //       // Update existing
   //       await axios.put(
-  //         `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2050,7 +2137,7 @@ const Visa = () => {
   //     } else {
   //       // Create new
   //       await axios.post(
-  //         `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
+  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2083,7 +2170,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/hotels/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/hotels/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2180,7 +2267,7 @@ const Visa = () => {
       const orgId =
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       await axios.delete(
-        `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2200,196 +2287,7 @@ const Visa = () => {
     }
   };
 
-  //type 2 trnsport
 
-  // State variables for Transport Type2
-  const [transportType2Sectors, setTransportType2Sectors] = useState([]);
-  const [editingTransportType2Id, setEditingTransportType2Id] = useState(null);
-  const [isSettingTransportType2, setIsSettingTransportType2] = useState(false);
-  const [isLoadingTransportType2, setIsLoadingTransportType2] = useState(false);
-
-  // Input states for Transport Type2
-  const [transportType2Sector, setTransportType2Sector] = useState("");
-  const [transportType2Adult, setTransportType2Adult] = useState("");
-  const [transportType2Child, setTransportType2Child] = useState("");
-  const [transportType2Infants, setTransportType2Infants] = useState("");
-  const [transportType2VehicleType, setTransportType2VehicleType] =
-    useState("");
-  const [transportType2Purchase, setTransportType2Purchase] = useState("");
-  const [transportType2Selling, setTransportType2Selling] = useState("");
-  const [removeTransportType2, setRemoveTransportType2] = useState("");
-  const [onlyTransportCharges, setOnlyTransportCharges] = useState("");
-
-  // Fetch Transport Type2 sectors
-  const fetchTransportType2Sectors = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
-    setIsLoadingTransportType2(true);
-
-    try {
-      const response = await axios.get(
-        `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // Filter for type2 sectors only
-      const type2Sectors = Array.isArray(response.data)
-        ? response.data.filter((sector) => sector.reference === "type2")
-        : [];
-
-      setTransportType2Sectors(type2Sectors);
-    } catch (error) {
-      console.error("Error fetching Transport Type2 sectors:", error);
-      toast.error("Failed to fetch Transport Type2 sectors");
-    } finally {
-      setIsLoadingTransportType2(false);
-    }
-  };
-
-  // Handle Transport Type2 selection
-  const handleTransportType2Select = (e) => {
-    const sectorId = e.target.value;
-    setRemoveTransportType2(sectorId);
-
-    if (sectorId && sectorId !== "All Sectors") {
-      const selectedSector = transportType2Sectors.find(
-        (sector) => sector.id.toString() === sectorId
-      );
-      if (selectedSector) {
-        setTransportType2Sector(selectedSector.name || "");
-        setTransportType2VehicleType(selectedSector.vehicle_type || "");
-        setTransportType2Adult(selectedSector.adault_price?.toString() || "");
-        setTransportType2Child(selectedSector.child_price?.toString() || "");
-        setTransportType2Infants(selectedSector.infant_price?.toString() || "");
-        setTransportType2Purchase(selectedSector.purchase_price?.toString() || "");
-        setTransportType2Selling(selectedSector.selling_price?.toString() || "");
-        setWithVisa(selectedSector.is_visa || false);
-        setOnlyTransportCharges(selectedSector.only_transport_charge || false);
-        setEditingTransportType2Id(selectedSector.id);
-      }
-    } else {
-      resetTransportType2Form();
-    }
-  };
-
-  // Handle Transport Type2 submit
-  const handleTransportType2Submit = async () => {
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
-
-    if (
-      !transportType2Sector ||
-      !transportType2Adult ||
-      !transportType2Child ||
-      !transportType2Infants ||
-      !transportType2VehicleType
-    ) {
-      toast.warning("Please fill all required fields");
-      return;
-    }
-
-    setIsSettingTransportType2(true);
-
-    const transportType2Data = {
-      reference: "type2",
-      name: transportType2Sector,
-      vehicle_type: transportType2VehicleType,
-      adault_price: parseFloat(transportType2Adult),
-      child_price: parseFloat(transportType2Child),
-      infant_price: parseFloat(transportType2Infants),
-      purchase_price: transportType2Purchase !== "" ? parseFloat(transportType2Purchase) : undefined,
-      selling_price: transportType2Selling !== "" ? parseFloat(transportType2Selling) : undefined,
-      is_visa: false,
-      only_transport_charge: onlyTransportCharges,
-      organization: orgId,
-    };
-
-    try {
-      if (editingTransportType2Id) {
-        await axios.put(
-          `https://api.saer.pk/api/transport-sector-prices/${editingTransportType2Id}/?organization=${orgId}`,
-          transportType2Data,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        toast.success("Transport Type2 sector updated successfully!");
-      } else {
-        await axios.post(
-          `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
-          transportType2Data,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        toast.success("Transport Type2 sector added successfully!");
-      }
-      fetchTransportType2Sectors();
-      resetTransportType2Form();
-    } catch (error) {
-      console.error("Error setting Transport Type2 sector:", error);
-      toast.error("Failed to set Transport Type2 sector");
-    } finally {
-      setIsSettingTransportType2(false);
-    }
-  };
-
-  // Handle Transport Type2 delete
-  const handleDeleteTransportType2 = async () => {
-    if (!removeTransportType2 || removeTransportType2 === "All Sectors") {
-      toast.warning("Please select a sector to remove");
-      return;
-    }
-
-    const orgId =
-      typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
-
-    try {
-      await axios.delete(
-        `https://api.saer.pk/api/transport-sector-prices/${removeTransportType2}/?organization=${orgId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      toast.success("Transport Type2 sector removed successfully!");
-      fetchTransportType2Sectors();
-      resetTransportType2Form();
-      setShowDeleteTransportType2Modal(false);
-    } catch (error) {
-      console.error("Error deleting Transport Type2 sector:", error);
-      toast.error("Failed to delete Transport Type2 sector");
-    }
-  };
-
-  // Reset Transport Type2 form
-  const resetTransportType2Form = () => {
-    setTransportType2Sector("");
-    setTransportType2VehicleType("");
-    setTransportType2Adult("");
-    setTransportType2Child("");
-    setTransportType2Infants("");
-    setTransportType2Purchase("");
-    setTransportType2Selling("");
-    setEditingTransportType2Id(null);
-    setRemoveTransportType2("");
-  };
-
-  // Fetch on mount
-  useEffect(() => {
-    fetchTransportType2Sectors();
-  }, []);
 
   //Only Visa Rates
   const [onlyVisaPrices, setOnlyVisaPrices] = useState([]);
@@ -2397,16 +2295,25 @@ const Visa = () => {
   const [isLoadingOnlyVisa, setIsLoadingOnlyVisa] = useState(false);
 
   // Input states
-  const [onlyVisaAdult, setOnlyVisaAdult] = useState("");
-  const [onlyVisaChild, setOnlyVisaChild] = useState("");
-  const [onlyVisaInfant, setOnlyVisaInfant] = useState("");
-  const [onlyVisaPurchase, setOnlyVisaPurchase] = useState("");
-  const [onlyVisaSelling, setOnlyVisaSelling] = useState("");
-  const [minDays, setMinDays] = useState("");
-  const [maxDays, setMaxDays] = useState("");
+  // Only Visa Rates: explicit per-person selling & purchase prices
+  const [onlyAdultSellingPrice, setOnlyAdultSellingPrice] = useState("");
+  const [onlyAdultPurchasePrice, setOnlyAdultPurchasePrice] = useState("");
+  const [onlyChildSellingPrice, setOnlyChildSellingPrice] = useState("");
+  const [onlyChildPurchasePrice, setOnlyChildPurchasePrice] = useState("");
+  const [onlyInfantSellingPrice, setOnlyInfantSellingPrice] = useState("");
+  const [onlyInfantPurchasePrice, setOnlyInfantPurchasePrice] = useState("");
+  // Option: 'only' = Only Visa, 'longterm' = Long Term Visa
+  const [onlyVisaOption, setOnlyVisaOption] = useState('only');
+  // Title for the Only Visa price record
+  const [onlyVisaTitle, setOnlyVisaTitle] = useState("");
+
   const [airportId, setAirportId] = useState("");
   const [airport, setAirport] = useState("");
-  const [status, setStatus] = useState("");
+  // default status to active for new Only Visa records
+  const [status, setStatus] = useState("active");
+
+  // Selected sector ids for Only Visa (populated from vehicle-type modal)
+  const [selectedVisaSectors, setSelectedVisaSectors] = useState([]);
 
   const [selectedVisaPrice, setSelectedVisaPrice] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -2417,12 +2324,13 @@ const Visa = () => {
 
     // Validate all required fields with specific error messages
     const validationErrors = [];
-    if (!onlyVisaAdult) validationErrors.push("Adult price");
-    if (!onlyVisaChild) validationErrors.push("Child price");
-    if (!onlyVisaInfant) validationErrors.push("Infant price");
-    if (!minDays) validationErrors.push("Minimum days");
-    if (!maxDays) validationErrors.push("Maximum days");
-    if (!airportId) validationErrors.push("Airport");
+    if (!onlyAdultSellingPrice) validationErrors.push("Adult selling price");
+    if (!onlyAdultPurchasePrice) validationErrors.push("Adult purchase price");
+    if (!onlyChildSellingPrice) validationErrors.push("Child selling price");
+    if (!onlyChildPurchasePrice) validationErrors.push("Child purchase price");
+    if (!onlyInfantSellingPrice) validationErrors.push("Infant selling price");
+    if (!onlyInfantPurchasePrice) validationErrors.push("Infant purchase price");
+    // Airport is optional for Only Visa records. Do not force it here.
 
     if (validationErrors.length > 0) {
       toast.error(`Please fill: ${validationErrors.join(", ")}`);
@@ -2432,18 +2340,42 @@ const Visa = () => {
     setIsSettingOnlyVisa(true);
 
     const visaPriceData = {
-      adault_price: parseFloat(onlyVisaAdult),
-      child_price: parseFloat(onlyVisaChild),
-      infant_price: parseFloat(onlyVisaInfant),
-      purchase_price: onlyVisaPurchase !== "" ? parseFloat(onlyVisaPurchase) : undefined,
-      selling_price: onlyVisaSelling !== "" ? parseFloat(onlyVisaSelling) : undefined,
-      min_days: minDays.toString(),
-      max_days: maxDays.toString(),
-      city_id: parseInt(airportId),
+      // explicit per-person fields
+      adult_selling_price: parseFloat(onlyAdultSellingPrice),
+      adult_purchase_price: parseFloat(onlyAdultPurchasePrice),
+      child_selling_price: parseFloat(onlyChildSellingPrice),
+      child_purchase_price: parseFloat(onlyChildPurchasePrice),
+      infant_selling_price: parseFloat(onlyInfantSellingPrice),
+      infant_purchase_price: parseFloat(onlyInfantPurchasePrice),
+      // human-friendly title for this price record
+      title: onlyVisaTitle,
+      // whether this price includes transport
+      is_transport: withTransport,
+      // city_id: include only when airportId is provided (optional)
+      // city_id will be assigned below if airportId is truthy
+      // mark which visa option this record is for
       type: "type2",
+      visa_option: onlyVisaOption,
       organization: orgId,
       status: status
     };
+
+    if (airportId) {
+      try {
+        visaPriceData.city_id = parseInt(airportId);
+      } catch (e) {
+        // ignore invalid parse and leave city_id unset
+      }
+    }
+
+    // Always include sectors array (empty array will clear relations on update)
+    try {
+      visaPriceData.sectors = Array.isArray(selectedVisaSectors)
+        ? selectedVisaSectors.map((s) => parseInt(s)).filter(Boolean)
+        : [];
+    } catch (err) {
+      visaPriceData.sectors = [];
+    }
 
     try {
       let response;
@@ -2451,7 +2383,7 @@ const Visa = () => {
         // Check if selectedVisaPrice exists first
         // Update existing visa price
         response = await axios.put(
-          `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2464,7 +2396,7 @@ const Visa = () => {
       } else {
         // Create new visa price
         response = await axios.post(
-          `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2492,17 +2424,19 @@ const Visa = () => {
 
   // Helper function to reset form
   const resetFormFields = () => {
-    setOnlyVisaAdult("");
-    setOnlyVisaChild("");
-    setOnlyVisaInfant("");
-    setMinDays("");
-    setMaxDays("");
+    setOnlyAdultSellingPrice("");
+    setOnlyAdultPurchasePrice("");
+    setOnlyChildSellingPrice("");
+    setOnlyChildPurchasePrice("");
+    setOnlyInfantSellingPrice("");
+    setOnlyInfantPurchasePrice("");
+    setOnlyVisaTitle("");
+    setOnlyVisaOption('only');
+    setWithTransport(false);
     setAirportId("");
     setAirport("");
     setStatus(""); // Reset to active
     setSelectedVisaPrice(null);
-    setOnlyVisaPurchase("");
-    setOnlyVisaSelling("");
   };
   // Delete function
   const handleDeleteVisaPrice = async () => {
@@ -2522,7 +2456,7 @@ const Visa = () => {
     setIsDeleting(true);
     try {
       await axios.delete(
-        `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Visa price deleted successfully");
@@ -2542,7 +2476,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // console.log("API Response:", response.data);
@@ -2556,7 +2490,9 @@ const Visa = () => {
     if (selectedOrg) {
       fetchOnlyVisaPrices();
     }
-  }, [selectedOrg]);
+    // Depend on the organization id (primitive) instead of the whole object
+    // to avoid re-running when `selectedOrg` is re-parsed each render.
+  }, [selectedOrg?.id]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -2578,9 +2514,6 @@ const Visa = () => {
   //vehicle type
   const [vehicleTypeName, setVehicleTypeName] = useState('');
   const [vehicleTypeType, setVehicleTypeType] = useState('');
-  const [vehicleTypePrice, setVehicleTypePrice] = useState('');
-  const [vehicleTypePurchase, setVehicleTypePurchase] = useState('');
-  const [vehicleTypeSelling, setVehicleTypeSelling] = useState('');
   const [vehicleTypeNote, setVehicleTypeNote] = useState('');
   const [vehicleTypeVisaType, setVehicleTypeVisaType] = useState('type2');
   const [vehicleTypeStatus, setVehicleTypeStatus] = useState('active');
@@ -2645,7 +2578,7 @@ const Visa = () => {
   // Fetch vehicle types with proper sector data
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`https://api.saer.pk/api/vehicle-types/?organization=${orgId}`, {
+  //     const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       },
@@ -2659,7 +2592,7 @@ const Visa = () => {
   // };
 
   const handleVehicleTypeSubmit = async () => {
-    if (!vehicleTypeName || !vehicleTypeType || !vehicleTypePrice) {
+    if (!vehicleTypeName || !vehicleTypeType) {
       toast.warning('Please fill all required fields');
       return;
     }
@@ -2685,9 +2618,14 @@ const Visa = () => {
     const payload = {
       vehicle_name: vehicleTypeName,
       vehicle_type: vehicleTypeType,
-      price: parseFloat(vehicleTypePrice),
-      purchase_price: vehicleTypePurchase !== "" ? parseFloat(vehicleTypePurchase) : undefined,
-      selling_price: vehicleTypeSelling !== "" ? parseFloat(vehicleTypeSelling) : undefined,
+      // legacy per-vehicle price removed; rely on per-person fields instead
+      // explicit per-person fields
+      adult_selling_price: vehicleTypeAdultSelling !== "" ? parseFloat(vehicleTypeAdultSelling) : undefined,
+      adult_purchase_price: vehicleTypeAdultPurchase !== "" ? parseFloat(vehicleTypeAdultPurchase) : undefined,
+      child_selling_price: vehicleTypeChildSelling !== "" ? parseFloat(vehicleTypeChildSelling) : undefined,
+      child_purchase_price: vehicleTypeChildPurchase !== "" ? parseFloat(vehicleTypeChildPurchase) : undefined,
+      infant_selling_price: vehicleTypeInfantSelling !== "" ? parseFloat(vehicleTypeInfantSelling) : undefined,
+      infant_purchase_price: vehicleTypeInfantPurchase !== "" ? parseFloat(vehicleTypeInfantPurchase) : undefined,
       note: vehicleTypeNote,
       visa_type: "type2",
       status: vehicleTypeStatus,
@@ -2709,7 +2647,7 @@ const Visa = () => {
       if (editingVehicleTypeId) {
         // Update existing vehicle type
         await axios.put(
-          `https://api.saer.pk/api/vehicle-types/${editingVehicleTypeId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-prices/${editingVehicleTypeId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2722,7 +2660,7 @@ const Visa = () => {
       } else {
         // Create new vehicle type
         await axios.post(
-          `https://api.saer.pk/api/vehicle-types/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2747,7 +2685,7 @@ const Visa = () => {
   // ✅ Enhanced fetchVehicleTypes to handle API response structure
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`https://api.saer.pk/api/vehicle-types/?organization=${orgId}`, {
+      const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -2769,7 +2707,8 @@ const Visa = () => {
 
   // ✅ Enhanced handleVehicleTypeSelect to properly set sector based on API response
   const handleVehicleTypeSelect = (e) => {
-    const vehicleTypeId = e.target.value;
+    // Accept either an event or a raw value
+    const vehicleTypeId = e && e.target ? e.target.value : e;
     setSelectedVehicleTypeId(vehicleTypeId);
 
     if (vehicleTypeId) {
@@ -2778,10 +2717,27 @@ const Visa = () => {
         setEditingVehicleTypeId(selectedVehicleType.id);
         setVehicleTypeName(selectedVehicleType.vehicle_name);
         setVehicleTypeType(selectedVehicleType.vehicle_type);
-        setVehicleTypePrice(selectedVehicleType.price?.toString() || '');
+        // vehicleTypePrice removed; per-person prices populated below
         setVehicleTypeNote(selectedVehicleType.note || '');
-        setVehicleTypePurchase(selectedVehicleType.purchase_price?.toString() || '');
-        setVehicleTypeSelling(selectedVehicleType.selling_price?.toString() || '');
+        // populate explicit per-person fields, fallback to legacy values
+        setVehicleTypeAdultSelling(
+          selectedVehicleType.adult_selling_price?.toString() || selectedVehicleType.adault_price?.toString() || ''
+        );
+        setVehicleTypeAdultPurchase(
+          selectedVehicleType.adult_purchase_price?.toString() || selectedVehicleType.purchase_price?.toString() || ''
+        );
+        setVehicleTypeChildSelling(
+          selectedVehicleType.child_selling_price?.toString() || selectedVehicleType.child_price?.toString() || ''
+        );
+        setVehicleTypeChildPurchase(
+          selectedVehicleType.child_purchase_price?.toString() || selectedVehicleType.purchase_price?.toString() || ''
+        );
+        setVehicleTypeInfantSelling(
+          selectedVehicleType.infant_selling_price?.toString() || selectedVehicleType.infant_price?.toString() || ''
+        );
+        setVehicleTypeInfantPurchase(
+          selectedVehicleType.infant_purchase_price?.toString() || selectedVehicleType.purchase_price?.toString() || ''
+        );
         setVehicleTypeVisaType(selectedVehicleType.visa_type || 'type2');
         setVehicleTypeStatus(selectedVehicleType.status || 'active');
 
@@ -2812,7 +2768,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/vehicle-types/${selectedVehicleTypeId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-prices/${selectedVehicleTypeId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2859,7 +2815,7 @@ const Visa = () => {
   // const fetchAllSectors = async () => {
   //   try {
   //     // Fetch small sectors using axios
-  //     const smallResponse = await axios.get(`https://api.saer.pk/api/sectors/?organization=${orgId}`);
+  //     const smallResponse = await axios.get(`http://127.0.0.1:8000/api/sectors/?organization=${orgId}`);
   //     const smallData = smallResponse.data;
   //     const smallSectors = (smallData.results || smallData).map(sector => ({
   //       ...sector,
@@ -2868,7 +2824,7 @@ const Visa = () => {
   //     }));
 
   //     // Fetch big sectors using axios
-  //     const bigResponse = await axios.get(`https://api.saer.pk/api/big-sectors/?organization=${orgId}`);
+  //     const bigResponse = await axios.get(`http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`);
   //     const bigData = bigResponse.data;
   //     const bigSectors = (bigData.results || bigData).map(sector => ({
   //       ...sector,
@@ -2886,7 +2842,7 @@ const Visa = () => {
   // Fetch vehicle types with axios
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`https://api.saer.pk/api/vehicle-types/?organization=${orgId}`);
+  //     const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`);
   //     const data = response.data;
   //     setVehicleTypes(data.results || data);
   //   } catch (error) {
@@ -2903,9 +2859,13 @@ const Visa = () => {
   const resetVehicleTypeForm = () => {
     setVehicleTypeName('');
     setVehicleTypeType('');
-    setVehicleTypePrice('');
-    setVehicleTypePurchase('');
-    setVehicleTypeSelling('');
+    // vehicleTypePrice removed
+    setVehicleTypeAdultSelling('');
+    setVehicleTypeAdultPurchase('');
+    setVehicleTypeChildSelling('');
+    setVehicleTypeChildPurchase('');
+    setVehicleTypeInfantSelling('');
+    setVehicleTypeInfantPurchase('');
     setVehicleTypeNote('');
     setVehicleTypeVisaType('type2');
     setVehicleTypeStatus('active');
@@ -2924,9 +2884,13 @@ const Visa = () => {
     organization: "",
     city_id: "",
     description: "",
-    price: "",
-    purchase_price: "",
-    selling_price: ""
+    // legacy generic price fields removed from UI - keep per-person explicit fields
+    adult_selling_price: "",
+    adult_purchase_price: "",
+    child_selling_price: "",
+    child_purchase_price: "",
+    infant_selling_price: "",
+    infant_purchase_price: ""
   });
 
   const [foodCities, setFoodCities] = useState([]);
@@ -2937,11 +2901,11 @@ const Visa = () => {
   const [error, setError] = useState("");
   const [currentId, setCurrentId] = useState(null);
 
-  const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+  const orgId = getOrgId();
 
   // API base URLs
-  const FOOD_PRICES_API_URL = `https://api.saer.pk/api/food-prices/?organization=${orgId}`;
-  const CITIES_API_URL = `https://api.saer.pk/api/cities/?organization=${orgId}`;
+  const FOOD_PRICES_API_URL = `http://127.0.0.1:8000/api/food-prices/?organization=${orgId}`;
+  const CITIES_API_URL = `http://127.0.0.1:8000/api/cities/?organization=${orgId}`;
 
   // Fetch food prices and cities on component mount
   useEffect(() => {
@@ -2995,14 +2959,19 @@ const Visa = () => {
 
     try {
       setLoading(true);
+        // Build payload using explicit per-person fields (no legacy generic keys)
       const dataToSend = {
         ...foodFormData,
         organization: parseInt(orgId),
         min_pex: parseInt(foodFormData.min_pex) || 0,
         per_pex: parseInt(foodFormData.per_pex) || 0,
-        price: parseInt(foodFormData.price) || 0,
-        purchase_price: foodFormData.purchase_price !== "" ? parseFloat(foodFormData.purchase_price) : undefined,
-        selling_price: foodFormData.selling_price !== "" ? parseFloat(foodFormData.selling_price) : undefined,
+        // explicit per-person selling & purchase
+        adult_selling_price: foodFormData.adult_selling_price !== "" ? parseFloat(foodFormData.adult_selling_price) : undefined,
+        adult_purchase_price: foodFormData.adult_purchase_price !== "" ? parseFloat(foodFormData.adult_purchase_price) : undefined,
+        child_selling_price: foodFormData.child_selling_price !== "" ? parseFloat(foodFormData.child_selling_price) : undefined,
+        child_purchase_price: foodFormData.child_purchase_price !== "" ? parseFloat(foodFormData.child_purchase_price) : undefined,
+        infant_selling_price: foodFormData.infant_selling_price !== "" ? parseFloat(foodFormData.infant_selling_price) : undefined,
+        infant_purchase_price: foodFormData.infant_purchase_price !== "" ? parseFloat(foodFormData.infant_purchase_price) : undefined,
         city_id: parseInt(foodFormData.city_id) || 0,
         title: foodFormData.title.trim(),
         description: foodFormData.description.trim(),
@@ -3012,7 +2981,7 @@ const Visa = () => {
       if (isEditing && currentId) {
         // Update existing record
         await axios.put(
-          `https://api.saer.pk/api/food-prices/${currentId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/food-prices/${currentId}/?organization=${orgId}`,
           dataToSend,
           {
             headers: {
@@ -3050,9 +3019,13 @@ const Visa = () => {
       organization: orgId,
       city_id: foodPrice.city?.id || "", // Fix: access city ID from nested object
       description: foodPrice.description || "",
-      price: foodPrice.price || "",
-      purchase_price: foodPrice.purchase_price || "",
-      selling_price: foodPrice.selling_price || ""
+      // populate explicit per-person fields - prefer explicit keys, fallback to legacy generic keys
+      adult_selling_price: foodPrice.adult_selling_price?.toString() || foodPrice.adault_price?.toString() || foodPrice.selling_price?.toString() || "",
+      adult_purchase_price: foodPrice.adult_purchase_price?.toString() || foodPrice.purchase_price?.toString() || "",
+      child_selling_price: foodPrice.child_selling_price?.toString() || foodPrice.child_price?.toString() || foodPrice.selling_price?.toString() || "",
+      child_purchase_price: foodPrice.child_purchase_price?.toString() || foodPrice.purchase_price?.toString() || "",
+      infant_selling_price: foodPrice.infant_selling_price?.toString() || foodPrice.infant_price?.toString() || foodPrice.selling_price?.toString() || "",
+      infant_purchase_price: foodPrice.infant_purchase_price?.toString() || foodPrice.purchase_price?.toString() || "",
     });
     setIsEditing(true);
     setCurrentId(foodPrice.id);
@@ -3068,9 +3041,12 @@ const Visa = () => {
       organization: orgId,
       city_id: "",
       description: "",
-      price: "",
-      purchase_price: "",
-      selling_price: ""
+      adult_selling_price: "",
+      adult_purchase_price: "",
+      child_selling_price: "",
+      child_purchase_price: "",
+      infant_selling_price: "",
+      infant_purchase_price: ""
     });
     setIsEditing(false);
     setCurrentId(null);
@@ -3081,7 +3057,7 @@ const Visa = () => {
       try {
         setLoading(true);
         await axios.delete(
-          `https://api.saer.pk/api/food-prices/${id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/food-prices/${id}/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3115,9 +3091,13 @@ const Visa = () => {
     description: "",
     contact_person: "",
     contact_number: "",
-    price: "",
-    purchase_price: "",
-    selling_price: "",
+    // legacy generic price fields removed from UI; use per-person explicit fields
+    adult_selling_price: "",
+    adult_purchase_price: "",
+    child_selling_price: "",
+    child_purchase_price: "",
+    infant_selling_price: "",
+    infant_purchase_price: "",
     status: "active",
     min_pex: "",
     max_pex: "",
@@ -3127,11 +3107,11 @@ const Visa = () => {
   // Fetch all ziarat prices
   const fetchZiaratPrices = async () => {
     setIsLoadingZiarat(true);
-    const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3149,10 +3129,10 @@ const Visa = () => {
 
   // Fetch cities for ziarat
   const fetchZiaratCities = async () => {
-    const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/cities/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3177,24 +3157,29 @@ const Visa = () => {
 
   // Create or Update ziarat price
   const handleSaveZiarat = async () => {
-    const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
-    if (!ziaratFormData.ziarat_title || !ziaratFormData.contact_person || !ziaratFormData.contact_number || !ziaratFormData.price) {
+    if (!ziaratFormData.ziarat_title || !ziaratFormData.contact_person || !ziaratFormData.contact_number || !ziaratFormData.adult_selling_price) {
       toast.warning("Please fill all required fields");
       return;
     }
 
     setIsSavingZiarat(true);
 
+    // Build payload using explicit per-person fields (no legacy generic keys)
     const ziaratData = {
       city_id: parseInt(ziaratFormData.city_id) || 0,
       ziarat_title: ziaratFormData.ziarat_title.trim(),
       description: ziaratFormData.description.trim(),
       contact_person: ziaratFormData.contact_person.trim(),
       contact_number: ziaratFormData.contact_number.trim(),
-      price: parseFloat(ziaratFormData.price) || 0,
-      purchase_price: ziaratFormData.purchase_price !== "" ? parseFloat(ziaratFormData.purchase_price) : undefined,
-      selling_price: ziaratFormData.selling_price !== "" ? parseFloat(ziaratFormData.selling_price) : undefined,
+      // explicit per-person selling & purchase
+      adult_selling_price: ziaratFormData.adult_selling_price !== "" ? parseFloat(ziaratFormData.adult_selling_price) : undefined,
+      adult_purchase_price: ziaratFormData.adult_purchase_price !== "" ? parseFloat(ziaratFormData.adult_purchase_price) : undefined,
+      child_selling_price: ziaratFormData.child_selling_price !== "" ? parseFloat(ziaratFormData.child_selling_price) : undefined,
+      child_purchase_price: ziaratFormData.child_purchase_price !== "" ? parseFloat(ziaratFormData.child_purchase_price) : undefined,
+      infant_selling_price: ziaratFormData.infant_selling_price !== "" ? parseFloat(ziaratFormData.infant_selling_price) : undefined,
+      infant_purchase_price: ziaratFormData.infant_purchase_price !== "" ? parseFloat(ziaratFormData.infant_purchase_price) : undefined,
       status: ziaratFormData.status,
       min_pex: parseInt(ziaratFormData.min_pex) || 0,
       max_pex: parseInt(ziaratFormData.max_pex) || 0,
@@ -3205,7 +3190,7 @@ const Visa = () => {
       if (editingZiaratId) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3218,7 +3203,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3245,11 +3230,11 @@ const Visa = () => {
       return;
     }
 
-    const orgId = typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
+    const orgId = getOrgId();
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/ziarat-prices/${id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/ziarat-prices/${id}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3275,9 +3260,12 @@ const Visa = () => {
       description: "",
       contact_person: "",
       contact_number: "",
-      price: "",
-      purchase_price: "",
-      selling_price: "",
+      adult_selling_price: "",
+      adult_purchase_price: "",
+      child_selling_price: "",
+      child_purchase_price: "",
+      infant_selling_price: "",
+      infant_purchase_price: "",
       status: "active",
       min_pex: "",
       max_pex: "",
@@ -3294,9 +3282,13 @@ const Visa = () => {
       description: ziarat.description || "",
       contact_person: ziarat.contact_person || "",
       contact_number: ziarat.contact_number || "",
-      price: ziarat.price ? ziarat.price.toString() : "",
-      purchase_price: ziarat.purchase_price ? ziarat.purchase_price.toString() : "",
-      selling_price: ziarat.selling_price ? ziarat.selling_price.toString() : "",
+      // populate explicit per-person fields (prefer explicit keys, fallback to legacy keys)
+      adult_selling_price: ziarat.adult_selling_price?.toString() || ziarat.adault_price?.toString() || ziarat.selling_price?.toString() || "",
+      adult_purchase_price: ziarat.adult_purchase_price?.toString() || ziarat.purchase_price?.toString() || "",
+      child_selling_price: ziarat.child_selling_price?.toString() || ziarat.child_price?.toString() || ziarat.selling_price?.toString() || "",
+      child_purchase_price: ziarat.child_purchase_price?.toString() || ziarat.purchase_price?.toString() || "",
+      infant_selling_price: ziarat.infant_selling_price?.toString() || ziarat.infant_price?.toString() || ziarat.selling_price?.toString() || "",
+      infant_purchase_price: ziarat.infant_purchase_price?.toString() || ziarat.purchase_price?.toString() || "",
       status: ziarat.status || "active",
       min_pex: ziarat.min_pex ? ziarat.min_pex.toString() : "",
       max_pex: ziarat.max_pex ? ziarat.max_pex.toString() : "",
@@ -3356,7 +3348,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/airlines/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/airlines/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3409,7 +3401,7 @@ const Visa = () => {
 
     try {
       const response = await axios.post(
-        "https://api.saer.pk/api/airlines/",
+        "http://127.0.0.1:8000/api/airlines/",
         formData,
         {
           headers: {
@@ -3444,7 +3436,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/airlines/${removeFlight}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/airlines/${removeFlight}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3483,7 +3475,7 @@ const Visa = () => {
       }
 
       await axios.put(
-        `https://api.saer.pk/api/airlines/${editingFlightId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/airlines/${editingFlightId}/?organization=${orgId}`,
         formData,
         {
           headers: {
@@ -3513,7 +3505,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
       await axios.put(
-        `https://api.saer.pk/api/cities/${editingCityId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/${editingCityId}/?organization=${orgId}`,
         {
           name: cityName,
           code: cityCode,
@@ -3553,7 +3545,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/cities/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3585,7 +3577,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "https://api.saer.pk/api/cities/",
+        "http://127.0.0.1:8000/api/cities/",
         {
           name: cityName,
           code: cityCode,
@@ -3619,7 +3611,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/cities/${removeCity}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/${removeCity}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3649,7 +3641,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       try {
         const response = await axios.get(
-          `https://api.saer.pk/api/booking-expiry/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/booking-expiry/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3693,7 +3685,7 @@ const Visa = () => {
       if (expiryId) {
         // Update existing record
         await axios.put(
-          `https://api.saer.pk/api/booking-expiry/${expiryId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/booking-expiry/${expiryId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -3706,7 +3698,7 @@ const Visa = () => {
       } else {
         // Create new record
         const response = await axios.post(
-          "https://api.saer.pk/api/booking-expiry/",
+          "http://127.0.0.1:8000/api/booking-expiry/",
           payload,
           {
             headers: {
@@ -3816,6 +3808,13 @@ const Visa = () => {
       </Modal.Footer>
     </Modal>
   );
+
+  // Removed Transport Type2 handlers; provide a safe no-op to avoid runtime errors
+  const handleDeleteTransportType2 = async () => {
+    console.warn('Transport Type2 deletion handler is removed.');
+    toast.info('Transport Type2 feature is disabled.');
+    return;
+  };
 
   const DeleteTransportType2Modal = () => (
     <Modal
@@ -4206,36 +4205,27 @@ const Visa = () => {
                             <label htmlFor="" className="Control-label">
                               Manage Existing Shirkas
                             </label>
-                            <select
-                              className="form-select mb-2"
-                              value={removeShirka}
-                              onChange={(e) => {
-                                const selectedId = e.target.value;
-                                setRemoveShirka(selectedId);
-                                if (selectedId) {
-                                  const selectedShirka = shirkas.find(
-                                    (s) => s.id.toString() === selectedId
-                                  );
-                                  if (selectedShirka) {
-                                    setShirkaName(selectedShirka.name);
-                                    setEditingShirkaId(selectedShirka.id);
+                            <div style={{ minWidth: 240 }}>
+                              <SearchableSelect
+                                options={toOptions(shirkas, s => s.name, s => s.id)}
+                                value={removeShirka}
+                                onChange={(val) => {
+                                  setRemoveShirka(val);
+                                  if (val) {
+                                    const selectedShirka = shirkas.find((s) => String(s.id) === String(val));
+                                    if (selectedShirka) {
+                                      setShirkaName(selectedShirka.name);
+                                      setEditingShirkaId(selectedShirka.id);
+                                    }
+                                  } else {
+                                    setShirkaName("");
+                                    setEditingShirkaId(null);
                                   }
-                                } else {
-                                  setShirkaName("");
-                                  setEditingShirkaId(null);
-                                }
-                              }}
-                              disabled={
-                                isLoadingShirkas || shirkas.length === 0
-                              }
-                            >
-                              <option value="">Select Shirka</option>
-                              {shirkas.map((shirka) => (
-                                <option key={shirka.id} value={shirka.id}>
-                                  {shirka.name}
-                                </option>
-                              ))}
-                            </select>
+                                }}
+                                placeholder="Select Shirka"
+                                isDisabled={isLoadingShirkas || shirkas.length === 0}
+                              />
+                            </div>
                           </div>
                           <div className="d-flex align-items-end mb-3">
                             <button
@@ -4252,10 +4242,10 @@ const Visa = () => {
                       </div>
                     </div>
 
-                    {/* Sector Section  */}
+                    {/* Small Sector Section  */}
                     <div className="p-lg-4 pt-4">
                       <div className="row">
-                        <h4 className="fw-bold mb-3">Sectors</h4>
+                        <h4 className="fw-bold mb-3">Small Sectors</h4>
                         <div className="d-flex flex-wrap gap-3">
                           {/* Add/Edit Sector Section */}
                           <div>
@@ -4264,35 +4254,54 @@ const Visa = () => {
                                 ? "Edit Sector"
                                 : "Add New Sector"}
                             </label>
-                            <select
-                              className="form-select mb-2"
-                              value={departureCity}
-                              onChange={(e) => setDepartureCity(e.target.value)}
-                              disabled={isLoadingCities}
-                            >
-                              <option value="">Select Departure City</option>
-                              {cities.map((city) => (
-                                <option key={city.id} value={city.id}>
-                                  {city.name} ({city.code})
-                                </option>
-                              ))}
-                            </select>
+                            <div style={{ minWidth: 240 }}>
+                              <SearchableSelect
+                                options={toOptions(cities, c => `${c.name} (${c.code})`, c => c.id)}
+                                value={departureCity}
+                                onChange={(val) => setDepartureCity(val)}
+                                placeholder="Select Departure City"
+                                isDisabled={isLoadingCities}
+                              />
+                            </div>
                           </div>
                           <div>
                             <label className="Control-label" htmlFor="">Arrival City</label>
-                            <select
-                              className="form-select mb-2"
-                              value={arrivalCity}
-                              onChange={(e) => setArrivalCity(e.target.value)}
-                              disabled={isLoadingCities}
-                            >
-                              <option value="">Select Arrival City</option>
-                              {cities.map((city) => (
-                                <option key={city.id} value={city.id}>
-                                  {city.name} ({city.code})
-                                </option>
-                              ))}
-                            </select>
+                            <div style={{ minWidth: 240 }}>
+                              <SearchableSelect
+                                options={toOptions(cities, c => `${c.name} (${c.code})`, c => c.id)}
+                                value={arrivalCity}
+                                onChange={(val) => setArrivalCity(val)}
+                                placeholder="Select Arrival City"
+                                isDisabled={isLoadingCities}
+                              />
+                            </div>
+                          </div>
+                          {/* Sector Type Buttons */}
+                          <div>
+                            <label className="Control-label">Sector Type</label>
+                            <div className="btn-group d-flex" role="group" aria-label="Sector Type">
+                              <button
+                                type="button"
+                                className={`btn ${smallSectorType === 'AIRPORT PICKUP' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                onClick={() => setSmallSectorType('AIRPORT PICKUP')}
+                              >
+                                AIRPORT PICKUP
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn ${smallSectorType === 'AIRPORT DROP' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                onClick={() => setSmallSectorType('AIRPORT DROP')}
+                              >
+                                AIRPORT DROP
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn ${smallSectorType === 'HOTEL TO HOTEL' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                onClick={() => setSmallSectorType('HOTEL TO HOTEL')}
+                              >
+                                HOTEL TO HOTEL
+                              </button>
+                            </div>
                           </div>
                           <div>
                             <label className="Control-label" htmlFor="">Contant Name</label>
@@ -4352,20 +4361,15 @@ const Visa = () => {
                             <label className="Control-label">
                               Manage Existing Sectors
                             </label>
-                            <select
-                              className="form-select mb-2"
-                              value={removeSector}
-                              onChange={(e) => handleSectorSelect(e.target.value)}
-                              disabled={isLoadingSectors || sectors.length === 0}
-                            >
-                              <option value="">Select Sector</option>
-                              {sectors.map((sector) => (
-                                <option key={sector.id} value={sector.id}>
-                                  {getCityName(sector.departure_city)} →{" "}
-                                  {getCityName(sector.arrival_city)}
-                                </option>
-                              ))}
-                            </select>
+                            <div style={{ minWidth: 300 }}>
+                              <SearchableSelect
+                                options={toOptions(sectors, s => `${getCityName(s.departure_city)} → ${getCityName(s.arrival_city)}`, s => s.id)}
+                                value={removeSector}
+                                onChange={(val) => handleSectorSelect(val)}
+                                isDisabled={isLoadingSectors || sectors.length === 0}
+                                placeholder="Select Sector"
+                              />
+                            </div>
                           </div>
                           <div className="d-flex align-items-end mb-3">
                             <button
@@ -4447,23 +4451,21 @@ const Visa = () => {
                               </div>
                             )}
 
-                            <select
-                              multiple
-                              className="form-select mb-2"
-                              size="5"
-                              value={selectedSmallSectors}
-                              onChange={(e) => {
-                                const selectedOptions = Array.from(e.target.selectedOptions, (o) => o.value);
-                                setSelectedSmallSectors(selectedOptions);
-                              }}
-                              style={{ minWidth: '300px' }}
-                            >
-                              {smallSectors.map((sector) => (
-                                <option key={sector.id} value={sector.id.toString()}>
-                                  {getCityName(sector.departure_city)} → {getCityName(sector.arrival_city)}
-                                </option>
-                              ))}
-                            </select>
+                            <div style={{ minWidth: 300 }}>
+                              <SearchableSelect
+                                options={toOptions(smallSectors, s => `${getCityName(s.departure_city)} → ${getCityName(s.arrival_city)}`, s => s.id)}
+                                value={selectedSmallSectors}
+                                onChange={(val) => {
+                                  // react-select will return comma-separated string for isMulti handled below by SearchableSelect
+                                  setSelectedSmallSectors(Array.isArray(val) ? val : (val ? [val] : []));
+                                }}
+                                placeholder="Select Small Sectors"
+                                isDisabled={smallSectors.length === 0}
+                                isClearable={false}
+                                // enable multi via prop handled in SearchableSelect
+                                isMulti={true}
+                              />
+                            </div>
 
                             <small className="text-muted">
                               • Hold Ctrl/Cmd to select multiple sectors<br />
@@ -4511,28 +4513,22 @@ const Visa = () => {
                           {/* Manage Section */}
                           <div className="flex-grow-1">
                             <label className="Control-label">Manage Existing BigSectors</label>
-                            <select
-                              className="form-select mb-2"
-                              value={removeId}
-                              onChange={(e) => {
-                                const selectedId = e.target.value;
-                                setRemoveId(selectedId);
-                                if (selectedId) {
-                                  handleEditBig(selectedId);
-                                } else {
-                                  setEditingIdBig(null);
-                                  setSelectedSmallSectors([]);
-                                }
-                              }}
-                              style={{ minWidth: '250px' }}
-                            >
-                              <option value="">Select BigSector to manage</option>
-                              {bigSectors.map((bs) => (
-                                <option key={bs.id} value={bs.id.toString()}>
-                                  {getBigSectorDropdownDisplay(bs)} ({bs.small_sectors?.length || 0} sectors)
-                                </option>
-                              ))}
-                            </select>
+                            <div style={{ minWidth: 250 }}>
+                              <SearchableSelect
+                                options={toOptions(bigSectors, bs => `${getBigSectorDropdownDisplay(bs)} (${bs.small_sectors?.length || 0} sectors)`, bs => bs.id)}
+                                value={removeId}
+                                onChange={(val) => {
+                                  setRemoveId(val);
+                                  if (val) handleEditBig(val);
+                                  else {
+                                    setEditingIdBig(null);
+                                    setSelectedSmallSectors([]);
+                                  }
+                                }}
+                                placeholder="Select BigSector to manage"
+                                isDisabled={bigSectors.length === 0}
+                              />
+                            </div>
 
                             <div className="d-flex gap-2 mt-2">
                               <button
@@ -5125,7 +5121,7 @@ const Visa = () => {
                               {/* Vehicle Type */}
                               <div>
                                 <label htmlFor="" className="Control-label">
-                                  Vehicle Type
+                                 Transport Prices
                                 </label>
                                 <input
                                   type="text"
@@ -5230,19 +5226,15 @@ const Visa = () => {
                                 <label htmlFor="" className="Control-label">
                                   Select sector
                                 </label>
-                                <select
-                                  className="form-select"
-                                  value={removeTransport}
-                                  onChange={handleTransportSelect}
-                                  disabled={transportSectors.length === 0}
-                                >
-                                  <option value="">Select Sector</option>
-                                  {transportSectors.map((sector) => (
-                                    <option key={sector.id} value={sector.id}>
-                                      {sector.name} ({sector.vehicle_type})
-                                    </option>
-                                  ))}
-                                </select>
+                                <div style={{ minWidth: 240 }}>
+                                  <SearchableSelect
+                                    options={toOptions(transportSectors, s => `${s.name} (${s.vehicle_type})`, s => s.id)}
+                                    value={removeTransport}
+                                    onChange={handleTransportSelect}
+                                    isDisabled={transportSectors.length === 0}
+                                    placeholder="Select Sector"
+                                  />
+                                </div>
                               </div>
 
                               {/* Remove Button */}
@@ -5318,74 +5310,73 @@ const Visa = () => {
                                 </div>
 
                                 <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Adult
-                                  </label>
+                                  <label htmlFor="" className="Control-label">Adult Selling Price</label>
                                   <input
                                     type="number"
-                                    placeholder="600"
+                                    placeholder="Selling"
                                     className="form-control rounded shadow-none  px-1 py-2"
-                                    value={adultPrice}
-                                    onChange={(e) =>
-                                      setAdultPrice(e.target.value)
-                                    }
-                                  />
-                                </div>
-
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Child
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="500"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    value={childPrice}
-                                    onChange={(e) =>
-                                      setChildPrice(e.target.value)
-                                    }
-                                  />
-                                </div>
-
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Infant
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="600"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    value={infantPrice}
-                                    onChange={(e) =>
-                                      setInfantPrice(e.target.value)
-                                    }
-                                  />
-                                </div>
-
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Purchase Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="Purchase"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    value={visaPurchasePrice}
-                                    onChange={(e) => setVisaPurchasePrice(e.target.value)}
+                                    value={adultSellingPrice}
+                                    onChange={(e) => setAdultSellingPrice(e.target.value)}
                                     step="0.01"
                                   />
                                 </div>
 
                                 <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Selling Price
-                                  </label>
+                                  <label htmlFor="" className="Control-label">Adult Purchase Price</label>
+                                  <input
+                                    type="number"
+                                    placeholder="Purchase"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    value={adultPurchasePrice}
+                                    onChange={(e) => setAdultPurchasePrice(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">Child Selling Price</label>
                                   <input
                                     type="number"
                                     placeholder="Selling"
                                     className="form-control rounded shadow-none  px-1 py-2"
-                                    value={visaSellingPrice}
-                                    onChange={(e) => setVisaSellingPrice(e.target.value)}
+                                    value={childSellingPrice}
+                                    onChange={(e) => setChildSellingPrice(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">Child Purchase Price</label>
+                                  <input
+                                    type="number"
+                                    placeholder="Purchase"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    value={childPurchasePrice}
+                                    onChange={(e) => setChildPurchasePrice(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">Infant Selling Price</label>
+                                  <input
+                                    type="number"
+                                    placeholder="Selling"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    value={infantSellingPrice}
+                                    onChange={(e) => setInfantSellingPrice(e.target.value)}
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">Infant Purchase Price</label>
+                                  <input
+                                    type="number"
+                                    placeholder="Purchase"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    value={infantPurchasePrice}
+                                    onChange={(e) => setInfantPurchasePrice(e.target.value)}
                                     step="0.01"
                                   />
                                 </div>
@@ -5410,17 +5401,14 @@ const Visa = () => {
                                   </label>
                                 </div>
 
-                                <button
-                                  className="btn btn-primary"
-                                  onClick={handleShowHotels}
-                                >
-                                  Select Hotels
-                                </button>
+                                {/* Select Hotels button removed from this section */}
 
                                 <button
                                   className="btn btn-primary"
-                                  onClick={handleShowVehicleTypes}>
-                                  Select Vehicle Types
+                                  onClick={handleShowVehicleTypes}
+                                  disabled={withTransport}
+                                >
+                                  Select Sectors
                                 </button>
 
                                 {/* Hotel Selection Modal */}
@@ -5478,14 +5466,14 @@ const Visa = () => {
                                 {/* Vehicle Type Selection Modal (new) */}
                                 <Modal show={showVehicleTypeModal} onHide={handleCloseVehicleTypes} centered size="lg">
                                   <Modal.Header closeButton>
-                                    <Modal.Title>Select Vehicle Types</Modal.Title>
+                                    <Modal.Title>Select Sectors</Modal.Title>
                                   </Modal.Header>
                                   <Modal.Body>
                                     {vehicleTypes.length === 0 ? (
-                                      <p>No vehicle types available. Please add vehicle types first.</p>
+                                      <p>No sectors available. Please add sectors first.</p>
                                     ) : (
                                       <div>
-                                        <p className="text-muted mb-3">Select vehicle types to associate with this visa:</p>
+                                        <p className="text-muted mb-3">Select sectors to associate with this visa:</p>
                                         <ListGroup>
                                           {vehicleTypes.map((vehicleType) => (
                                             <ListGroup.Item
@@ -5551,19 +5539,15 @@ const Visa = () => {
                                   <label htmlFor="" className="Control-label">
                                     Visa Title
                                   </label>
-                                  <select
-                                    className="form-select"
-                                    value={editingVisaTypeTwoId || ""}
-                                    onChange={handleVisaSelectChange}
-                                    disabled={isLoadingVisaTypeTwo}
-                                  >
-                                    <option value="">All Titles</option>
-                                    {visaTypeTwoData.map((visa) => (
-                                      <option key={visa.id} value={visa.id}>
-                                        {visa.title || "Untitled Visa"}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  <div style={{ minWidth: 240 }}>
+                                    <SearchableSelect
+                                      options={toOptions(visaTypeTwoData, v => v.title || 'Untitled Visa', v => v.id)}
+                                      value={editingVisaTypeTwoId || ""}
+                                      onChange={(val) => handleVisaSelectChange({ target: { value: val } })}
+                                      isDisabled={isLoadingVisaTypeTwo}
+                                      placeholder="All Titles"
+                                    />
+                                  </div>
                                 </div>
 
                                 <button
@@ -5586,462 +5570,298 @@ const Visa = () => {
                             <h4 className="fw-bold mb-3">Only Visa Rates</h4>
                             <div className="col-12">
                               <div className="row g-3 align-items-end">
-                                {/* Adult Price */}
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Adult Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Adult Price"
-                                    value={onlyVisaAdult}
-                                    onChange={(e) =>
-                                      setOnlyVisaAdult(e.target.value)
-                                    }
-                                  />
-                                </div>
-
-                                {/* Child Price */}
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Child Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Child Price"
-                                    value={onlyVisaChild}
-                                    onChange={(e) =>
-                                      setOnlyVisaChild(e.target.value)
-                                    }
-                                  />
-                                </div>
-
-                                {/* Infant Price */}
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Infant Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Infant Price"
-                                    value={onlyVisaInfant}
-                                    onChange={(e) =>
-                                      setOnlyVisaInfant(e.target.value)
-                                    }
-                                  />
-                                </div>
-
-                                {/* Min Days */}
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Min Days
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Min Days"
-                                    value={minDays}
-                                    onChange={(e) => setMinDays(e.target.value)}
-                                  />
-                                </div>
-
-                                {/* Max Days */}
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Max Days
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Max Days"
-                                    value={maxDays}
-                                    onChange={(e) => setMaxDays(e.target.value)}
-                                  />
-                                </div>
-
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Purchase Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Purchase"
-                                    value={onlyVisaPurchase}
-                                    onChange={(e) => setOnlyVisaPurchase(e.target.value)}
-                                    step="0.01"
-                                  />
-                                </div>
-
-                                <div className="col-md-2">
-                                  <label htmlFor="" className="Control-label">
-                                    Selling Price
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control rounded shadow-none  px-1 py-2"
-                                    placeholder="Selling"
-                                    value={onlyVisaSelling}
-                                    onChange={(e) => setOnlyVisaSelling(e.target.value)}
-                                    step="0.01"
-                                  />
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className=" d-flex flex-wrap gap-2 align-items-center">
-                                  <div className="col-md-2">
-                                    <label htmlFor="" className="Control-label">
-                                      City Name
-                                    </label>
-                                    <select
-                                      className="form-select"
-                                      value={airportId}
-                                      onChange={(e) => {
-                                        const selectedId = e.target.value;
-                                        setAirportId(selectedId);
-                                        const selectedCity = cities.find(
-                                          (c) => c.id.toString() === selectedId
-                                        );
-                                        if (selectedCity) {
-                                          setAirport(
-                                            `${selectedCity.name} (${selectedCity.code})`
-                                          );
-                                        }
-                                      }}
+                                {/* Visa Option Buttons: Only Visa / Long Term Visa */}
+                                <div className="col-md-3 d-flex align-items-center">
+                                  <div className="btn-group d-flex" role="group" aria-label="Visa Option" style={{whiteSpace: 'nowrap'}}>
+                                    <button
+                                      type="button"
+                                      className={`btn ${onlyVisaOption === 'only' ? 'btn-primary' : 'btn-outline-primary'} btn-sm me-1`}
+                                      onClick={() => setOnlyVisaOption('only')}
+                                      style={{height: '38px', whiteSpace: 'nowrap'}}
                                     >
-                                      <option value="">Select City</option>
-                                      {cities.map((city) => (
-                                        <option key={city.id} value={city.id}>
-                                          {city.name} ({city.code})
-                                        </option>
-                                      ))}
-                                    </select>
+                                      Only Visa
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`btn ${onlyVisaOption === 'longterm' ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
+                                      onClick={() => setOnlyVisaOption('longterm')}
+                                      style={{height: '38px', whiteSpace: 'nowrap'}}
+                                    >
+                                      Long Term Visa
+                                    </button>
                                   </div>
+                                </div>
 
-                                  <div className="col-md-2">
-                                    <div className="form-check form-switch mt-4">
-                                      <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="statusSwitch"
-                                        checked={status === "active"}
-                                        onChange={(e) => setStatus(e.target.checked ? "active" : "inactive")}
-                                      />
-                                      <label className="form-check-label" htmlFor="statusSwitch">
-                                        {status === "active" ? "Active" : "Inactive"}
-                                      </label>
+                                {/* Title (inserted right after visa option buttons) */}
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Title
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Title"
+                                    value={onlyVisaTitle}
+                                    onChange={(e) => setOnlyVisaTitle(e.target.value)}
+                                  />
+                                </div>
+
+                                {/* Adult Selling */}
+                                <div className="col-md-3">
+                                  <label htmlFor="" className="Control-label">
+                                    Adult Selling Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Adult Selling"
+                                    value={onlyAdultSellingPrice}
+                                    onChange={(e) =>
+                                      setOnlyAdultSellingPrice(e.target.value)
+                                    }
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                {/* Adult Purchase */}
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Adult Purchase Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Adult Purchase"
+                                    value={onlyAdultPurchasePrice}
+                                    onChange={(e) =>
+                                      setOnlyAdultPurchasePrice(e.target.value)
+                                    }
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                {/* Child Selling */}
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Child Selling Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Child Selling"
+                                    value={onlyChildSellingPrice}
+                                    onChange={(e) =>
+                                      setOnlyChildSellingPrice(e.target.value)
+                                    }
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                {/* Child Purchase (moved to second row) */}
+
+                                {/* Infant fields moved to next row to make space for buttons */}
+
+                                
+
+                                {/* Second row: Infant fields (moved here to free space in first row) */}
+                                <div className="w-100" />
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Child Purchase Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Child Purchase"
+                                    value={onlyChildPurchasePrice}
+                                    onChange={(e) =>
+                                      setOnlyChildPurchasePrice(e.target.value)
+                                    }
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Infant Selling Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Infant Selling"
+                                    value={onlyInfantSellingPrice}
+                                    onChange={(e) =>
+                                      setOnlyInfantSellingPrice(e.target.value)
+                                    }
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Infant Purchase Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none  px-1 py-2"
+                                    placeholder="Infant Purchase"
+                                    value={onlyInfantPurchasePrice}
+                                    onChange={(e) =>
+                                      setOnlyInfantPurchasePrice(e.target.value)
+                                    }
+                                    step="0.01"
+                                  />
+                                </div>
+
+                                {/* Action Buttons - responsive grid */}
+                                <div className="col-12">
+                                  <div className="row g-2 align-items-center">
+                                    <div className="col-12 col-md-2">
+                                      <div className="form-check form-switch">
+                                        <input
+                                          className="form-check-input"
+                                          type="checkbox"
+                                          id="statusSwitch"
+                                          checked={status === "active"}
+                                          onChange={(e) => setStatus(e.target.checked ? "active" : "inactive")}
+                                        />
+                                        <label className="form-check-label" htmlFor="statusSwitch">
+                                          {status === "active" ? "Active" : "Inactive"}
+                                        </label>
+                                      </div>
+                                    </div>
+
+                                    <div className="col-12 col-md-3">
+                                      <div className="form-check d-flex align-items-center gap-2">
+                                        <input
+                                          className="form-check-input"
+                                          type="checkbox"
+                                          id="onlyWithTransport"
+                                          checked={withTransport}
+                                          onChange={() => setWithTransport(!withTransport)}
+                                        />
+                                        <label className="form-check-label" htmlFor="onlyWithTransport">
+                                          With Transport
+                                        </label>
+                                      </div>
+                                    </div>
+
+                                    <div className="col-12 col-md-2">
+                                      <button
+                                        className="btn btn-outline-primary w-100"
+                                        onClick={handleShowVehicleTypes}
+                                        disabled={withTransport}
+                                      >
+                                        Select Sectors
+                                      </button>
+                                    </div>
+
+                                    <div className="col-12 col-md-3 d-flex gap-2">
+                                      <button
+                                        className="btn btn-primary flex-grow-1"
+                                        onClick={handleSetOnlyVisaPrices}
+                                        disabled={isSettingOnlyVisa}
+                                      >
+                                        {selectedVisaPrice
+                                          ? isSettingOnlyVisa
+                                            ? "Updating..."
+                                            : "Update"
+                                          : isSettingOnlyVisa
+                                            ? "Saving..."
+                                            : "Save"}
+                                      </button>
+
+                                      <button
+                                        className="btn btn-secondary"
+                                        onClick={() => {
+                                          resetFormFields();
+                                          setIsEditingOnlyVisa(false);
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+
+                                    <div className="col-12 col-md-2">
+                                      <label className="Control-label d-block">Select Visa Price</label>
+                                      <div>
+                                        <SearchableSelect
+                                          options={toOptions(onlyVisaPrices, p => p.title || p.city?.name || 'Unnamed', p => p.id)}
+                                          value={selectedVisaPrice?.id || ""}
+                                          onChange={(val) => {
+                                            const selectedId = parseInt(val);
+                                            if (!selectedId) {
+                                              setSelectedVisaPrice(null);
+                                              resetFormFields();
+                                              return;
+                                            }
+
+                                            const selected = onlyVisaPrices.find(price => price.id === selectedId);
+
+                                            setSelectedVisaPrice(selected || null);
+
+                                            if (selected) {
+                                              setOnlyAdultSellingPrice(selected.adult_selling_price?.toString() || selected.adault_price?.toString() || "");
+                                              setOnlyAdultPurchasePrice(selected.adult_purchase_price?.toString() || selected.purchase_price?.toString() || "");
+                                              setOnlyChildSellingPrice(selected.child_selling_price?.toString() || selected.child_price?.toString() || "");
+                                              setOnlyChildPurchasePrice(selected.child_purchase_price?.toString() || selected.purchase_price?.toString() || "");
+                                              setOnlyInfantSellingPrice(selected.infant_selling_price?.toString() || selected.infant_price?.toString() || "");
+                                              setOnlyInfantPurchasePrice(selected.infant_purchase_price?.toString() || selected.purchase_price?.toString() || "");
+
+                                              setStatus(selected.status || "");
+                                              setOnlyVisaTitle(selected.title || "");
+                                              setOnlyVisaOption(selected.visa_option || 'only');
+                                              setWithTransport(selected.is_transport || false);
+
+                                              if (selected.city && selected.city.id) {
+                                                setAirportId(selected.city.id.toString());
+                                                setAirport(`${selected.city.name} (${selected.city.code})`);
+                                              } else {
+                                                setAirportId("");
+                                                setAirport("");
+                                              }
+
+                                              if (selected.sectors && Array.isArray(selected.sectors)) {
+                                                const sIds = selected.sectors.map(s => (s && s.id) ? s.id : s).filter(Boolean);
+                                                setSelectedVisaSectors(sIds.map(id => id.toString()));
+                                              } else {
+                                                setSelectedVisaSectors([]);
+                                              }
+
+                                              setIsEditingOnlyVisa(true);
+                                            } else {
+                                              resetFormFields();
+                                            }
+                                          }}
+                                          placeholder="Create New Visa Price"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="col-auto">
+                                      {selectedVisaPrice && (
+                                        <button
+                                          className="btn btn-danger"
+                                          onClick={handleDeleteVisaPrice}
+                                          disabled={isDeleting}
+                                        >
+                                          {isDeleting ? "Deleting..." : "Delete"}
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
-
-                                  <div className="col-md-5">
-                                    <button
-                                      className="btn btn-primary"
-                                      onClick={handleSetOnlyVisaPrices}
-                                      disabled={isSettingOnlyVisa}
-                                    >
-                                      {selectedVisaPrice
-                                        ? isSettingOnlyVisa
-                                          ? "Updating..."
-                                          : "Update"
-                                        : isSettingOnlyVisa
-                                          ? "Saving..."
-                                          : "Save"}
-                                    </button>
-
-                                    <button
-                                      className="btn btn-secondary"
-                                      onClick={() => {
-                                        resetFormFields();
-                                        setIsEditingOnlyVisa(false);
-                                      }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-
-                                  <div className="col-md-3">
-                                    <label htmlFor="" className="Control-label">
-                                      Select Visa Price
-                                    </label>
-                                    <select
-                                      className="form-select"
-                                      value={selectedVisaPrice?.id || ""}
-                                      onChange={(e) => {
-                                        const selectedId = parseInt(e.target.value);
-                                        if (!selectedId) {
-                                          setSelectedVisaPrice(null);
-                                          resetFormFields();
-                                          return;
-                                        }
-
-                                        const selected = onlyVisaPrices.find(
-                                          price => price.id === selectedId
-                                        );
-
-                                        setSelectedVisaPrice(selected || null);
-
-                                        if (selected) {
-                                          setOnlyVisaAdult(selected.adault_price?.toString() || "");
-                                          setOnlyVisaChild(selected.child_price?.toString() || "");
-                                          setOnlyVisaInfant(selected.infant_price?.toString() || "");
-                                          setMinDays(selected.min_days?.toString() || "");
-                                          setMaxDays(selected.max_days?.toString() || "");
-                                          setStatus(selected.status || "");
-                                          setOnlyVisaPurchase(selected.purchase_price?.toString() || "");
-                                          setOnlyVisaSelling(selected.selling_price?.toString() || "");
-
-                                          // Correctly set the airport ID from the city object
-                                          if (selected.city && selected.city.id) {
-                                            setAirportId(selected.city.id.toString());
-                                            setAirport(`${selected.city.name} (${selected.city.code})`);
-                                          } else {
-                                            setAirportId("");
-                                            setAirport("");
-                                          }
-
-                                          setIsEditingOnlyVisa(true);
-                                        } else {
-                                          resetFormFields();
-                                        }
-                                      }}
-                                    >
-                                      <option value="">Create New Visa Price</option>
-                                      {onlyVisaPrices && onlyVisaPrices.length > 0 ? (
-                                        onlyVisaPrices.map((price) => (
-                                          <option key={price.id} value={price.id}>
-                                            {price.city?.name || "Unnamed"} -
-                                            Adult: {price.adault_price || "0"}
-                                          </option>
-                                        ))
-                                      ) : (
-                                        <option disabled>No visa prices available</option>
-                                      )}
-                                    </select>
-                                  </div>
-                                  <div className="d-flex align-items-center">
-                                    {selectedVisaPrice && (
-                                      <button
-                                        className="btn btn-danger"
-                                        onClick={handleDeleteVisaPrice}
-                                        disabled={isDeleting}
-                                      >
-                                        {isDeleting ? "Deleting..." : "Delete"}
-                                      </button>
-                                    )}
-                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
 
-                        {/* 4 */}
-                        <div className="p-lg-4 pt-4">
-                          <div className="row">
-                            <h4 className="fw-bold mb-3">
-                              Transport Type2 Sectors
-                              {isLoadingTransportType2 && (
-                                <span className="spinner-border spinner-border-sm ms-2"></span>
-                              )}
-                            </h4>
-                            <div className="col-12 d-flex flex-wrap gap-3">
-                              {/* Sector Name */}
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Sector Name
-                                </label>
-                                <input
-                                  type="text"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2Sector}
-                                  onChange={(e) =>
-                                    setTransportType2Sector(e.target.value)
-                                  }
-                                  placeholder="Enter sector name"
-                                />
-                              </div>
-
-                              {/* Vehicle Type */}
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Vehicle Type
-                                </label>
-                                <input
-                                  type="text"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2VehicleType}
-                                  onChange={(e) =>
-                                    setTransportType2VehicleType(e.target.value)
-                                  }
-                                  placeholder="e.g., Bus, Car"
-                                />
-                              </div>
-
-                              {/* Adult Price */}
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Adult Price
-                                </label>
-                                <input
-                                  type="number"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2Adult}
-                                  onChange={(e) =>
-                                    setTransportType2Adult(e.target.value)
-                                  }
-                                  placeholder="600"
-                                />
-                              </div>
-
-                              {/* Child Price */}
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Child Price
-                                </label>
-                                <input
-                                  type="number"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2Child}
-                                  onChange={(e) =>
-                                    setTransportType2Child(e.target.value)
-                                  }
-                                  placeholder="500"
-                                />
-                              </div>
-
-                              {/* Infant Price */}
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Infant Price
-                                </label>
-                                <input
-                                  type="number"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2Infants}
-                                  onChange={(e) =>
-                                    setTransportType2Infants(e.target.value)
-                                  }
-                                  placeholder="600"
-                                />
-                              </div>
-
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Purchase Price
-                                </label>
-                                <input
-                                  type="number"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2Purchase}
-                                  onChange={(e) => setTransportType2Purchase(e.target.value)}
-                                  placeholder="Purchase"
-                                  step="0.01"
-                                />
-                              </div>
-
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Selling Price
-                                </label>
-                                <input
-                                  type="number"
-                                  className="form-control rounded shadow-none  px-1 py-2"
-                                  value={transportType2Selling}
-                                  onChange={(e) => setTransportType2Selling(e.target.value)}
-                                  placeholder="Selling"
-                                  step="0.01"
-                                />
-                              </div>
-
-                              <div className="form-check d-flex align-items-center gap-2">
-                                <input
-                                  className="form-check-input border border-black"
-                                  type="checkbox"
-                                  checked={onlyTransportCharges}
-                                  onChange={() =>
-                                    setOnlyTransportCharges(
-                                      !onlyTransportCharges
-                                    )
-                                  }
-                                  id="onlyTransportCharges"
-                                />
-                                <label
-                                  className="form-check-label"
-                                  htmlFor="onlyTransportCharges"
-                                >
-                                  Only Transport Charges Else No Charges
-                                </label>
-                              </div>
-
-                              {/* Submit Button */}
-                              <div className="d-flex align-items-end mb-3">
-                                <button
-                                  className="btn btn-primary px-3 py-2"
-                                  onClick={handleTransportType2Submit}
-                                  disabled={isSettingTransportType2}
-                                >
-                                  {isSettingTransportType2 ? (
-                                    <>
-                                      <span className="spinner-border spinner-border-sm me-2"></span>
-                                      {editingTransportType2Id
-                                        ? "Updating..."
-                                        : "Adding..."}
-                                    </>
-                                  ) : editingTransportType2Id ? (
-                                    "Update Sector"
-                                  ) : (
-                                    "Add Sector"
-                                  )}
-                                </button>
-                              </div>
-
-                              {/* Select Sector */}
-                              <div>
-                                <label htmlFor="" className="Control-label">
-                                  Select Sector
-                                </label>
-                                <select
-                                  className="form-select"
-                                  value={removeTransportType2}
-                                  onChange={handleTransportType2Select}
-                                  disabled={transportType2Sectors.length === 0}
-                                >
-                                  <option value="">Select Sector</option>
-                                  {transportType2Sectors.map((sector) => (
-                                    <option key={sector.id} value={sector.id}>
-                                      {sector.name} ({sector.vehicle_type})
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {/* Remove Button */}
-                              <div className="d-flex align-items-end mb-3">
-                                <button
-                                  className="btn btn-danger px-3 py-2"
-                                  onClick={() =>
-                                    removeTransportType2 &&
-                                    setShowDeleteTransportType2Modal(true)
-                                  }
-                                  disabled={
-                                    !removeTransportType2 ||
-                                    removeTransportType2 === "All Sectors"
-                                  }
-                                >
-                                  Remove Sector
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                        
 
                         {/* vehicle type */}
                         <div className="p-lg-4 pt-4">
                           <div className="row">
-                            <h4 className="fw-bold mb-3">Vehicle Type</h4>
+                            <h4 className="fw-bold mb-3">Transport Prices</h4>
                             <div className="col-12 d-flex flex-wrap gap-3">
 
                               {/* Vehicle Name */}
@@ -6068,39 +5888,77 @@ const Visa = () => {
                                 />
                               </div>
 
-                              {/* Price */}
+                              {/* Per-vehicle Price removed — using per-person selling/purchase fields below */}
+
+                              {/* Per-person selling/purchase prices for vehicle type */}
                               <div>
-                                <label htmlFor="" className="control-label">Price *</label>
+                                <label htmlFor="" className="control-label">Adult Selling Price</label>
                                 <input
                                   type="number"
                                   className="form-control rounded shadow-none px-1 py-2"
-                                  value={vehicleTypePrice}
-                                  onChange={(e) => setVehicleTypePrice(e.target.value)}
-                                  placeholder="600"
+                                  value={vehicleTypeAdultSelling}
+                                  onChange={(e) => setVehicleTypeAdultSelling(e.target.value)}
+                                  placeholder="Adult Selling"
                                   step="0.01"
                                 />
                               </div>
 
                               <div>
-                                <label htmlFor="" className="control-label">Purchase Price</label>
+                                <label htmlFor="" className="control-label">Adult Purchase Price</label>
                                 <input
                                   type="number"
                                   className="form-control rounded shadow-none px-1 py-2"
-                                  value={vehicleTypePurchase}
-                                  onChange={(e) => setVehicleTypePurchase(e.target.value)}
-                                  placeholder="Purchase"
+                                  value={vehicleTypeAdultPurchase}
+                                  onChange={(e) => setVehicleTypeAdultPurchase(e.target.value)}
+                                  placeholder="Adult Purchase"
                                   step="0.01"
                                 />
                               </div>
 
                               <div>
-                                <label htmlFor="" className="control-label">Selling Price</label>
+                                <label htmlFor="" className="control-label">Child Selling Price</label>
                                 <input
                                   type="number"
                                   className="form-control rounded shadow-none px-1 py-2"
-                                  value={vehicleTypeSelling}
-                                  onChange={(e) => setVehicleTypeSelling(e.target.value)}
-                                  placeholder="Selling"
+                                  value={vehicleTypeChildSelling}
+                                  onChange={(e) => setVehicleTypeChildSelling(e.target.value)}
+                                  placeholder="Child Selling"
+                                  step="0.01"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="" className="control-label">Child Purchase Price</label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none px-1 py-2"
+                                  value={vehicleTypeChildPurchase}
+                                  onChange={(e) => setVehicleTypeChildPurchase(e.target.value)}
+                                  placeholder="Child Purchase"
+                                  step="0.01"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="" className="control-label">Infant Selling Price</label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none px-1 py-2"
+                                  value={vehicleTypeInfantSelling}
+                                  onChange={(e) => setVehicleTypeInfantSelling(e.target.value)}
+                                  placeholder="Infant Selling"
+                                  step="0.01"
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="" className="control-label">Infant Purchase Price</label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none px-1 py-2"
+                                  value={vehicleTypeInfantPurchase}
+                                  onChange={(e) => setVehicleTypeInfantPurchase(e.target.value)}
+                                  placeholder="Infant Purchase"
                                   step="0.01"
                                 />
                               </div>
@@ -6120,31 +5978,17 @@ const Visa = () => {
                               {/* Sector Selection */}
                               <div>
                                 <label htmlFor="" className="control-label">Select Sector *</label>
-                                <select
-                                  className="form-select rounded shadow-none px-1 py-2"
-                                  value={vehicleTypeSectorId}
-                                  onChange={(e) => setVehicleTypeSectorId(parseInt(e.target.value))}
-                                >
-                                  <option value="0">Select Sector</option>
-
-                                  {/* Small Sectors */}
-                                  <optgroup label="Small Sectors">
-                                    {smallSectors.map((sector) => (
-                                      <option key={`small-${sector.id}`} value={sector.id}>
-                                        {getCityNameWithCode(sector.departure_city)} → {getCityNameWithCode(sector.arrival_city)}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-
-                                  {/* Big Sectors */}
-                                  <optgroup label="Big Sectors">
-                                    {bigSectors.map((bigSector) => (
-                                      <option key={`big-${bigSector.id}`} value={bigSector.id}>
-                                        {getBigSectorDisplayName(bigSector)}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                </select>
+                                <div style={{ minWidth: 300 }}>
+                                  <SearchableSelect
+                                    options={[
+                                      { label: 'Small Sectors', options: toOptions(smallSectors, s => `${getCityNameWithCode(s.departure_city)} → ${getCityNameWithCode(s.arrival_city)}`, s => s.id) },
+                                      { label: 'Big Sectors', options: toOptions(bigSectors, b => getBigSectorDisplayName(b), b => b.id) }
+                                    ]}
+                                    value={vehicleTypeSectorId}
+                                    onChange={(val) => setVehicleTypeSectorId(parseInt(val || 0))}
+                                    placeholder="Select Sector"
+                                  />
+                                </div>
 
                                 {/* Show selected sector type */}
                                 {vehicleTypeSectorId > 0 && (
@@ -6173,7 +6017,7 @@ const Visa = () => {
                                 <button
                                   className="btn btn-primary px-3 py-2"
                                   onClick={handleVehicleTypeSubmit}
-                                  disabled={isSubmittingVehicleType || !vehicleTypeName || !vehicleTypeType || !vehicleTypePrice || !vehicleTypeSectorId}
+                                  disabled={isSubmittingVehicleType || !vehicleTypeName || !vehicleTypeType || !vehicleTypeSectorId}
                                 >
                                   {isSubmittingVehicleType ? (
                                     <>
@@ -6191,23 +6035,15 @@ const Visa = () => {
                               {/* Select Existing Vehicle Type */}
                               <div>
                                 <label htmlFor="" className="control-label">Manage Vehicle Types</label>
-                                <select
-                                  className="form-select"
-                                  value={selectedVehicleTypeId}
-                                  onChange={handleVehicleTypeSelect}
-                                  disabled={vehicleTypes.length === 0}
-                                >
-                                  <option value="">Select Vehicle Type to Edit</option>
-                                  {vehicleTypes.map((vehicleType) => (
-                                    <option key={vehicleType.id} value={vehicleType.id}>
-                                      {vehicleType.vehicle_name} ({vehicleType.vehicle_type}) -
-                                      {vehicleType.small_sector ? ' Small Sector' : ''}
-                                      {vehicleType.big_sector ? ' Big Sector' : ''}
-                                      {vehicleType.small_sector_id ? ' Small Sector' : ''}
-                                      {vehicleType.big_sector_id ? ' Big Sector' : ''}
-                                    </option>
-                                  ))}
-                                </select>
+                                <div style={{ minWidth: 300 }}>
+                                  <SearchableSelect
+                                    options={toOptions(vehicleTypes, v => `${v.vehicle_name} (${v.vehicle_type})${v.small_sector? ' - Small Sector':''}${v.big_sector ? ' - Big Sector' : ''}`, v => v.id)}
+                                    value={selectedVehicleTypeId}
+                                    onChange={handleVehicleTypeSelect}
+                                    isDisabled={vehicleTypes.length === 0}
+                                    placeholder="Select Vehicle Type to Edit"
+                                  />
+                                </div>
                               </div>
 
                               {/* Action Buttons */}
@@ -6223,7 +6059,7 @@ const Visa = () => {
                                 <button
                                   className="btn btn-secondary px-3 py-2"
                                   onClick={resetVehicleTypeForm}
-                                  disabled={!vehicleTypeName && !vehicleTypeType && !vehicleTypePrice}
+                                  disabled={!vehicleTypeName && !vehicleTypeType}
                                 >
                                   Clear Form
                                 </button>
@@ -6326,48 +6162,88 @@ const Visa = () => {
                               />
                             </div>
 
-                            <div className="col-md-2">
-                              <label htmlFor="" className="Control-label">
-                                Price
-                              </label>
-                              <input
-                                type="number"
-                                className="form-control rounded shadow-none  px-1 py-2"
-                                placeholder="Price"
-                                value={foodFormData.price}
-                                onChange={(e) => handleInputChange(e)}
-                                name="price"
-                                min="0"
-                              />
-                            </div>
+                            {/* legacy generic price inputs removed - using per-person selling/purchase fields below */}
 
+                            {/* Per-person selling/purchase fields for Food Prices */}
                             <div className="col-md-2">
-                              <label htmlFor="" className="Control-label">
-                                Purchase Price
-                              </label>
+                              <label htmlFor="" className="Control-label">Adult Selling Price</label>
                               <input
                                 type="number"
                                 className="form-control rounded shadow-none  px-1 py-2"
-                                placeholder="Purchase"
-                                value={foodFormData.purchase_price}
+                                placeholder="Adult Selling"
+                                value={foodFormData.adult_selling_price || ''}
                                 onChange={(e) => handleInputChange(e)}
-                                name="purchase_price"
+                                name="adult_selling_price"
                                 min="0"
                                 step="0.01"
                               />
                             </div>
 
                             <div className="col-md-2">
-                              <label htmlFor="" className="Control-label">
-                                Selling Price
-                              </label>
+                              <label htmlFor="" className="Control-label">Adult Purchase Price</label>
                               <input
                                 type="number"
                                 className="form-control rounded shadow-none  px-1 py-2"
-                                placeholder="Selling"
-                                value={foodFormData.selling_price}
+                                placeholder="Adult Purchase"
+                                value={foodFormData.adult_purchase_price || ''}
                                 onChange={(e) => handleInputChange(e)}
-                                name="selling_price"
+                                name="adult_purchase_price"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Child Selling Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none  px-1 py-2"
+                                placeholder="Child Selling"
+                                value={foodFormData.child_selling_price || ''}
+                                onChange={(e) => handleInputChange(e)}
+                                name="child_selling_price"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Child Purchase Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none  px-1 py-2"
+                                placeholder="Child Purchase"
+                                value={foodFormData.child_purchase_price || ''}
+                                onChange={(e) => handleInputChange(e)}
+                                name="child_purchase_price"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Infant Selling Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none  px-1 py-2"
+                                placeholder="Infant Selling"
+                                value={foodFormData.infant_selling_price || ''}
+                                onChange={(e) => handleInputChange(e)}
+                                name="infant_selling_price"
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Infant Purchase Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none  px-1 py-2"
+                                placeholder="Infant Purchase"
+                                value={foodFormData.infant_purchase_price || ''}
+                                onChange={(e) => handleInputChange(e)}
+                                name="infant_purchase_price"
                                 min="0"
                                 step="0.01"
                               />
@@ -6377,24 +6253,15 @@ const Visa = () => {
                               <label htmlFor="citySelect" className="Control-label">
                                 City
                               </label>
-                              <select
-                                id="citySelect"
-                                className="form-select rounded shadow-none px-1 py-2"
-                                name="city_id"
-                                value={foodFormData.city_id}
-                                onChange={handleInputChange}
-                              >
-                                <option value="">Select City</option>
-                                {foodCities && foodCities.length > 0 ? (
-                                  foodCities.map((city) => (
-                                    <option key={city.id} value={city.id}>
-                                      {city.name} ({city.code})
-                                    </option>
-                                  ))
-                                ) : (
-                                  <option disabled>No cities available</option>
-                                )}
-                              </select>
+                              <div>
+                                <SearchableSelect
+                                  options={toOptions(foodCities, c => `${c.name} (${c.code})`, c => c.id)}
+                                  value={foodFormData.city_id}
+                                  onChange={(val) => handleInputChange({ target: { name: 'city_id', value: val } })}
+                                  placeholder="Select City"
+                                  isDisabled={!foodCities || foodCities.length === 0}
+                                />
+                              </div>
                             </div>
 
 
@@ -6459,42 +6326,41 @@ const Visa = () => {
                                 <label htmlFor="" className="Control-label">
                                   Select Food Price
                                 </label>
-                                <select
-                                  className="form-select"
-                                  value={currentId || ""}
-                                  onChange={(e) => {
-                                    const id = e.target.value;
-                                    setCurrentId(id || null);
-                                    if (id) {
-                                      const selected = foodPrices.find(
-                                        (p) => p.id.toString() === id
-                                      );
-                                      if (selected) {
-                                        setFoodFormData({
-                                          title: selected.title,
-                                          min_pex: selected.min_pex,
-                                          per_pex: selected.per_pex,
-                                          price: selected.price,
-                                          description: selected.description,
-                                          city_id: selected.city?.id || "", // Fix: access city ID from nested object
-                                          active: selected.active,
-                                          organization: orgId,
-                                        });
-                                        setIsEditing(true);
-                                        setEditingId(id);
+                                <div style={{ minWidth: 280 }}>
+                                  <SearchableSelect
+                                    options={toOptions(foodPrices, p => `${p.title}${p.city ? ` - ${p.city.name}` : ''}`, p => p.id)}
+                                    value={currentId || ""}
+                                    onChange={(val) => {
+                                      const id = val;
+                                      setCurrentId(id || null);
+                                      if (id) {
+                                        const selected = foodPrices.find((p) => String(p.id) === String(id));
+                                        if (selected) {
+                                          setFoodFormData({
+                                            title: selected.title,
+                                            min_pex: selected.min_pex,
+                                            per_pex: selected.per_pex,
+                                            description: selected.description,
+                                            city_id: selected.city?.id || "",
+                                            active: selected.active,
+                                            organization: orgId,
+                                            adult_selling_price: selected.adult_selling_price?.toString() || selected.adault_price?.toString() || selected.selling_price?.toString() || "",
+                                            adult_purchase_price: selected.adult_purchase_price?.toString() || selected.purchase_price?.toString() || "",
+                                            child_selling_price: selected.child_selling_price?.toString() || selected.child_price?.toString() || selected.selling_price?.toString() || "",
+                                            child_purchase_price: selected.child_purchase_price?.toString() || selected.purchase_price?.toString() || "",
+                                            infant_selling_price: selected.infant_selling_price?.toString() || selected.infant_price?.toString() || selected.selling_price?.toString() || "",
+                                            infant_purchase_price: selected.infant_purchase_price?.toString() || selected.purchase_price?.toString() || "",
+                                          });
+                                          setIsEditing(true);
+                                          setEditingId(id);
+                                        }
+                                      } else {
+                                        resetForm();
                                       }
-                                    } else {
-                                      resetForm();
-                                    }
-                                  }}
-                                >
-                                  <option value="">Create New Food Price</option>
-                                  {foodPrices.map((price) => (
-                                    <option key={price.id} value={price.id}>
-                                      {price.title} {price.city ? `- ${price.city.name}` : ''}
-                                    </option>
-                                  ))}
-                                </select>
+                                    }}
+                                    placeholder="Create New Food Price"
+                                  />
+                                </div>
                               </div>
                               <div className="d-flex align-items-center">
                                 {currentId && (
@@ -6528,19 +6394,14 @@ const Visa = () => {
                               <label htmlFor="" className="Control-label">
                                 City
                               </label>
-                              <select
-                                className="form-select rounded shadow-none px-1 py-2"
-                                name="city_id"
-                                value={ziaratFormData.city_id}
-                                onChange={handleZiaratInputChange}
-                              >
-                                <option value="">Select City</option>
-                                {ziaratCities.map((city) => (
-                                  <option key={city.id} value={city.id.toString()}>
-                                    {city.name} ({city.code})
-                                  </option>
-                                ))}
-                              </select>
+                              <div>
+                                <SearchableSelect
+                                  options={toOptions(ziaratCities, c => `${c.name} (${c.code})`, c => c.id)}
+                                  value={ziaratFormData.city_id}
+                                  onChange={(val) => handleZiaratInputChange({ target: { name: 'city_id', value: val } })}
+                                  placeholder="Select City"
+                                />
+                              </div>
                             </div>
 
                             {/* Ziarat Title */}
@@ -6603,32 +6464,17 @@ const Visa = () => {
                               />
                             </div>
 
-                            {/* Price */}
-                            <div className="col-md-2">
-                              <label htmlFor="" className="Control-label">
-                                Price *
-                              </label>
-                              <input
-                                type="number"
-                                className="form-control rounded shadow-none px-1 py-2"
-                                placeholder="Price"
-                                name="price"
-                                value={ziaratFormData.price}
-                                onChange={handleZiaratInputChange}
-                                min="0"
-                              />
-                            </div>
+                            {/* Legacy generic price inputs removed (using per-person selling/purchase fields) */}
 
+                            {/* Per-person selling/purchase for Ziarat */}
                             <div className="col-md-2">
-                              <label htmlFor="" className="Control-label">
-                                Purchase Price
-                              </label>
+                              <label htmlFor="" className="Control-label">Adult Selling Price</label>
                               <input
                                 type="number"
                                 className="form-control rounded shadow-none px-1 py-2"
-                                placeholder="Purchase"
-                                name="purchase_price"
-                                value={ziaratFormData.purchase_price}
+                                placeholder="Adult Selling"
+                                name="adult_selling_price"
+                                value={ziaratFormData.adult_selling_price || ''}
                                 onChange={handleZiaratInputChange}
                                 min="0"
                                 step="0.01"
@@ -6636,15 +6482,69 @@ const Visa = () => {
                             </div>
 
                             <div className="col-md-2">
-                              <label htmlFor="" className="Control-label">
-                                Selling Price
-                              </label>
+                              <label htmlFor="" className="Control-label">Adult Purchase Price</label>
                               <input
                                 type="number"
                                 className="form-control rounded shadow-none px-1 py-2"
-                                placeholder="Selling"
-                                name="selling_price"
-                                value={ziaratFormData.selling_price}
+                                placeholder="Adult Purchase"
+                                name="adult_purchase_price"
+                                value={ziaratFormData.adult_purchase_price || ''}
+                                onChange={handleZiaratInputChange}
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Child Selling Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none px-1 py-2"
+                                placeholder="Child Selling"
+                                name="child_selling_price"
+                                value={ziaratFormData.child_selling_price || ''}
+                                onChange={handleZiaratInputChange}
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Child Purchase Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none px-1 py-2"
+                                placeholder="Child Purchase"
+                                name="child_purchase_price"
+                                value={ziaratFormData.child_purchase_price || ''}
+                                onChange={handleZiaratInputChange}
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Infant Selling Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none px-1 py-2"
+                                placeholder="Infant Selling"
+                                name="infant_selling_price"
+                                value={ziaratFormData.infant_selling_price || ''}
+                                onChange={handleZiaratInputChange}
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
+
+                            <div className="col-md-2">
+                              <label htmlFor="" className="Control-label">Infant Purchase Price</label>
+                              <input
+                                type="number"
+                                className="form-control rounded shadow-none px-1 py-2"
+                                placeholder="Infant Purchase"
+                                name="infant_purchase_price"
+                                value={ziaratFormData.infant_purchase_price || ''}
                                 onChange={handleZiaratInputChange}
                                 min="0"
                                 step="0.01"
@@ -6719,7 +6619,7 @@ const Visa = () => {
                                   !ziaratFormData.ziarat_title ||
                                   !ziaratFormData.contact_person ||
                                   !ziaratFormData.contact_number ||
-                                  !ziaratFormData.price
+                                  !ziaratFormData.adult_selling_price
                                 }
                               >
                                 {isSavingZiarat ? (
@@ -6751,30 +6651,22 @@ const Visa = () => {
                               <label htmlFor="" className="Control-label">
                                 Select Ziarat Price
                               </label>
-                              <select
-                                className="form-select shadow-none"
-                                value={editingZiaratId || ""}
-                                onChange={(e) => {
-                                  const ziaratId = e.target.value;
-                                  if (ziaratId) {
-                                    const selectedZiarat = ziaratPrices.find(
-                                      (z) => z.id.toString() === ziaratId
-                                    );
-                                    if (selectedZiarat) {
-                                      handleEditZiarat(selectedZiarat);
+                              <div>
+                                <SearchableSelect
+                                  options={toOptions(ziaratPrices, z => `${z.ziarat_title}${z.city ? ` - ${z.city.name}` : ''}`, z => z.id)}
+                                  value={editingZiaratId || ""}
+                                  onChange={(val) => {
+                                    const ziaratId = val;
+                                    if (ziaratId) {
+                                      const selectedZiarat = ziaratPrices.find((z) => String(z.id) === String(ziaratId));
+                                      if (selectedZiarat) handleEditZiarat(selectedZiarat);
+                                    } else {
+                                      resetZiaratForm();
                                     }
-                                  } else {
-                                    resetZiaratForm();
-                                  }
-                                }}
-                              >
-                                <option value="">Create New Ziarat Price</option>
-                                {ziaratPrices.map((ziarat) => (
-                                  <option key={ziarat.id} value={ziarat.id}>
-                                    {ziarat.ziarat_title} {ziarat.city ? `- ${ziarat.city.name}` : ''}
-                                  </option>
-                                ))}
-                              </select>
+                                  }}
+                                  placeholder="Create New Ziarat Price"
+                                />
+                              </div>
                             </div>
                             {/* Delete Button for Selected Ziarat */}
                             <div>
@@ -6809,35 +6701,28 @@ const Visa = () => {
                             <label htmlFor="" className="Control-label">
                               Select Flight
                             </label>
-                            <select
-                              className="form-select"
-                              value={editingFlightId || ""}
-                              onChange={(e) => {
-                                const flightId = e.target.value;
-                                setEditingFlightId(flightId || null);
-                                if (flightId) {
-                                  const selectedFlight = flights.find(
-                                    (f) => f.id.toString() === flightId
-                                  );
-                                  if (selectedFlight) {
-                                    setFlightName(selectedFlight.name);
-                                    setFlightCode(selectedFlight.code);
-                                    // For logo, you might need to fetch it separately or handle differently
+                            <div style={{ minWidth: 300 }}>
+                              <SearchableSelect
+                                options={toOptions(flights, f => `${f.name} (${f.code})`, f => f.id)}
+                                value={editingFlightId || ""}
+                                onChange={(val) => {
+                                  const flightId = val;
+                                  setEditingFlightId(flightId || null);
+                                  if (flightId) {
+                                    const selectedFlight = flights.find((f) => String(f.id) === String(flightId));
+                                    if (selectedFlight) {
+                                      setFlightName(selectedFlight.name);
+                                      setFlightCode(selectedFlight.code);
+                                    }
+                                  } else {
+                                    setFlightName("");
+                                    setFlightCode("");
+                                    setFlightLogo(null);
                                   }
-                                } else {
-                                  setFlightName("");
-                                  setFlightCode("");
-                                  setFlightLogo(null);
-                                }
-                              }}
-                            >
-                              <option value="">Add New Flight</option>
-                              {flights.map((flight) => (
-                                <option key={flight.id} value={flight.id}>
-                                  {flight.name} ({flight.code})
-                                </option>
-                              ))}
-                            </select>
+                                }}
+                                placeholder="Add New Flight"
+                              />
+                            </div>
                           </div>
 
                           {/* Flight Name */}
@@ -6945,37 +6830,30 @@ const Visa = () => {
                             <label htmlFor="" className="Control-label">
                               Select City
                             </label>
-                            <select
-                              className="form-select"
-                              value={editingCityId || ""}
-                              onChange={(e) => {
-                                const cityId = e.target.value;
-                                setEditingCityId(cityId || null);
-                                if (cityId) {
-                                  const selectedCity = cities.find(
-                                    (c) => c.id.toString() === cityId
-                                  );
-                                  if (selectedCity) {
-                                    setCityName(selectedCity.name);
-                                    setCityCode(selectedCity.code);
+                            <div style={{ minWidth: 300 }}>
+                              <SearchableSelect
+                                options={toOptions(cities, c => `${c.name} (${c.code})`, c => c.id)}
+                                value={editingCityId || ""}
+                                onChange={(val) => {
+                                  const cityId = val;
+                                  setEditingCityId(cityId || null);
+                                  if (cityId) {
+                                    const selectedCity = cities.find((c) => String(c.id) === String(cityId));
+                                    if (selectedCity) {
+                                      setCityName(selectedCity.name);
+                                      setCityCode(selectedCity.code);
+                                    }
+                                  } else {
+                                    setCityName("");
+                                    setCityCode("");
                                   }
-                                } else {
-                                  setCityName("");
-                                  setCityCode("");
-                                }
-                              }}
-                            >
-                              <option value="">Add New City</option>
-                              {cities.map((city) => (
-                                <option key={city.id} value={city.id}>
-                                  {city.name} ({city.code})
-                                </option>
-                              ))}
-                            </select>
+                                }}
+                                placeholder="Add New City"
+                              />
+                            </div>
                           </div>
 
-                          {/* City Name */}
-                          <div>
+                          <div className="col-md-2">
                             <label htmlFor="" className="Control-label">
                               City Name
                             </label>
@@ -6988,8 +6866,7 @@ const Visa = () => {
                             />
                           </div>
 
-                          {/* City Code */}
-                          <div>
+                          <div className="col-md-2">
                             <label htmlFor="" className="Control-label">
                               City Code
                             </label>

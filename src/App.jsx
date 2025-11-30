@@ -77,6 +77,13 @@ import EditHotelAv from "./pages/admin/EditHotelAv";
 import AgentProtectedRoute from "./components/AgentProtectedRoute";
 import BranchesDetails from "./pages/admin/BranchesDetails";
 import PackageDetails from "./pages/admin/PackageDetails";
+import EmployeesPage from "./pages/hr/EmployeesPage";
+import HrDashboard from "./pages/hr/HrDashboard";
+import EmployeeProfile from "./pages/hr/EmployeeProfile";
+import AttendancePage from "./pages/hr/AttendancePage";
+import MovementsPage from "./pages/hr/MovementsPage";
+import CommissionsPage from "./pages/hr/CommissionsPage";
+import PunctualityPage from "./pages/hr/PunctualityPage";
 
 function App() {
   return (
@@ -374,6 +381,62 @@ function App() {
             element={
               <PrivateRoute>
                 <CustomerManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/employees"
+            element={
+              <PrivateRoute>
+                <EmployeesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr"
+            element={
+              <PrivateRoute>
+                <HrDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/employees/:id"
+            element={
+              <PrivateRoute>
+                <EmployeeProfile />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/attendance"
+            element={
+              <PrivateRoute>
+                <AttendancePage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/movements"
+            element={
+              <PrivateRoute>
+                <MovementsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/commissions"
+            element={
+              <PrivateRoute>
+                <CommissionsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/punctuality"
+            element={
+              <PrivateRoute>
+                <PunctualityPage />
               </PrivateRoute>
             }
           />
