@@ -1162,3 +1162,4 @@ const Partners = ({ embed = false }) => {
 };
 
 export default Partners;
+  

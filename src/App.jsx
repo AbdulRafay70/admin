@@ -41,6 +41,9 @@ import CustomerManagement from "./pages/admin/CustomerManagement";
 
 // New Advanced Admin Pages
 import CommissionManagement from "./pages/admin/CommissionManagement";
+import CommissionAssignValues from "./pages/admin/CommissionAssignValues";
+import MarkupManagement from "./pages/admin/MarkupManagement";
+import MarkupAssignValues from "./pages/admin/MarkupAssignValues";
 import HotelOutsourcing from "./pages/admin/HotelOutsourcing";
 import BlogManagement from "./pages/admin/BlogManagement";
 import CustomerLead from "./pages/admin/CustomerLead";
@@ -377,6 +380,70 @@ function App() {
             }
           />
           <Route
+            path="/partners/markup"
+            element={
+              <PrivateRoute>
+                <MarkupManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/partners/markup"
+            element={
+              <PrivateRoute>
+                <MarkupManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/partners/commission-rules"
+            element={
+              <PrivateRoute>
+                <CommissionManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/partners/commission-rules"
+            element={
+              <PrivateRoute>
+                <CommissionManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/partners/commission-rules/assign-values"
+            element={
+              <PrivateRoute>
+                <CommissionAssignValues />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/partners/commission-rules/assign-values"
+            element={
+              <PrivateRoute>
+                <CommissionAssignValues />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/partners/markup/assign-values"
+            element={
+              <PrivateRoute>
+                <MarkupAssignValues />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/partners/markup/assign-values"
+            element={
+              <PrivateRoute>
+                <MarkupAssignValues />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/customer-management"
             element={
               <PrivateRoute>
@@ -587,14 +654,10 @@ function App() {
             }
           />
 
-          {/* Commission Management Routes */}
+          {/* Redirect legacy commission-management route to partners/commission-rules */}
           <Route
             path="/commission-management"
-            element={
-              <PrivateRoute>
-                <CommissionManagement />
-              </PrivateRoute>
-            }
+            element={<Navigate to="/partners/commission-rules" replace />}
           />
 
           {/* Hotel Outsourcing Routes */}

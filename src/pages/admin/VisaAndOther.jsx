@@ -1580,6 +1580,9 @@ const Visa = () => {
   const [transportAdult, setTransportAdult] = useState("");
   const [transportChild, setTransportChild] = useState("");
   const [transportInfants, setTransportInfants] = useState("");
+  const [transportAdultPurchase, setTransportAdultPurchase] = useState("");
+  const [transportChildPurchase, setTransportChildPurchase] = useState("");
+  const [transportInfantsPurchase, setTransportInfantsPurchase] = useState("");
   const [withVisa, setWithVisa] = useState(false);
   const [vehicleType, setVehicleType] = useState("");
   const [removeTransport, setRemoveTransport] = useState("");
@@ -1647,6 +1650,9 @@ const Visa = () => {
       adult_selling_price: parseFloat(transportAdult),
       child_selling_price: parseFloat(transportChild),
       infant_selling_price: parseFloat(transportInfants),
+      adult_purchase_price: parseFloat(transportAdultPurchase) || 0,
+      child_purchase_price: parseFloat(transportChildPurchase) || 0,
+      infant_purchase_price: parseFloat(transportInfantsPurchase) || 0,
       is_visa: withVisa,
       only_transport_charge: false,
       organization: orgId,
@@ -1707,9 +1713,12 @@ const Visa = () => {
         // Safely populate form fields with fallback values
         setTransportSector(selectedSector.name || "");
         setVehicleType(selectedSector.vehicle_type || "");
-        setTransportAdult(selectedSector.adault_price?.toString() || "");
-        setTransportChild(selectedSector.child_price?.toString() || "");
-        setTransportInfants(selectedSector.infant_price?.toString() || "");
+        setTransportAdult(selectedSector.adult_selling_price?.toString() || selectedSector.adault_price?.toString() || "");
+        setTransportChild(selectedSector.child_selling_price?.toString() || selectedSector.child_price?.toString() || "");
+        setTransportInfants(selectedSector.infant_selling_price?.toString() || selectedSector.infant_price?.toString() || "");
+        setTransportAdultPurchase(selectedSector.adult_purchase_price?.toString() || "");
+        setTransportChildPurchase(selectedSector.child_purchase_price?.toString() || "");
+        setTransportInfantsPurchase(selectedSector.infant_purchase_price?.toString() || "");
         setWithVisa(selectedSector.is_visa || false);
         setEditingTransportId(selectedSector.id);
       }
@@ -1749,10 +1758,13 @@ const Visa = () => {
 
   const resetTransportForm = () => {
     setTransportSector("");
+    setVehicleType("");
     setTransportAdult("");
     setTransportChild("");
     setTransportInfants("");
-    setVehicleType("");
+    setTransportAdultPurchase("");
+    setTransportChildPurchase("");
+    setTransportInfantsPurchase("");
     setWithVisa(false);
     setEditingTransportId(null);
   };
@@ -1783,6 +1795,10 @@ const Visa = () => {
   const [selectedHotels, setSelectedHotels] = useState([]);
 
   const [selectedVehicleTypeIds, setSelectedVehicleTypeIds] = useState([]);
+  
+  // Separate state for Only Visa Rates section
+  const [withTransportOnlyVisa, setWithTransportOnlyVisa] = useState(false);
+  const [selectedVehicleTypeIdsOnlyVisa, setSelectedVehicleTypeIdsOnlyVisa] = useState([]);
 
   const fetchVehicleTypesForVisa = async () => {
     try {
@@ -1987,6 +2003,9 @@ const Visa = () => {
 
   // Function to handle vehicle type modal
   const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
+  
+  // Separate modal for Only Visa section
+  const [showVehicleTypeModalOnlyVisa, setShowVehicleTypeModalOnlyVisa] = useState(false);
 
   const handleShowVehicleTypes = async () => {
     await fetchVehicleTypesForVisa();
@@ -1994,6 +2013,14 @@ const Visa = () => {
   };
 
   const handleCloseVehicleTypes = () => setShowVehicleTypeModal(false);
+  
+  // Separate handlers for Only Visa section
+  const handleShowVehicleTypesOnlyVisa = async () => {
+    await fetchVehicleTypesForVisa();
+    setShowVehicleTypeModalOnlyVisa(true);
+  };
+  
+  const handleCloseVehicleTypesOnlyVisa = () => setShowVehicleTypeModalOnlyVisa(false);
 
   const handleSaveVehicleTypes = () => {
     // Map selected vehicle types to underlying sector ids (small or big)
@@ -2017,6 +2044,35 @@ const Visa = () => {
     }
 
     handleCloseVehicleTypes();
+  };
+  
+  // Separate save handler for Only Visa section
+  const handleSaveVehicleTypesOnlyVisa = () => {
+    try {
+      const sectorIds = [];
+      selectedVehicleTypeIdsOnlyVisa.forEach((vtId) => {
+        const vt = vehicleTypes.find((v) => v.id === vtId);
+        if (!vt) return;
+        if (vt.small_sector_id) sectorIds.push(vt.small_sector_id);
+        else if (vt.small_sector && vt.small_sector.id) sectorIds.push(vt.small_sector.id);
+      });
+
+      const unique = Array.from(new Set(sectorIds.map((s) => parseInt(s)))).filter(Boolean);
+      setSelectedVisaSectors(unique.map((i) => i.toString()));
+    } catch (err) {
+      console.error("Error mapping vehicle types to sectors (Only Visa)", err);
+    }
+
+    handleCloseVehicleTypesOnlyVisa();
+  };
+  
+  // Toggle function for Only Visa modal
+  const toggleVehicleTypeSelectionOnlyVisa = (vehicleTypeId) => {
+    setSelectedVehicleTypeIdsOnlyVisa((prev) =>
+      prev.includes(vehicleTypeId)
+        ? prev.filter((id) => id !== vehicleTypeId)
+        : [...prev, vehicleTypeId]
+    );
   };
 
   // Add to useEffect to fetch vehicle types on component mount
@@ -2302,10 +2358,14 @@ const Visa = () => {
   const [onlyChildPurchasePrice, setOnlyChildPurchasePrice] = useState("");
   const [onlyInfantSellingPrice, setOnlyInfantSellingPrice] = useState("");
   const [onlyInfantPurchasePrice, setOnlyInfantPurchasePrice] = useState("");
-  // Option: 'only' = Only Visa, 'longterm' = Long Term Visa
+  // Option: 'only' = Only Visa, 'long_term' = Long Term Visa
   const [onlyVisaOption, setOnlyVisaOption] = useState('only');
   // Title for the Only Visa price record
   const [onlyVisaTitle, setOnlyVisaTitle] = useState("");
+  
+  // Date range for visa validity
+  const [onlyVisaStartDate, setOnlyVisaStartDate] = useState("");
+  const [onlyVisaEndDate, setOnlyVisaEndDate] = useState("");
 
   const [airportId, setAirportId] = useState("");
   const [airport, setAirport] = useState("");
@@ -2350,7 +2410,10 @@ const Visa = () => {
       // human-friendly title for this price record
       title: onlyVisaTitle,
       // whether this price includes transport
-      is_transport: withTransport,
+      is_transport: withTransportOnlyVisa,
+      // day range for visa validity (numeric duration, not calendar dates)
+      start_days: onlyVisaStartDate || null,
+      end_days: onlyVisaEndDate || null,
       // city_id: include only when airportId is provided (optional)
       // city_id will be assigned below if airportId is truthy
       // mark which visa option this record is for
@@ -2432,11 +2495,14 @@ const Visa = () => {
     setOnlyInfantPurchasePrice("");
     setOnlyVisaTitle("");
     setOnlyVisaOption('only');
-    setWithTransport(false);
+    setWithTransportOnlyVisa(false);
+    setOnlyVisaStartDate("");
+    setOnlyVisaEndDate("");
     setAirportId("");
     setAirport("");
     setStatus(""); // Reset to active
     setSelectedVisaPrice(null);
+    setSelectedVehicleTypeIdsOnlyVisa([]);
   };
   // Delete function
   const handleDeleteVisaPrice = async () => {
@@ -2486,13 +2552,51 @@ const Visa = () => {
     }
   };
 
+  // Load existing data for the selected visa option
+  const loadOnlyVisaData = (visaPrices, option) => {
+    const existingPrice = visaPrices.find(p => p.visa_option === option);
+    
+    if (existingPrice) {
+      setSelectedVisaPrice(existingPrice);
+      setOnlyAdultSellingPrice(existingPrice.adult_selling_price || "");
+      setOnlyAdultPurchasePrice(existingPrice.adult_purchase_price || "");
+      setOnlyChildSellingPrice(existingPrice.child_selling_price || "");
+      setOnlyChildPurchasePrice(existingPrice.child_purchase_price || "");
+      setOnlyInfantSellingPrice(existingPrice.infant_selling_price || "");
+      setOnlyInfantPurchasePrice(existingPrice.infant_purchase_price || "");
+      setOnlyVisaTitle(existingPrice.title || "");
+      setOnlyVisaStartDate(existingPrice.start_days || "");
+      setOnlyVisaEndDate(existingPrice.end_days || "");
+      setStatus(existingPrice.status || "active");
+      setWithTransportOnlyVisa(existingPrice.is_transport || false);
+      setAirportId(existingPrice.city?.id || "");
+      setAirport(existingPrice.city?.name || "");
+      
+      // Load sectors if transport is enabled
+      if (existingPrice.is_transport && existingPrice.sectors) {
+        setSelectedVisaSectors(existingPrice.sectors.map(s => String(s.id)));
+      } else {
+        setSelectedVisaSectors([]);
+      }
+    } else {
+      // Clear form for new entry
+      resetFormFields();
+      setSelectedVisaPrice(null);
+    }
+  };
+
   useEffect(() => {
     if (selectedOrg) {
       fetchOnlyVisaPrices();
     }
-    // Depend on the organization id (primitive) instead of the whole object
-    // to avoid re-running when `selectedOrg` is re-parsed each render.
   }, [selectedOrg?.id]);
+
+  // Load data when visa option changes
+  useEffect(() => {
+    if (onlyVisaPrices.length > 0) {
+      loadOnlyVisaData(onlyVisaPrices, onlyVisaOption);
+    }
+  }, [onlyVisaOption, onlyVisaPrices]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -5134,10 +5238,10 @@ const Visa = () => {
                                 />
                               </div>
 
-                              {/* Adult Price */}
+                              {/* Adult Selling Price */}
                               <div>
                                 <label htmlFor="" className="Control-label">
-                                  Adult
+                                  Adult Selling
                                 </label>
                                 <input
                                   type="number"
@@ -5150,10 +5254,26 @@ const Visa = () => {
                                 />
                               </div>
 
-                              {/* Child Price */}
+                              {/* Adult Purchase Price */}
                               <div>
                                 <label htmlFor="" className="Control-label">
-                                  Child
+                                  Adult Purchase
+                                </label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none  px-1 py-2"
+                                  value={transportAdultPurchase}
+                                  onChange={(e) =>
+                                    setTransportAdultPurchase(e.target.value)
+                                  }
+                                  placeholder="500"
+                                />
+                              </div>
+
+                              {/* Child Selling Price */}rice */}
+                              <div>
+                                <label htmlFor="" className="Control-label">
+                                  Child Selling
                                 </label>
                                 <input
                                   type="number"
@@ -5166,10 +5286,26 @@ const Visa = () => {
                                 />
                               </div>
 
-                              {/* Infant Price */}
+                              {/* Child Purchase Price */}
                               <div>
                                 <label htmlFor="" className="Control-label">
-                                  Infants
+                                  Child Purchase
+                                </label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none  px-1 py-2"
+                                  value={transportChildPurchase}
+                                  onChange={(e) =>
+                                    setTransportChildPurchase(e.target.value)
+                                  }
+                                  placeholder="400"
+                                />
+                              </div>
+
+                              {/* Infant Selling Price */}rice */}
+                              <div>
+                                <label htmlFor="" className="Control-label">
+                                  Infant Selling
                                 </label>
                                 <input
                                   type="number"
@@ -5179,6 +5315,22 @@ const Visa = () => {
                                     setTransportInfants(e.target.value)
                                   }
                                   placeholder="600"
+                                />
+                              </div>
+
+                              {/* Infant Purchase Price */}
+                              <div>
+                                <label htmlFor="" className="Control-label">
+                                  Infant Purchase
+                                </label>
+                                <input
+                                  type="number"
+                                  className="form-control rounded shadow-none  px-1 py-2"
+                                  value={transportInfantsPurchase}
+                                  onChange={(e) =>
+                                    setTransportInfantsPurchase(e.target.value)
+                                  }
+                                  placeholder="500"
                                 />
                               </div>
 
@@ -5406,7 +5558,7 @@ const Visa = () => {
                                 <button
                                   className="btn btn-primary"
                                   onClick={handleShowVehicleTypes}
-                                  disabled={withTransport}
+                                  disabled={!withTransport}
                                 >
                                   Select Sectors
                                 </button>
@@ -5583,8 +5735,8 @@ const Visa = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      className={`btn ${onlyVisaOption === 'longterm' ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
-                                      onClick={() => setOnlyVisaOption('longterm')}
+                                      className={`btn ${onlyVisaOption === 'long_term' ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
+                                      onClick={() => setOnlyVisaOption('long_term')}
                                       style={{height: '38px', whiteSpace: 'nowrap'}}
                                     >
                                       Long Term Visa
@@ -5603,6 +5755,36 @@ const Visa = () => {
                                     placeholder="Title"
                                     value={onlyVisaTitle}
                                     onChange={(e) => setOnlyVisaTitle(e.target.value)}
+                                  />
+                                </div>
+
+                                {/* Start Days */}
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    Start Days (Min)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none px-1 py-2"
+                                    placeholder="e.g., 1"
+                                    value={onlyVisaStartDate}
+                                    onChange={(e) => setOnlyVisaStartDate(e.target.value)}
+                                    min="1"
+                                  />
+                                </div>
+
+                                {/* End Days */}
+                                <div className="col-md-2">
+                                  <label htmlFor="" className="Control-label">
+                                    End Days (Max)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control rounded shadow-none px-1 py-2"
+                                    placeholder="e.g., 28"
+                                    value={onlyVisaEndDate}
+                                    onChange={(e) => setOnlyVisaEndDate(e.target.value)}
+                                    min="1"
                                   />
                                 </div>
 
@@ -5737,8 +5919,8 @@ const Visa = () => {
                                           className="form-check-input"
                                           type="checkbox"
                                           id="onlyWithTransport"
-                                          checked={withTransport}
-                                          onChange={() => setWithTransport(!withTransport)}
+                                          checked={withTransportOnlyVisa}
+                                          onChange={() => setWithTransportOnlyVisa(!withTransportOnlyVisa)}
                                         />
                                         <label className="form-check-label" htmlFor="onlyWithTransport">
                                           With Transport
@@ -5749,8 +5931,8 @@ const Visa = () => {
                                     <div className="col-12 col-md-2">
                                       <button
                                         className="btn btn-outline-primary w-100"
-                                        onClick={handleShowVehicleTypes}
-                                        disabled={withTransport}
+                                        onClick={handleShowVehicleTypesOnlyVisa}
+                                        disabled={!withTransportOnlyVisa}
                                       >
                                         Select Sectors
                                       </button>
@@ -5762,92 +5944,19 @@ const Visa = () => {
                                         onClick={handleSetOnlyVisaPrices}
                                         disabled={isSettingOnlyVisa}
                                       >
-                                        {selectedVisaPrice
-                                          ? isSettingOnlyVisa
-                                            ? "Updating..."
-                                            : "Update"
-                                          : isSettingOnlyVisa
-                                            ? "Saving..."
-                                            : "Save"}
+                                        {isSettingOnlyVisa
+                                          ? selectedVisaPrice ? "Updating..." : "Saving..."
+                                          : selectedVisaPrice ? "Update" : "Save"}
                                       </button>
 
                                       <button
                                         className="btn btn-secondary"
                                         onClick={() => {
-                                          resetFormFields();
-                                          setIsEditingOnlyVisa(false);
+                                          loadOnlyVisaData(onlyVisaPrices, onlyVisaOption);
                                         }}
                                       >
-                                        Cancel
+                                        Reset
                                       </button>
-                                    </div>
-
-                                    <div className="col-12 col-md-2">
-                                      <label className="Control-label d-block">Select Visa Price</label>
-                                      <div>
-                                        <SearchableSelect
-                                          options={toOptions(onlyVisaPrices, p => p.title || p.city?.name || 'Unnamed', p => p.id)}
-                                          value={selectedVisaPrice?.id || ""}
-                                          onChange={(val) => {
-                                            const selectedId = parseInt(val);
-                                            if (!selectedId) {
-                                              setSelectedVisaPrice(null);
-                                              resetFormFields();
-                                              return;
-                                            }
-
-                                            const selected = onlyVisaPrices.find(price => price.id === selectedId);
-
-                                            setSelectedVisaPrice(selected || null);
-
-                                            if (selected) {
-                                              setOnlyAdultSellingPrice(selected.adult_selling_price?.toString() || selected.adault_price?.toString() || "");
-                                              setOnlyAdultPurchasePrice(selected.adult_purchase_price?.toString() || selected.purchase_price?.toString() || "");
-                                              setOnlyChildSellingPrice(selected.child_selling_price?.toString() || selected.child_price?.toString() || "");
-                                              setOnlyChildPurchasePrice(selected.child_purchase_price?.toString() || selected.purchase_price?.toString() || "");
-                                              setOnlyInfantSellingPrice(selected.infant_selling_price?.toString() || selected.infant_price?.toString() || "");
-                                              setOnlyInfantPurchasePrice(selected.infant_purchase_price?.toString() || selected.purchase_price?.toString() || "");
-
-                                              setStatus(selected.status || "");
-                                              setOnlyVisaTitle(selected.title || "");
-                                              setOnlyVisaOption(selected.visa_option || 'only');
-                                              setWithTransport(selected.is_transport || false);
-
-                                              if (selected.city && selected.city.id) {
-                                                setAirportId(selected.city.id.toString());
-                                                setAirport(`${selected.city.name} (${selected.city.code})`);
-                                              } else {
-                                                setAirportId("");
-                                                setAirport("");
-                                              }
-
-                                              if (selected.sectors && Array.isArray(selected.sectors)) {
-                                                const sIds = selected.sectors.map(s => (s && s.id) ? s.id : s).filter(Boolean);
-                                                setSelectedVisaSectors(sIds.map(id => id.toString()));
-                                              } else {
-                                                setSelectedVisaSectors([]);
-                                              }
-
-                                              setIsEditingOnlyVisa(true);
-                                            } else {
-                                              resetFormFields();
-                                            }
-                                          }}
-                                          placeholder="Create New Visa Price"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="col-auto">
-                                      {selectedVisaPrice && (
-                                        <button
-                                          className="btn btn-danger"
-                                          onClick={handleDeleteVisaPrice}
-                                          disabled={isDeleting}
-                                        >
-                                          {isDeleting ? "Deleting..." : "Delete"}
-                                        </button>
-                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -5856,7 +5965,61 @@ const Visa = () => {
                           </div>
                         </div>
 
-                        
+                        {/* Sector Selection Modal for Only Visa Rates */}
+                        <Modal show={showVehicleTypeModalOnlyVisa} onHide={handleCloseVehicleTypesOnlyVisa} centered size="lg">
+                          <Modal.Header closeButton>
+                            <Modal.Title>Select Sectors (Only Visa)</Modal.Title>
+                          </Modal.Header>
+                          <Modal.Body>
+                            {vehicleTypes.length === 0 ? (
+                              <p>No sectors available. Please add sectors first.</p>
+                            ) : (
+                              <div>
+                                <p className="text-muted mb-3">Select sectors to associate with this visa:</p>
+                                <ListGroup>
+                                  {vehicleTypes.map((vehicleType) => (
+                                    <ListGroup.Item
+                                      key={vehicleType.id}
+                                      action
+                                      onClick={() => toggleVehicleTypeSelectionOnlyVisa(vehicleType.id)}
+                                      active={selectedVehicleTypeIdsOnlyVisa.includes(vehicleType.id)}
+                                      style={{ cursor: "pointer" }}
+                                    >
+                                      <div className="d-flex justify-content-between align-items-center">
+                                        <div>
+                                          <strong>{vehicleType.vehicle_name}</strong> ({vehicleType.vehicle_type})
+                                          <br />
+                                          <small className="text-muted">
+                                            Price: {vehicleType.price} -
+                                            {vehicleType.small_sector ? ` Small Sector` : ''}
+                                            {vehicleType.big_sector ? ` Big Sector` : ''}
+                                            {vehicleType.small_sector_id ? ` Small Sector` : ''}
+                                            {vehicleType.big_sector_id ? ` Big Sector` : ''}
+                                          </small>
+                                        </div>
+                                        {selectedVehicleTypeIdsOnlyVisa.includes(vehicleType.id) && (
+                                          <span className="text-success">✓</span>
+                                        )}
+                                      </div>
+                                    </ListGroup.Item>
+                                  ))}
+                                </ListGroup>
+                              </div>
+                            )}
+                          </Modal.Body>
+                          <Modal.Footer>
+                            <Button variant="secondary" onClick={handleCloseVehicleTypesOnlyVisa}>
+                              Cancel
+                            </Button>
+                            <Button 
+                              variant="primary" 
+                              onClick={handleSaveVehicleTypesOnlyVisa}
+                              disabled={selectedVehicleTypeIdsOnlyVisa.length === 0}
+                            >
+                              Save Selection
+                            </Button>
+                          </Modal.Footer>
+                        </Modal>
 
                         {/* vehicle type */}
                         <div className="p-lg-4 pt-4">

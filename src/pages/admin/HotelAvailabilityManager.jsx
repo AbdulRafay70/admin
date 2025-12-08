@@ -4,9 +4,9 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import HotelsTabs from "../../components/HotelsTabs";
 import RoomMapManager from "../../components/RoomMapManager";
-import { 
-  Hotel, Building, MapPin, Calendar, Users, DollarSign, 
-  Plus, Edit2, Trash2, Eye, Search, Filter, CheckCircle, 
+import {
+  Hotel, Building, MapPin, Calendar, Users, DollarSign,
+  Plus, Edit2, Trash2, Eye, Search, Filter, CheckCircle,
   XCircle, AlertCircle, Phone, Mail, Clock, BedDouble,
   Save, X
 } from "lucide-react";
@@ -14,10 +14,10 @@ import api from "../../utils/Api";
 import { jwtDecode } from 'jwt-decode';
 
 const HotelAvailabilityManager = () => {
-    // Filter states
-    const [categoryFilter, setCategoryFilter] = useState("");
-    const [distanceFilter, setDistanceFilter] = useState("");
-    const [cityFilter, setCityFilter] = useState("");
+  // Filter states
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [distanceFilter, setDistanceFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
   // State management
   const [hotels, setHotels] = useState([]);
   const [cities, setCities] = useState([]);
@@ -25,7 +25,7 @@ const HotelAvailabilityManager = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
-  
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -39,6 +39,9 @@ const HotelAvailabilityManager = () => {
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  // Price modal state (show raw price entries for a hotel)
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [priceModalHotel, setPriceModalHotel] = useState(null);
   // Gallery modal state for viewing multiple hotel images
   const [showGallery, setShowGallery] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState([]);
@@ -80,14 +83,25 @@ const HotelAvailabilityManager = () => {
     try {
       (galleryPhotos || []).forEach(p => {
         if (p && p.isNew && p.url && p.url.startsWith('blob:')) {
-          try { URL.revokeObjectURL(p.url); } catch (e) {}
+          try { URL.revokeObjectURL(p.url); } catch (e) { }
         }
       });
-    } catch (e) {}
+    } catch (e) { }
     setGalleryPhotos([]);
     setGalleryIndex(0);
     setSelectedHotel(null);
     setShowGallery(false);
+  };
+
+  // Open price modal for a hotel and show its raw price entries
+  const openPriceModal = (hotel) => {
+    setPriceModalHotel(hotel);
+    setShowPriceModal(true);
+  };
+
+  const closePriceModal = () => {
+    setPriceModalHotel(null);
+    setShowPriceModal(false);
   };
 
   // Upload new selected files for the currently opened hotel
@@ -108,7 +122,7 @@ const HotelAvailabilityManager = () => {
       // update global hotels state so table thumbnails/count update immediately
       try {
         setHotels(prev => (Array.isArray(prev) ? prev.map(h => (h && h.id === updated.id ? updated : h)) : prev));
-      } catch (e) {}
+      } catch (e) { }
       openGallery(updated);
     } catch (err) {
       console.error('Upload gallery files error', err);
@@ -145,14 +159,14 @@ const HotelAvailabilityManager = () => {
       const updated = resp?.data || selectedHotel;
       try {
         setHotels(prev => (Array.isArray(prev) ? prev.map(h => (h && h.id === updated.id ? updated : h)) : prev));
-      } catch (e) {}
+      } catch (e) { }
       openGallery(updated);
     } catch (err) {
       console.error('delete gallery photo error', err);
       showAlert('danger', err?.response?.data?.detail || 'Failed to delete photo');
     }
   };
-  
+
   // Selected items
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -162,7 +176,7 @@ const HotelAvailabilityManager = () => {
     date_from: new Date().toISOString().split('T')[0],
     date_to: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
-  
+
   // Form states
   const [hotelForm, setHotelForm] = useState({
     city: "",
@@ -171,6 +185,7 @@ const HotelAvailabilityManager = () => {
     google_location: "",
     contact_number: "",
     category: "",
+    bed_type: "",
     distance: "",
     walking_time: "",
     walking_distance: "",
@@ -184,7 +199,14 @@ const HotelAvailabilityManager = () => {
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ id: null, name: '', slug: '' });
   const [editingCategory, setEditingCategory] = useState(null);
-  
+
+  // Bed type management state
+  const [bedTypesList, setBedTypesList] = useState([]);
+  const [bedTypeLoading, setBedTypeLoading] = useState(false);
+  const [showBedTypeModal, setShowBedTypeModal] = useState(false);
+  const [bedTypeForm, setBedTypeForm] = useState({ id: null, name: '', slug: '', capacity: 1 });
+  const [editingBedType, setEditingBedType] = useState(null);
+
   const [roomForm, setRoomForm] = useState({
     room_type: "double",
     capacity: 2,
@@ -199,7 +221,7 @@ const HotelAvailabilityManager = () => {
     { contact_person: "", contact_number: "" }
   ]);
   const [priceSections, setPriceSections] = useState([
-    { start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }
+    { start_date: "", end_date: "", room_type: "room", price: "", purchase_price: "", bed_prices: [] }
   ]);
   const [photoFiles, setPhotoFiles] = useState([]);
   const [videoFile, setVideoFile] = useState(null);
@@ -272,7 +294,12 @@ const HotelAvailabilityManager = () => {
     { value: "double", label: "Double Bed", capacity: 2, icon: "🛏️" },
     { value: "triple", label: "Triple Bed", capacity: 3, icon: "🛏️🛏️" },
     { value: "quad", label: "Quad Bed", capacity: 4, icon: "🛏️🛏️" },
-    { value: "quint", label: "Quint Bed", capacity: 5, icon: "🛏️🛏️🛏️" }
+    { value: "quint", label: "Quint Bed", capacity: 5, icon: "🛏️🛏️🛏️" },
+    { value: "6", label: "6 Bed", capacity: 6, icon: "🛏️" },
+    { value: "7", label: "7 Bed", capacity: 7, icon: "🛏️" },
+    { value: "8", label: "8 Bed", capacity: 8, icon: "🛏️" },
+    { value: "9", label: "9 Bed", capacity: 9, icon: "🛏️" },
+    { value: "10", label: "10 Bed", capacity: 10, icon: "🛏️" }
   ];
 
   const roomStatuses = ["available", "occupied", "maintenance", "reserved"];
@@ -398,7 +425,7 @@ const HotelAvailabilityManager = () => {
         if (Array.isArray(copy.prices)) {
           copy.prices = copy.prices.map(p => ({ ...p, price: (p.price ?? p.selling_price ?? "") }));
         }
-      } catch (e) {}
+      } catch (e) { }
       return copy;
     });
   };
@@ -480,14 +507,14 @@ const HotelAvailabilityManager = () => {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // If no organizationId was set but hotels returned and include an organization, adopt it
       if (!organizationId && Array.isArray(hotelsList) && hotelsList.length > 0 && hotelsList[0].organization) {
         const inferredOrg = hotelsList[0].organization;
         try {
           localStorage.setItem('selectedOrganization', JSON.stringify({ id: inferredOrg, name: `Org ${inferredOrg}` }));
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (error) {
       // Surface detailed error info to help backend debugging
@@ -517,43 +544,148 @@ const HotelAvailabilityManager = () => {
     }
   };
 
-    // Fetch available hotel categories from backend
-    const fetchCategories = async () => {
-      try {
-        setCategoryLoading(true);
-        const params = {};
-        if (organizationId) params.organization = organizationId;
-          // If an organization is selected, fetch both org-scoped categories and
-          // the global categories (organization=null) so admins can still pick
-          // global categories created without an organization. Prefer org-scoped
-          // entries when merging.
-          let data = [];
-          if (organizationId) {
-            const [orgResp, globalResp] = await Promise.all([
-              api.get(`/hotel-categories/`, { params: { organization: organizationId } }),
-              api.get(`/hotel-categories/`)
-            ]);
-            const orgCats = Array.isArray(orgResp.data) ? orgResp.data : orgResp.data?.results ?? [];
-            const globalCats = Array.isArray(globalResp.data) ? globalResp.data : globalResp.data?.results ?? [];
-            // Merge, preferring orgCats when slug/id collide
-            const map = new Map();
-            (globalCats || []).forEach(c => { if (c && c.slug) map.set(String(c.slug), c); else if (c && c.id) map.set(String(c.id), c); });
-            (orgCats || []).forEach(c => { if (c && c.slug) map.set(String(c.slug), c); else if (c && c.id) map.set(String(c.id), c); });
-            data = Array.from(map.values());
-          } else {
-            const resp = await api.get(`/hotel-categories/`, { params });
-            data = Array.isArray(resp.data) ? resp.data : resp.data?.results ?? [];
-          }
-          setCategoriesList(data);
-          return data;
-      } catch (err) {
-        console.error('Failed to load categories', err);
-        setCategoriesList([]);
-          return [];
-      } finally {
-        setCategoryLoading(false);
+  // Fetch available hotel categories from backend
+  const fetchCategories = async () => {
+    try {
+      setCategoryLoading(true);
+      const params = {};
+      if (organizationId) params.organization = organizationId;
+      // If an organization is selected, fetch both org-scoped categories and
+      // the global categories (organization=null) so admins can still pick
+      // global categories created without an organization. Prefer org-scoped
+      // entries when merging.
+      let data = [];
+      if (organizationId) {
+        const [orgResp, globalResp] = await Promise.all([
+          api.get(`/hotel-categories/`, { params: { organization: organizationId } }),
+          api.get(`/hotel-categories/`)
+        ]);
+        const orgCats = Array.isArray(orgResp.data) ? orgResp.data : orgResp.data?.results ?? [];
+        const globalCats = Array.isArray(globalResp.data) ? globalResp.data : globalResp.data?.results ?? [];
+        // Merge, preferring orgCats when slug/id collide
+        const map = new Map();
+        (globalCats || []).forEach(c => { if (c && c.slug) map.set(String(c.slug), c); else if (c && c.id) map.set(String(c.id), c); });
+        (orgCats || []).forEach(c => { if (c && c.slug) map.set(String(c.slug), c); else if (c && c.id) map.set(String(c.id), c); });
+        data = Array.from(map.values());
+      } else {
+        const resp = await api.get(`/hotel-categories/`, { params });
+        data = Array.isArray(resp.data) ? resp.data : resp.data?.results ?? [];
       }
-    };
+      setCategoriesList(data);
+      return data;
+    } catch (err) {
+      console.error('Failed to load categories', err);
+      setCategoriesList([]);
+      return [];
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  // Fetch available bed types from backend
+  const fetchBedTypes = async () => {
+    try {
+      setBedTypeLoading(true);
+      const params = {};
+      if (organizationId) params.organization = organizationId;
+
+      const resp = await api.get(`/bed-types/`, { params });
+      const data = Array.isArray(resp.data) ? resp.data : resp.data?.results ?? [];
+      setBedTypesList(data);
+      return data;
+    } catch (err) {
+      console.error('Failed to load bed types', err);
+      setBedTypesList([]);
+      return [];
+    } finally {
+      setBedTypeLoading(false);
+    }
+  };
+
+  // Handle create/update bed type
+  const handleSaveBedType = async () => {
+    try {
+      if (!bedTypeForm.name.trim()) {
+        showAlert('error', 'Bed type name is required');
+        return;
+      }
+
+      const payload = {
+        name: bedTypeForm.name.trim(),
+        slug: bedTypeForm.slug.trim() || bedTypeForm.name.trim().toLowerCase().replace(/\s+/g, '-'),
+        capacity: parseInt(bedTypeForm.capacity) || 1,
+      };
+
+      // Organization is passed as query param, not in payload
+      const config = organizationId ? { params: { organization: organizationId } } : {};
+
+      if (editingBedType) {
+        await api.put(`/bed-types/${editingBedType.id}/`, payload, config);
+        showAlert('success', 'Bed type updated successfully');
+      } else {
+        await api.post(`/bed-types/`, payload, config);
+        showAlert('success', 'Bed type created successfully');
+      }
+
+      setShowBedTypeModal(false);
+      setBedTypeForm({ id: null, name: '', slug: '', capacity: 1 });
+      setEditingBedType(null);
+      fetchBedTypes();
+    } catch (err) {
+      console.error('Failed to save bed type', err);
+      // Extract detailed error message from backend
+      let errorMsg = 'Failed to save bed type';
+      if (err?.response?.data) {
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          errorMsg = data;
+        } else if (data.detail) {
+          errorMsg = data.detail;
+        } else if (typeof data === 'object') {
+          // Handle field-specific errors
+          const errors = Object.entries(data).map(([field, msgs]) => {
+            const msgArray = Array.isArray(msgs) ? msgs : [msgs];
+            return `${field}: ${msgArray.join(', ')}`;
+          }).join(' | ');
+          errorMsg = errors || errorMsg;
+        }
+      }
+      showAlert('error', errorMsg);
+    }
+  };
+
+  // Handle delete bed type
+  const handleDeleteBedType = async (bedType) => {
+    if (!window.confirm(`Are you sure you want to delete "${bedType.name}"?`)) return;
+
+    try {
+      await api.delete(`/bed-types/${bedType.id}/`);
+      showAlert('success', 'Bed type deleted successfully');
+      fetchBedTypes();
+    } catch (err) {
+      console.error('Failed to delete bed type', err);
+      showAlert('error', err?.response?.data?.detail || 'Failed to delete bed type');
+    }
+  };
+
+  // Open bed type modal for editing
+  const openEditBedType = (bedType) => {
+    setEditingBedType(bedType);
+    setBedTypeForm({
+      id: bedType.id,
+      name: bedType.name,
+      slug: bedType.slug,
+      capacity: bedType.capacity || 1,
+    });
+    setShowBedTypeModal(true);
+  };
+
+  // Open bed type modal for creating new
+  const openAddBedType = () => {
+    setEditingBedType(null);
+    setBedTypeForm({ id: null, name: '', slug: '', capacity: 1 });
+    setShowBedTypeModal(true);
+  };
 
   useEffect(() => {
     // Re-fetch cities and hotels when organization context changes
@@ -561,6 +693,7 @@ const HotelAvailabilityManager = () => {
     fetchHotels();
     // ensure categories are loaded so dropdowns show up-to-date list
     fetchCategories();
+    fetchBedTypes();
   }, [organizationId]);
 
   // Show alert helper
@@ -838,9 +971,9 @@ const HotelAvailabilityManager = () => {
       }
     } catch (error) {
       // try to surface a helpful message from server response
-  // eslint-disable-next-line no-console
-  console.error("Add hotel error:", JSON.stringify(error?.response?.data || error?.response || error));
-  const serverMessage = error?.response?.data?.detail || error?.response?.data || null;
+      // eslint-disable-next-line no-console
+      console.error("Add hotel error:", JSON.stringify(error?.response?.data || error?.response || error));
+      const serverMessage = error?.response?.data?.detail || error?.response?.data || null;
       if (serverMessage) {
         showAlert("error", `Failed to add hotel: ${JSON.stringify(serverMessage)}`);
       } else {
@@ -980,7 +1113,7 @@ const HotelAvailabilityManager = () => {
         } else if (categoryToSend && (String(categoryToSend) || '').match(/^\d+$/)) {
           categoryIdToSend = Number(categoryToSend);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const updatePayload = {
         ...hotelFormRest,
@@ -993,71 +1126,71 @@ const HotelAvailabilityManager = () => {
         ...(categoryIdToSend ? { category_id: categoryIdToSend } : {})
       };
 
-        // Debug: log payload about to be sent (helps diagnose server 403/400)
-        // eslint-disable-next-line no-console
-        console.debug('Updating hotel with payload:', { hotelId: selectedHotel?.id, updatePayload, isOwner, tokenOrgs });
+      // Debug: log payload about to be sent (helps diagnose server 403/400)
+      // eslint-disable-next-line no-console
+      console.debug('Updating hotel with payload:', { hotelId: selectedHotel?.id, updatePayload, isOwner, tokenOrgs });
 
-        // Include organization param for server routing/permission checks
-        // Use a longer timeout for updates and retry once on timeout to handle slow backend operations
-        const updateConfig = { params: { organization: organizationId }, timeout: 30000 };
-        try {
-          // If files are attached, send as FormData so backend can receive request.FILES
-          if ((photoFiles && photoFiles.length > 0) || videoFile) {
-            const form = new FormData();
-            Object.entries(updatePayload).forEach(([k, v]) => {
-              if (v === undefined || v === null) return;
-              // When uploading files, skip the photos JSON to avoid creating caption-only records.
-              if (k === 'photos' && photoFiles && photoFiles.length > 0) return;
-              if (k === 'prices' || k === 'contact_details' || k === 'photos') {
-                form.append(k, JSON.stringify(v));
-              } else {
-                form.append(k, typeof v === 'boolean' ? String(v) : v);
-              }
-            });
-
-            if (photoFiles && photoFiles.length > 0) {
-              photoFiles.forEach((f) => form.append('photo_files', f));
+      // Include organization param for server routing/permission checks
+      // Use a longer timeout for updates and retry once on timeout to handle slow backend operations
+      const updateConfig = { params: { organization: organizationId }, timeout: 30000 };
+      try {
+        // If files are attached, send as FormData so backend can receive request.FILES
+        if ((photoFiles && photoFiles.length > 0) || videoFile) {
+          const form = new FormData();
+          Object.entries(updatePayload).forEach(([k, v]) => {
+            if (v === undefined || v === null) return;
+            // When uploading files, skip the photos JSON to avoid creating caption-only records.
+            if (k === 'photos' && photoFiles && photoFiles.length > 0) return;
+            if (k === 'prices' || k === 'contact_details' || k === 'photos') {
+              form.append(k, JSON.stringify(v));
+            } else {
+              form.append(k, typeof v === 'boolean' ? String(v) : v);
             }
-            if (videoFile) {
-              form.append('video', videoFile);
-            }
+          });
 
-            // Let axios set Content-Type/boundary
-            await api.put(`/hotels/${selectedHotel.id}/`, form, updateConfig);
-          } else {
-            await api.put(`/hotels/${selectedHotel.id}/`, updatePayload, updateConfig);
+          if (photoFiles && photoFiles.length > 0) {
+            photoFiles.forEach((f) => form.append('photo_files', f));
           }
-        } catch (putErr) {
-          // If timeout occurred, retry once with an even larger timeout
-          if (putErr && (putErr.code === 'ECONNABORTED' || (putErr?.message || '').toLowerCase().includes('timeout'))) {
-            // eslint-disable-next-line no-console
-            console.warn('Hotel update timed out, retrying with extended timeout...');
-            try {
-              if ((photoFiles && photoFiles.length > 0) || videoFile) {
-                const form2 = new FormData();
-                Object.entries(updatePayload).forEach(([k, v]) => {
-                  if (v === undefined || v === null) return;
-                  if (k === 'photos' && photoFiles && photoFiles.length > 0) return;
-                  if (k === 'prices' || k === 'contact_details' || k === 'photos') {
-                    form2.append(k, JSON.stringify(v));
-                  } else {
-                    form2.append(k, typeof v === 'boolean' ? String(v) : v);
-                  }
-                });
-                if (photoFiles && photoFiles.length > 0) photoFiles.forEach((f) => form2.append('photo_files', f));
-                if (videoFile) form2.append('video', videoFile);
-                await api.put(`/hotels/${selectedHotel.id}/`, form2, { params: { organization: organizationId }, timeout: 60000 });
-              } else {
-                await api.put(`/hotels/${selectedHotel.id}/`, updatePayload, { params: { organization: organizationId }, timeout: 60000 });
-              }
-            } catch (secondErr) {
-              // rethrow to be handled by outer catch
-              throw secondErr;
-            }
-          } else {
-            throw putErr;
+          if (videoFile) {
+            form.append('video', videoFile);
           }
+
+          // Let axios set Content-Type/boundary
+          await api.put(`/hotels/${selectedHotel.id}/`, form, updateConfig);
+        } else {
+          await api.put(`/hotels/${selectedHotel.id}/`, updatePayload, updateConfig);
         }
+      } catch (putErr) {
+        // If timeout occurred, retry once with an even larger timeout
+        if (putErr && (putErr.code === 'ECONNABORTED' || (putErr?.message || '').toLowerCase().includes('timeout'))) {
+          // eslint-disable-next-line no-console
+          console.warn('Hotel update timed out, retrying with extended timeout...');
+          try {
+            if ((photoFiles && photoFiles.length > 0) || videoFile) {
+              const form2 = new FormData();
+              Object.entries(updatePayload).forEach(([k, v]) => {
+                if (v === undefined || v === null) return;
+                if (k === 'photos' && photoFiles && photoFiles.length > 0) return;
+                if (k === 'prices' || k === 'contact_details' || k === 'photos') {
+                  form2.append(k, JSON.stringify(v));
+                } else {
+                  form2.append(k, typeof v === 'boolean' ? String(v) : v);
+                }
+              });
+              if (photoFiles && photoFiles.length > 0) photoFiles.forEach((f) => form2.append('photo_files', f));
+              if (videoFile) form2.append('video', videoFile);
+              await api.put(`/hotels/${selectedHotel.id}/`, form2, { params: { organization: organizationId }, timeout: 60000 });
+            } else {
+              await api.put(`/hotels/${selectedHotel.id}/`, updatePayload, { params: { organization: organizationId }, timeout: 60000 });
+            }
+          } catch (secondErr) {
+            // rethrow to be handled by outer catch
+            throw secondErr;
+          }
+        } else {
+          throw putErr;
+        }
+      }
 
       // Sync rooms: update existing, create new, delete removed
       const currentRoomIds = (rooms || []).filter(r => r.id).map(r => r.id);
@@ -1118,7 +1251,7 @@ const HotelAvailabilityManager = () => {
   const handleDeleteHotel = async () => {
     try {
       await api.delete(`/hotels/${selectedHotel.id}/`);
-      
+
       showAlert("success", "Hotel deleted successfully!");
       setShowDeleteModal(false);
       fetchHotels();
@@ -1256,7 +1389,7 @@ const HotelAvailabilityManager = () => {
                 const mapped = hoItems.map(it => ({ type: 'hotel_outsourcing', id: it.id, extra: it.title || JSON.stringify(it) }));
                 setDeleteBlockedDependents(prev => [...prev, ...mapped]);
               }
-            } catch (e) {}
+            } catch (e) { }
 
             // Booking items (bookings may have hotel FK)
             try {
@@ -1267,7 +1400,7 @@ const HotelAvailabilityManager = () => {
                 const mapped = bItems.map(it => ({ type: 'booking', id: it.id, extra: it.reference || it.guest_name || JSON.stringify(it) }));
                 setDeleteBlockedDependents(prev => [...prev, ...mapped]);
               }
-            } catch (e) {}
+            } catch (e) { }
 
             // Hotel prices, contact details, photos (tickets app)
             try {
@@ -1278,7 +1411,7 @@ const HotelAvailabilityManager = () => {
                 const mapped = hpItems.map(it => ({ type: 'hotel_price', id: it.id, extra: it.room_type || it.price || '' }));
                 setDeleteBlockedDependents(prev => [...prev, ...mapped]);
               }
-            } catch (e) {}
+            } catch (e) { }
 
             try {
               const hcResp = await api.get(`/hotel-contact-details/`, { params: { hotel: selectedHotel.id } });
@@ -1288,7 +1421,7 @@ const HotelAvailabilityManager = () => {
                 const mapped = hcItems.map(it => ({ type: 'hotel_contact', id: it.id, extra: it.contact_person || it.contact_number || '' }));
                 setDeleteBlockedDependents(prev => [...prev, ...mapped]);
               }
-            } catch (e) {}
+            } catch (e) { }
 
             try {
               const phResp = await api.get(`/hotel-photos/`, { params: { hotel: selectedHotel.id } });
@@ -1298,7 +1431,7 @@ const HotelAvailabilityManager = () => {
                 const mapped = phItems.map(it => ({ type: 'hotel_photo', id: it.id, extra: it.caption || '' }));
                 setDeleteBlockedDependents(prev => [...prev, ...mapped]);
               }
-            } catch (e) {}
+            } catch (e) { }
           } catch (e) {
             // swallow
           }
@@ -1489,9 +1622,9 @@ const HotelAvailabilityManager = () => {
       available_start_date: "",
       available_end_date: ""
     });
-  // reset additional fields
-  setContactDetails([{ contact_person: "", contact_number: "" }]);
-  setPriceSections([{ start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }]);
+    // reset additional fields
+    setContactDetails([{ contact_person: "", contact_number: "" }]);
+    setPriceSections([{ start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }]);
     setPhotoFiles([]);
     setVideoFile(null);
     setResellingAllowed(false);
@@ -1552,7 +1685,7 @@ const HotelAvailabilityManager = () => {
       hotel.reselling_allowed === 1 ||
       hotel.reselling_allowed === "1"
     );
-    
+
     // Load existing prices and attempt to reconstruct price sections with bed-specific prices.
     // The API returns a flat list of price entries; group them by (start_date, end_date)
     // and pick a representative room_type as the section's room_type. Remaining
@@ -1570,7 +1703,7 @@ const HotelAvailabilityManager = () => {
         // Determine the most common room_type in this group to act as the section type
         const counts = {};
         items.forEach(it => { const t = it.room_type || 'double'; counts[t] = (counts[t] || 0) + 1; });
-        const sectionRoomType = Object.keys(counts).sort((a,b) => counts[b]-counts[a])[0] || 'double';
+        const sectionRoomType = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'double';
 
         // Find a base entry for the section (prefer one that matches sectionRoomType)
         let base = items.find(it => (it.room_type || 'double') === sectionRoomType) || items[0];
@@ -1609,7 +1742,7 @@ const HotelAvailabilityManager = () => {
     setVideoFile(null);
     // hotel status
     setHotelStatus(hotel.status || 'active');
-    
+
     // Fetch existing rooms for this hotel so they are editable
     (async () => {
       // ensure categories are loaded before showing edit modal so dropdown contains latest items
@@ -1621,7 +1754,7 @@ const HotelAvailabilityManager = () => {
           const matched = freshCats.find(c => String(c.slug) === String(hotel.category) || String(c.id) === String(hotel.category) || String(c.name) === String(hotel.category));
           if (matched) setHotelForm(prev => ({ ...prev, category: matched.id }));
         }
-      } catch (e) {}
+      } catch (e) { }
       try {
         const resp = await api.get(`/hotel-rooms/`, { params: { hotel: hotel.id } });
         const list = resp?.data || [];
@@ -1780,7 +1913,7 @@ const HotelAvailabilityManager = () => {
 
   // Render the hotels table (uses real backend data in `hotels` state)
   // Table will display selling prices per room type and sharing price
-  
+
 
   // Debug: log hotels and filtered results to help diagnose missing items in UI
   useEffect(() => {
@@ -1827,1813 +1960,2322 @@ const HotelAvailabilityManager = () => {
     }
   }, [cities]);
 
+  // Derive the list of cities that actually have hotels (for the City filter)
+  const hotelCities = useMemo(() => {
+    try {
+      // build a quick lookup from dedupedCities for id->name
+      const lookup = {};
+      (dedupedCities || []).forEach((c) => {
+        if (!c) return;
+        if (c.id !== undefined && c.id !== null) lookup[String(c.id)] = c.name || c.city_name || c.display_name || c.name;
+        if (c.name) lookup[String(c.name)] = c.name;
+      });
+
+      const map = {};
+      (hotels || []).forEach((h) => {
+        const raw = h.city ?? h.city_id ?? (h.city && h.city.id) ?? null;
+        let name = null;
+        if (h.city && typeof h.city === 'object') {
+          name = h.city.name || h.city.city_name || h.city.display_name || null;
+        }
+        if (!name) {
+          if (raw !== null && raw !== undefined) {
+            const key = String(raw);
+            name = lookup[key] || (`City (${key})`);
+          } else {
+            name = h.city_name || h.cityName || h.city_label || null;
+          }
+        }
+        if (!name) return;
+        const idKey = (raw !== null && raw !== undefined) ? raw : name;
+        const mapKey = String(idKey);
+        if (!map[mapKey]) map[mapKey] = { id: idKey, name };
+      });
+      const arr = Object.values(map);
+      arr.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      // fallback to dedupedCities if no hotels present
+      if (arr.length === 0) {
+        return (dedupedCities || []).map(c => ({ id: c.id ?? c.name, name: c.name }));
+      }
+      return arr;
+    } catch {
+      return (dedupedCities || []).map(c => ({ id: c.id ?? c.name, name: c.name }));
+    }
+  }, [hotels, dedupedCities]);
+
   return (
+
     <>
-    <div className="page-container" style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
-      <Sidebar />
-      <div className="content-wrapper" style={{ flex: 1, overflow: "auto" }}>
-        <Header />
-        <HotelsTabs />
-        <Container fluid className="p-4">
-          {/* Header */}
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <h2 className="mb-1" style={{ fontWeight: 600, color: "#2c3e50" }}>
-                <Hotel size={32} className="me-2" style={{ color: "#1B78CE" }} />
-                Hotel Availability Manager
-              </h2>
-              <p className="text-muted mb-0">Manage hotels, rooms, pricing, and availability</p>
-            </div>
-            <Button 
-              style={{ backgroundColor: "#1B78CE", border: "none" }}
-              onClick={openAddModal}
-            >
-              <Plus size={20} className="me-2" />
-              Add New Hotel
-            </Button>
-          </div>
-
-          {/* Gallery modal (for multiple photos) */}
-          <Modal show={showGallery} onHide={closeGallery} size="xl" centered>
-            <Modal.Header closeButton>
-              <Modal.Title>Photos</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
+      <div className="page-container" style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
+        <Sidebar />
+        <div className="content-wrapper" style={{ flex: 1, overflow: "auto" }}>
+          <Header />
+          <HotelsTabs />
+          <Container fluid className="p-4">
+            {/* Header */}
+            <div className="d-flex justify-content-between align-items-center mb-4">
               <div>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <div>
-                    <input type="file" accept="image/*" multiple onChange={handleGalleryFileSelect} />
-                    <Button size="sm" className="ms-2" onClick={uploadGalleryFiles}><Save size={14} className="me-1" /> Upload</Button>
-                  </div>
-                  <div>
-                    <Button size="sm" onClick={() => setGalleryIndex(i => (i - 1 + (galleryPhotos?.length || 1)) % (galleryPhotos?.length || 1))}>Previous</Button>
-                    <span className="mx-2">{(galleryPhotos && galleryPhotos.length) ? (galleryIndex + 1) : 0} / {(galleryPhotos && galleryPhotos.length) || 0}</span>
-                    <Button size="sm" onClick={() => setGalleryIndex(i => (i + 1) % (galleryPhotos?.length || 1))}>Next</Button>
-                  </div>
-                </div>
-
-                {galleryPhotos && galleryPhotos.length > 0 ? (
-                  <div>
-                    <div className="text-center mb-3">
-                      <img src={galleryPhotos[galleryIndex]?.url} alt={`photo-${galleryIndex}`} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 6 }} />
-                    </div>
-                    <div className="d-flex flex-wrap">
-                      {galleryPhotos.map((p, idx) => (
-                        <div key={p.id || idx} style={{ position: 'relative', marginRight: 8, marginBottom: 8 }}>
-                          <img src={p.url} alt={`thumb-${idx}`} onClick={() => setGalleryIndex(idx)} style={{ width: 120, height: 90, objectFit: 'cover', cursor: 'pointer', border: idx === galleryIndex ? '3px solid #0d6efd' : '1px solid #ddd', borderRadius: 6 }} />
-                          <Button size="sm" variant="danger" style={{ position: 'absolute', top: 4, right: 4, padding: '2px 6px' }} onClick={() => deleteGalleryPhoto(idx)}><Trash2 size={12} /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center text-muted">No photos available</div>
-                )}
+                <h2 className="mb-1" style={{ fontWeight: 600, color: "#2c3e50" }}>
+                  <Hotel size={32} className="me-2" style={{ color: "#1B78CE" }} />
+                  Hotel Availability Manager
+                </h2>
+                <p className="text-muted mb-0">Manage hotels, rooms, pricing, and availability</p>
               </div>
-            </Modal.Body>
-          </Modal>
+              <Button
+                style={{ backgroundColor: "#1B78CE", border: "none" }}
+                onClick={openAddModal}
+              >
+                <Plus size={20} className="me-2" />
+                Add New Hotel
+              </Button>
+            </div>
 
-          {/* NOTE: Merged top filters into the main Filters card below. Removed the duplicate filter bar. */}
+            {/* Gallery modal (for multiple photos) */}
+            <Modal show={showGallery} onHide={closeGallery} size="xl" centered>
+              <Modal.Header closeButton>
+                <Modal.Title>Photos</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                {priceModalHotel && (() => {
+                  const prices = priceModalHotel.prices || priceModalHotel.price_sections || [];
 
-          {/* Alert */}
-          {alert.show && (
-            <Alert variant={alert.type} dismissible onClose={() => setAlert({ show: false, type: "", message: "" })}>
-              {alert.type === "success" ? <CheckCircle size={20} className="me-2" /> : <AlertCircle size={20} className="me-2" />}
-              {alert.message}
-            </Alert>
-          )}
+                  // Helper to get bed type name from slug/type (case-insensitive)
+                  const getBedTypeName = (type) => {
+                    if (!type) return 'room';
+                    const typeStr = String(type).toLowerCase().trim();
 
-          {/* Statistics Cards */}
-          <Row className="mb-4">
-            <Col md={3}>
-              <Card className="border-0 shadow-sm">
-                <Card.Body>
-                  <div className="d-flex align-items-center">
-                    <div className="p-3 rounded" style={{ backgroundColor: "#e3f2fd" }}>
-                      <Hotel size={24} style={{ color: "#1976d2" }} />
-                    </div>
-                    <div className="ms-3">
-                      <h6 className="text-muted mb-1">Total Hotels</h6>
-                      <h3 className="mb-0">{filteredHotels.length}</h3>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={3}>
-              <Card className="border-0 shadow-sm">
-                <Card.Body>
-                  <div className="d-flex align-items-center">
-                    <div className="p-3 rounded" style={{ backgroundColor: "#e8f5e9" }}>
-                      <CheckCircle size={24} style={{ color: "#388e3c" }} />
-                    </div>
-                    <div className="ms-3">
-                      <h6 className="text-muted mb-1">Active Hotels</h6>
-                      <h3 className="mb-0">{filteredHotels.filter(h => h.is_active).length}</h3>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={3}>
-              <Card className="border-0 shadow-sm">
-                <Card.Body>
-                  <div className="d-flex align-items-center">
-                    <div className="p-3 rounded" style={{ backgroundColor: "#fff3e0" }}>
-                      <MapPin size={24} style={{ color: "#f57c00" }} />
-                    </div>
-                    <div className="ms-3">
-                      <h6 className="text-muted mb-1">Cities</h6>
-                      <h3 className="mb-0">{dedupedCities.length}</h3>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={3}>
-              <Card className="border-0 shadow-sm">
-                <Card.Body>
-                  <div className="d-flex align-items-center">
-                    <div className="p-3 rounded" style={{ backgroundColor: "#fce4ec" }}>
-                      <XCircle size={24} style={{ color: "#c2185b" }} />
-                    </div>
-                    <div className="ms-3">
-                      <h6 className="text-muted mb-1">Inactive</h6>
-                      <h3 className="mb-0">{filteredHotels.filter(h => !h.is_active).length}</h3>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
+                    // Map to standardized names
+                    const typeMap = {
+                      'single': 'single',
+                      'sharing': 'sharing',
+                      'double': 'double',
+                      'triple': 'triple',
+                      'quad': 'quad',
+                      'quint': 'quint',
+                      'room': 'room',
+                      '6': '6',
+                      '7': '7',
+                      '8': '8',
+                      '9': '9',
+                      '10': '10',
+                    };
 
-          {/* Filters */}
-          <Card className="border-0 shadow-sm mb-4">
-            <Card.Body>
-              <Row className="align-items-center">
-                <Col md={5}>
-                  <div className="position-relative">
-                    <Search size={20} className="position-absolute" style={{ left: "12px", top: "12px", color: "#6c757d" }} />
+                    if (typeMap[typeStr]) return typeMap[typeStr];
+
+                    // Check if it's a bed type from the list
+                    const foundBedType = bedTypesList.find(bt =>
+                      String(bt.slug).toLowerCase() === typeStr ||
+                      String(bt.name).toLowerCase() === typeStr
+                    );
+
+                    if (foundBedType) {
+                      const name = foundBedType.name.toLowerCase();
+                      return typeMap[name] || name;
+                    }
+
+                    return typeStr;
+                  };
+
+                  // Group prices by date range
+                  const dateRangeMap = {};
+                  prices.forEach(p => {
+                    const key = `${p.start_date || 'N/A'}_${p.end_date || 'N/A'}`;
+                    if (!dateRangeMap[key]) {
+                      dateRangeMap[key] = {
+                        start_date: p.start_date || 'N/A',
+                        end_date: p.end_date || 'N/A',
+                        prices: {}
+                      };
+                    }
+                    const bedType = getBedTypeName(p.room_type);
+                    const purchasePrice = p.purchase_price || 0;
+                    dateRangeMap[key].prices[bedType] = purchasePrice;
+                  });
+
+                  // Define fixed column order: Room, Sharing, Double, Triple, Quad, Quint, 6, 7, 8, 9, 10
+                  const bedTypeColumns = ['room', 'sharing', 'double', 'triple', 'quad', 'quint', '6', '7', '8', '9', '10'];
+
+                  // Column display names
+                  const columnNames = {
+                    'room': 'Room',
+                    'sharing': 'Sharing',
+                    'double': 'Double',
+                    'triple': 'Triple',
+                    'quad': 'Quad',
+                    'quint': 'Quint',
+                    '6': '6 Bed',
+                    '7': '7 Bed',
+                    '8': '8 Bed',
+                    '9': '9 Bed',
+                    '10': '10 Bed'
+                  };
+
+                  // Convert map to array
+                  const dateRanges = Object.values(dateRangeMap);
+
+                  return (
+                    <div>
+                      <h6 className="mb-3">Hotel Prices by Date Range (Purchase Prices)</h6>
+                      {prices.length === 0 ? (
+                        <div className="text-center text-muted py-3">
+                          No prices available for this hotel
+                        </div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <Table striped bordered hover size="sm">
+                            <thead>
+                              <tr>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                {bedTypeColumns.map((bedType, idx) => (
+                                  <th key={idx}>{columnNames[bedType]}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {dateRanges.map((range, idx) => (
+                                <tr key={idx}>
+                                  <td>{range.start_date}</td>
+                                  <td>{range.end_date}</td>
+                                  {bedTypeColumns.map((bedType, bidx) => {
+                                    const price = range.prices[bedType];
+                                    return (
+                                      <td key={bidx}>
+                                        {price != null && price !== 0 ? `${Number(price).toLocaleString()} SAR` : 'N/A'}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </Modal.Body>
+            </Modal>
+
+            {/* NOTE: Merged top filters into the main Filters card below. Removed the duplicate filter bar. */}
+
+            {/* Price details modal (shows raw price entries for a hotel) */}
+            <Modal show={showPriceModal} onHide={closePriceModal} size="lg" centered>
+              <Modal.Header closeButton>
+                <Modal.Title>Price Details {priceModalHotel ? `- ${priceModalHotel.name}` : ''}</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                {priceModalHotel ? (
+                  (() => {
+                    const prices = priceModalHotel.prices || priceModalHotel.price_sections || [];
+                    const fmtVal = (v) => (v === undefined || v === null || v === '' ? 'N/A' : (Number.isFinite(Number(v)) ? Number(v).toLocaleString() : String(v)));
+
+                    if (!Array.isArray(prices) || prices.length === 0) {
+                      return <div className="text-center text-muted">No price entries available</div>;
+                    }
+
+                    return (
+                      <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                        <Table striped bordered hover responsive size="sm">
+                          <thead>
+                            <tr>
+                              <th>Label</th>
+                              <th>Start Date</th>
+                              <th>End Date</th>
+                              <th>Room Price</th>
+                              <th>Selling Price</th>
+                              <th>Purchase Price</th>
+                              <th>Sharing</th>
+                              <th>Quint</th>
+                              <th>Quad</th>
+                              <th>Triple</th>
+                              <th>Double</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              // Group by start_date::end_date to collapse multiple entries for same range
+                              const groups = {};
+                              (prices || []).forEach(p => {
+                                const key = `${p.start_date || ''}::${p.end_date || ''}`;
+                                groups[key] = groups[key] || [];
+                                // dedupe by id or by content
+                                const exists = groups[key].some(existing => (existing.id && p.id && existing.id === p.id) || JSON.stringify(existing) === JSON.stringify(p));
+                                if (!exists) groups[key].push(p);
+                              });
+
+                              // sort keys by start_date then end_date
+                              const sortedKeys = Object.keys(groups).sort((a, b) => {
+                                const [aS, aE] = a.split('::');
+                                const [bS, bE] = b.split('::');
+                                if (aS === bS) return (aE || '') < (bE || '') ? -1 : 1;
+                                return (aS || '') < (bS || '') ? -1 : 1;
+                              });
+
+                              return sortedKeys.map((key, gidx) => {
+                                const items = groups[key] || [];
+                                const [sDate, eDate] = key.split('::');
+
+                                const lowestRoomPrice = (() => {
+                                  let rp = null;
+                                  items.forEach(it => {
+                                    const sp = it.selling_price != null ? it.selling_price : it.price != null ? it.price : null;
+                                    if (sp != null && (rp == null || sp < rp)) rp = sp;
+                                  });
+                                  return rp;
+                                })();
+
+                                const lowestSelling = (() => {
+                                  let v = null;
+                                  items.forEach(it => {
+                                    if (it.selling_price != null) {
+                                      if (v == null || it.selling_price < v) v = it.selling_price;
+                                    }
+                                  });
+                                  return v;
+                                })();
+
+                                const lowestPurchase = (() => {
+                                  let v = null;
+                                  items.forEach(it => {
+                                    const val = it.purchase_price ?? it.cost_price ?? null;
+                                    if (val != null && (v == null || val < v)) v = val;
+                                  });
+                                  return v;
+                                })();
+
+                                const sharingFlag = items.some(it => it.is_sharing_allowed || it.is_sharing || String(it.room_type || '').toLowerCase() === 'sharing');
+
+                                const typePrice = (type) => {
+                                  const found = items.find(it => String(it.room_type || '').toLowerCase() === String(type).toLowerCase());
+                                  return found ? (found.selling_price != null ? found.selling_price : found.price != null ? found.price : null) : null;
+                                };
+
+                                return (
+                                  <tr key={`group-${gidx}-${key}`}>
+                                    <td>{`Price ${gidx + 1}`}</td>
+                                    <td>{sDate || '—'}</td>
+                                    <td>{eDate || '—'}</td>
+                                    <td>{fmtVal(lowestRoomPrice)}</td>
+                                    <td>{fmtVal(lowestSelling)}</td>
+                                    <td>{fmtVal(lowestPurchase)}</td>
+                                    <td>{sharingFlag ? 'Yes' : 'No'}</td>
+                                    <td>{fmtVal(typePrice('quint'))}</td>
+                                    <td>{fmtVal(typePrice('quad'))}</td>
+                                    <td>{fmtVal(typePrice('triple'))}</td>
+                                    <td>{fmtVal(typePrice('double'))}</td>
+                                  </tr>
+                                );
+                              });
+                            })()}
+                          </tbody>
+                        </Table>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="text-center text-muted">No hotel selected</div>
+                )}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={closePriceModal}>Close</Button>
+              </Modal.Footer>
+            </Modal>
+
+            {/* Alert */}
+            {alert.show && (
+              <Alert variant={alert.type} dismissible onClose={() => setAlert({ show: false, type: "", message: "" })}>
+                {alert.type === "success" ? <CheckCircle size={20} className="me-2" /> : <AlertCircle size={20} className="me-2" />}
+                {alert.message}
+              </Alert>
+            )}
+
+            {/* Statistics Cards */}
+            <Row className="mb-4">
+              <Col md={3}>
+                <Card className="border-0 shadow-sm">
+                  <Card.Body>
+                    <div className="d-flex align-items-center">
+                      <div className="p-3 rounded" style={{ backgroundColor: "#e3f2fd" }}>
+                        <Hotel size={24} style={{ color: "#1976d2" }} />
+                      </div>
+                      <div className="ms-3">
+                        <h6 className="text-muted mb-1">Total Hotels</h6>
+                        <h3 className="mb-0">{filteredHotels.length}</h3>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col md={3}>
+                <Card className="border-0 shadow-sm">
+                  <Card.Body>
+                    <div className="d-flex align-items-center">
+                      <div className="p-3 rounded" style={{ backgroundColor: "#e8f5e9" }}>
+                        <CheckCircle size={24} style={{ color: "#388e3c" }} />
+                      </div>
+                      <div className="ms-3">
+                        <h6 className="text-muted mb-1">Active Hotels</h6>
+                        <h3 className="mb-0">{filteredHotels.filter(h => h.is_active).length}</h3>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col md={3}>
+                <Card className="border-0 shadow-sm">
+                  <Card.Body>
+                    <div className="d-flex align-items-center">
+                      <div className="p-3 rounded" style={{ backgroundColor: "#fff3e0" }}>
+                        <MapPin size={24} style={{ color: "#f57c00" }} />
+                      </div>
+                      <div className="ms-3">
+                        <h6 className="text-muted mb-1">Cities</h6>
+                        <h3 className="mb-0">{dedupedCities.length}</h3>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col md={3}>
+                <Card className="border-0 shadow-sm">
+                  <Card.Body>
+                    <div className="d-flex align-items-center">
+                      <div className="p-3 rounded" style={{ backgroundColor: "#fce4ec" }}>
+                        <XCircle size={24} style={{ color: "#c2185b" }} />
+                      </div>
+                      <div className="ms-3">
+                        <h6 className="text-muted mb-1">Inactive</h6>
+                        <h3 className="mb-0">{filteredHotels.filter(h => !h.is_active).length}</h3>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Filters */}
+            <Card className="border-0 shadow-sm mb-4">
+              <Card.Body>
+                <Row className="align-items-center">
+                  <Col md={5}>
+                    <div className="position-relative">
+                      <Search size={20} className="position-absolute" style={{ left: "12px", top: "12px", color: "#6c757d" }} />
+                      <Form.Control
+                        type="text"
+                        placeholder="Search hotels by name or address..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ paddingLeft: "40px" }}
+                      />
+                    </div>
+                  </Col>
+
+                  <Col md={2}>
+                    <Form.Label className="fw-medium mb-1">City</Form.Label>
+                    <Form.Select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
+                      <option value="">All Cities</option>
+                      {hotelCities.map(city => (
+                        <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
+                      ))}
+                    </Form.Select>
+                  </Col>
+
+                  <Col md={2}>
+                    <Form.Label className="fw-medium mb-1">Category</Form.Label>
+                    <Form.Select
+                      value={categoryFilter}
+                      onChange={e => setCategoryFilter(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      {categoriesList.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </Form.Select>
+                  </Col>
+
+                  <Col md={2}>
+                    <Form.Label className="fw-medium mb-1">Distance</Form.Label>
                     <Form.Control
                       type="text"
-                      placeholder="Search hotels by name or address..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={{ paddingLeft: "40px" }}
+                      value={distanceFilter}
+                      onChange={e => setDistanceFilter(e.target.value)}
+                      placeholder="e.g., 500"
                     />
-                  </div>
-                </Col>
+                  </Col>
 
-                <Col md={2}>
-                  <Form.Label className="fw-medium mb-1">City</Form.Label>
-                  <Form.Select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
-                    <option value="">All Cities</option>
-                    {dedupedCities.map(city => (
-                      <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
-                    ))}
-                  </Form.Select>
-                </Col>
+                  <Col md={1}>
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'end' }}>
+                      <Button
+                        variant="outline-secondary"
+                        className="w-100"
+                        onClick={() => { setSearchTerm(""); setCityFilter(""); setCategoryFilter(""); setDistanceFilter(""); }}
+                      >
+                        <Filter size={18} className="me-2" />
+                        Clear
+                      </Button>
+                    </div>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
 
-                <Col md={2}>
-                  <Form.Label className="fw-medium mb-1">Category</Form.Label>
-                  <Form.Select
-                    value={categoryFilter}
-                    onChange={e => setCategoryFilter(e.target.value)}
-                  >
-                    <option value="">All</option>
-                    {categoriesList.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </Form.Select>
-                </Col>
+            {/* Hotels List */}
+            {/* ...existing code... */}
 
-                <Col md={2}>
-                  <Form.Label className="fw-medium mb-1">Distance</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={distanceFilter}
-                    onChange={e => setDistanceFilter(e.target.value)}
-                    placeholder="e.g., 500"
-                  />
-                </Col>
-
-                <Col md={1}>
-                  <div style={{ height: '100%', display: 'flex', alignItems: 'end' }}>
-                    <Button 
-                      variant="outline-secondary" 
-                      className="w-100"
-                      onClick={() => { setSearchTerm(""); setCityFilter(""); setCategoryFilter(""); setDistanceFilter(""); }}
-                    >
-                      <Filter size={18} className="me-2" />
-                      Clear
-                    </Button>
-                  </div>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-
-          {/* Hotels List */}
-          {/* ...existing code... */}
-
-          <Card className="border-0 shadow-sm">
-            <Card.Header className="bg-white py-3">
-              <h5 className="mb-0">Hotels List ({filteredHotels.length})</h5>
-            </Card.Header>
-            <Card.Body className="p-0">
-              <div style={{ overflowX: "auto" }}>
-                <Table hover responsive>
-                  <thead style={{ backgroundColor: "#f8f9fa" }}>
-                    <tr>
-                      <th style={{ minWidth: "200px", position: 'sticky', left: 0, zIndex: 7, background: '#fff', boxShadow: '2px 0 4px rgba(0,0,0,0.05)' }}>Hotel Name</th>
-                      <th style={{ minWidth: "120px" }}>City</th>
-                      <th style={{ minWidth: "200px" }}>Address</th>
-                      <th style={{ minWidth: "100px" }}>Category</th>
-                       <th style={{ minWidth: "120px" }}>Contact</th>
-                      <th style={{ minWidth: "100px" }}>Status</th>
-                      <th style={{ minWidth: "150px" }}>Availability</th>
-                      <th style={{ minWidth: "100px" }}>Distance (m)</th>
-                      <th style={{ minWidth: "110px" }}>Walk Time (min)</th>
-                      <th style={{ minWidth: "110px" }}>Walking Distance (m)</th>
-                      <th style={{ minWidth: "160px" }}>Price Dates</th>
-                      <th style={{ minWidth: "120px" }}>Room Price</th>
-                      <th style={{ minWidth: "120px" }}>Sharing Price</th>
-                      <th style={{ minWidth: "120px" }}>Quint Price</th>
-                      <th style={{ minWidth: "120px" }}>Quad Price</th>
-                      <th style={{ minWidth: "120px" }}>Triple Price</th>
-                      <th style={{ minWidth: "120px" }}>Double Price</th>
-                      <th style={{ minWidth: "120px" }}>Pictures</th>
-                      <th style={{ minWidth: "120px" }}>Location</th>
-                      <th style={{ minWidth: "150px", textAlign: "center" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
+            <Card className="border-0 shadow-sm">
+              <Card.Header className="bg-white py-3">
+                <h5 className="mb-0">Hotels List ({filteredHotels.length})</h5>
+              </Card.Header>
+              <Card.Body className="p-0">
+                <div style={{ overflowX: "auto" }}>
+                  <Table hover responsive>
+                    <thead style={{ backgroundColor: "#f8f9fa" }}>
                       <tr>
-                        <td colSpan="19" className="text-center py-4">
-                          <Spinner animation="border" variant="primary" />
-                        </td>
+                        <th style={{ minWidth: "200px", position: 'sticky', left: 0, zIndex: 7, background: '#fff', boxShadow: '2px 0 4px rgba(0,0,0,0.05)' }}>Hotel Name</th>
+                        <th style={{ minWidth: "120px" }}>City</th>
+                        <th style={{ minWidth: "200px" }}>Address</th>
+                        <th style={{ minWidth: "100px" }}>Category</th>
+                        <th style={{ minWidth: "120px" }}>Contact</th>
+                        <th style={{ minWidth: "100px" }}>Status</th>
+                        <th style={{ minWidth: "150px" }}>Availability</th>
+                        <th style={{ minWidth: "100px" }}>Distance (m)</th>
+                        <th style={{ minWidth: "110px" }}>Walk Time (min)</th>
+                        <th style={{ minWidth: "110px" }}>Walking Distance (m)</th>
+                        <th style={{ minWidth: "160px" }}>Price Dates</th>
+                        <th style={{ minWidth: "120px" }}>Room Price</th>
+                        <th style={{ minWidth: "120px" }}>Sharing Price</th>
+                        <th style={{ minWidth: "120px" }}>Quint Price</th>
+                        <th style={{ minWidth: "120px" }}>Quad Price</th>
+                        <th style={{ minWidth: "120px" }}>Triple Price</th>
+                        <th style={{ minWidth: "120px" }}>Double Price</th>
+                        <th style={{ minWidth: "120px" }}>Pictures</th>
+                        <th style={{ minWidth: "120px" }}>Location</th>
+                        <th style={{ minWidth: "150px", textAlign: "center" }}>Actions</th>
                       </tr>
-                    ) : filteredHotels.length === 0 ? (
-                      <tr>
-                        <td colSpan="19" className="text-center py-4">
-                          <AlertCircle size={48} className="text-muted mb-3" />
-                          <p className="text-muted">No hotels found</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredHotels.map(hotel => (
-                        <tr key={hotel.id}>
-                          <td style={{ position: 'sticky', left: 0, zIndex: 6, background: '#fff' }}>
-                            <div className="d-flex align-items-center">
-                              <Hotel size={20} className="me-2 text-primary" />
-                              <div>
-                                <strong>{hotel.name}</strong>
-                                {hotel.reselling_allowed ? (
-                                  (organizationId && String(hotel.organization || hotel.organization_id || hotel.owner_organization_id) === String(organizationId)) ? (
-                                    <Badge bg="success" className="ms-2">Reselling Allowed</Badge>
-                                  ) : (
-                                    <Badge bg="warning" className="ms-2" style={{ color: '#212529' }}>Reseller</Badge>
-                                  )
-                                ) : null}
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <MapPin size={16} className="me-1" />
-                            {hotel.city_name ? hotel.city_name : getCityName(hotel.city)}
-                          </td>
-                          <td>{hotel.address}</td>
-                          <td>{getCategoryBadge(hotel.category)}</td>
-                           <td>
-                            {hotel.contact_number ? (
-                              <span>
-                                <Phone size={14} className="me-1" />
-                                {hotel.contact_number}
-                              </span>
-                            ) : "N/A"}
-                          </td>
-                          <td>
-                            {hotel.is_active ? (
-                              <Badge bg="success">
-                                <CheckCircle size={14} className="me-1" />
-                                Active
-                              </Badge>
-                            ) : (
-                              <Badge bg="danger">
-                                <XCircle size={14} className="me-1" />
-                                Inactive
-                              </Badge>
-                            )}
-                          </td>
-                          <td>
-                            {hotel.available_start_date && hotel.available_end_date ? (
-                              <small>
-                                <Calendar size={14} className="me-1" />
-                                {new Date(hotel.available_start_date).toLocaleDateString()} - {new Date(hotel.available_end_date).toLocaleDateString()}
-                              </small>
-                            ) : (
-                              <Badge bg="secondary">Not Set</Badge>
-                            )}
-                          </td> 
-                          <td>
-                            {hotel.distance !== undefined && hotel.distance !== null && hotel.distance !== "" ? (
-                              <span>{hotel.distance} m</span>
-                            ) : (
-                              "N/A"
-                            )}
-                          </td>
-                          <td>
-                            {(hotel.walking_time !== undefined && hotel.walking_time !== null && hotel.walking_time !== "") ? (
-                              <span>{String(hotel.walking_time)} min</span>
-                            ) : (
-                              "N/A"
-                            )}
-                          </td>
-                          <td>
-                            {(hotel.walking_distance !== undefined && hotel.walking_distance !== null && hotel.walking_distance !== "") ? (
-                              <span>{String(hotel.walking_distance)} m</span>
-                            ) : (
-                              "N/A"
-                            )}
-                          </td>
-                          {/* Price extraction */}
-                          {(() => {
-                            const prices = hotel.prices || hotel.price_sections || [];
-                            let minStart = null;
-                            let maxEnd = null;
-                            prices.forEach(p => {
-                              if (!p) return;
-                              if (p.start_date && (!minStart || p.start_date < minStart)) minStart = p.start_date;
-                              if (p.end_date && (!maxEnd || p.end_date > maxEnd)) maxEnd = p.end_date;
-                            });
-                            const priceDates = minStart || maxEnd ? `${minStart || ''}${minStart && maxEnd ? ' — ' : ''}${maxEnd || ''}` : '-';
-
-                            const pickPrice = (type) => {
-                              const found = prices.find(p => String(p.room_type).toLowerCase() === String(type).toLowerCase());
-                              return found && found.selling_price != null ? found.selling_price : null;
-                            };
-
-                            const doublePrice = pickPrice('double');
-                            const triplePrice = pickPrice('triple');
-                            const quadPrice = pickPrice('quad');
-                            const quintPrice = pickPrice('quint');
-
-                            // room price: choose the lowest selling_price (or price) among all entries
-                            let roomPrice = null;
-                            prices.forEach(p => {
-                              if (!p) return;
-                              const sp = p.selling_price != null ? p.selling_price : p.price;
-                              if (sp != null && (roomPrice == null || sp < roomPrice)) roomPrice = sp;
-                            });
-
-                            let sharingPrice = null;
-                            prices.forEach(p => {
-                              if (p && p.is_sharing_allowed) {
-                                const sp = p.selling_price != null ? p.selling_price : p.price;
-                                if (sharingPrice == null || (sp != null && sp < sharingPrice)) sharingPrice = sp;
-                              }
-                            });
-                            if (sharingPrice == null) {
-                              const byType = prices.find(p => p && String(p.room_type).toLowerCase() === 'sharing');
-                              if (byType) sharingPrice = byType.selling_price != null ? byType.selling_price : byType.price;
-                            }
-
-                            const fmt = (v) => (v == null ? 'N/A' : (Number.isFinite(Number(v)) ? Number(v).toLocaleString() : String(v)));
-
-                            return (
-                              <>
-                                <td>{priceDates}</td>
-                                <td>{fmt(roomPrice)}</td>
-                                <td>{fmt(sharingPrice)}</td>
-                                <td>{fmt(quintPrice)}</td>
-                                <td>{fmt(quadPrice)}</td>
-                                <td>{fmt(triplePrice)}</td>
-                                <td>{fmt(doublePrice)}</td>
-                              </>
-                            );
-                          })()}
-                         
-                          <td>
-                            {/* Pictures: show first photo thumbnail if available and open gallery on click */}
-                            {(() => {
-                              const photos = hotel.photos_data || hotel.photos || hotel.photo_urls || hotel.images || hotel.photos_list || [];
-                              const arr = Array.isArray(photos) ? photos : [];
-                              // Prefer entries that actually have an image/url (skip caption-only records)
-                              const imgs = arr.filter(p => {
-                                if (!p) return false;
-                                if (typeof p === 'string') return String(p).trim() !== '';
-                                const raw = p.image || p.url || '';
-                                return raw && String(raw).trim() !== '';
-                              });
-                              if (imgs.length === 0) return 'N/A';
-                              const first = imgs[0];
-                              const rawSrc = typeof first === 'string' ? first : (first.image || first.url || '');
-                              const src = normalizeMediaUrlGlobal(rawSrc);
-                              if (!src) return 'N/A';
-                              return (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <img src={src} alt="hotel" style={{ width: 60, height: 40, objectFit: 'cover', borderRadius: 6, cursor: 'pointer' }} onClick={() => openGallery(hotel)} />
-                                  <Button variant="link" size="sm" onClick={() => openGallery(hotel)}>View ({imgs.length})</Button>
-                                </div>
-                              );
-                            })()}
-                          </td>
-                          <td>
-                            {/* Location: link to google_location if present */}
-                            {hotel.google_location ? (
-                              <a href={hotel.google_location} target="_blank" rel="noreferrer"><MapPin size={14} className="me-1" />Map</a>
-                            ) : (
-                              'N/A'
-                            )}
-                          </td>
-                          <td>
-                            {(() => {
-                              const hotelOrg = hotel.organization || hotel.organization_id || hotel.owner_organization_id || hotel.org || null;
-                              const isOwner = organizationId && hotelOrg && String(hotelOrg) === String(organizationId);
-                              return (
-                                <Dropdown>
-                                  <Dropdown.Toggle variant="secondary" size="sm" id={`hotel-actions-${hotel.id}`}>
-                                    Actions
-                                  </Dropdown.Toggle>
-
-                                  <Dropdown.Menu align="end">
-                                    <Dropdown.Item onClick={() => openAvailabilityModal(hotel)}>
-                                      <BedDouble size={14} className="me-2" /> View Availability
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => { setSelectedHotel(hotel); setShowViewModal(true); }}>
-                                      <Eye size={14} className="me-2" /> View Details
-                                    </Dropdown.Item>
-                                    <Dropdown.Item
-                                      onClick={() => { if (isOwner) openEditModal(hotel); else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
-                                      title={isOwner ? "Edit Hotel" : "Click to see why editing is disabled"}
-                                    >
-                                      <Edit2 size={14} className="me-2" /> Edit
-                                    </Dropdown.Item>
-                                    <Dropdown.Item
-                                      onClick={() => { if (isOwner) { setSelectedHotel(hotel); setShowDeleteModal(true); } else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
-                                      title={isOwner ? "Delete Hotel" : "Deleting disabled for resellers"}
-                                    >
-                                      <Trash2 size={14} className="me-2" /> Delete
-                                    </Dropdown.Item>
-                                  </Dropdown.Menu>
-                                </Dropdown>
-                              );
-                            })()}
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan="19" className="text-center py-4">
+                            <Spinner animation="border" variant="primary" />
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </Table>
-              </div>
-            </Card.Body>
-          </Card>
-        </Container>
+                      ) : filteredHotels.length === 0 ? (
+                        <tr>
+                          <td colSpan="19" className="text-center py-4">
+                            <AlertCircle size={48} className="text-muted mb-3" />
+                            <p className="text-muted">No hotels found</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredHotels.map(hotel => (
+                          <tr key={hotel.id}>
+                            <td style={{ position: 'sticky', left: 0, zIndex: 6, background: '#fff' }}>
+                              <div className="d-flex align-items-center">
+                                <Hotel size={20} className="me-2 text-primary" />
+                                <div>
+                                  <strong>{hotel.name}</strong>
+                                  {hotel.reselling_allowed ? (
+                                    (organizationId && String(hotel.organization || hotel.organization_id || hotel.owner_organization_id) === String(organizationId)) ? (
+                                      <Badge bg="success" className="ms-2">Reselling Allowed</Badge>
+                                    ) : (
+                                      <Badge bg="warning" className="ms-2" style={{ color: '#212529' }}>Reseller</Badge>
+                                    )
+                                  ) : null}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <MapPin size={16} className="me-1" />
+                              {hotel.city_name ? hotel.city_name : getCityName(hotel.city)}
+                            </td>
+                            <td>{hotel.address}</td>
+                            <td>{getCategoryBadge(hotel.category)}</td>
+                            <td>
+                              {hotel.contact_number ? (
+                                <span>
+                                  <Phone size={14} className="me-1" />
+                                  {hotel.contact_number}
+                                </span>
+                              ) : "N/A"}
+                            </td>
+                            <td>
+                              {hotel.is_active ? (
+                                <Badge bg="success">
+                                  <CheckCircle size={14} className="me-1" />
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge bg="danger">
+                                  <XCircle size={14} className="me-1" />
+                                  Inactive
+                                </Badge>
+                              )}
+                            </td>
+                            <td>
+                              {hotel.available_start_date && hotel.available_end_date ? (
+                                <small>
+                                  <Calendar size={14} className="me-1" />
+                                  {new Date(hotel.available_start_date).toLocaleDateString()} - {new Date(hotel.available_end_date).toLocaleDateString()}
+                                </small>
+                              ) : (
+                                <Badge bg="secondary">Not Set</Badge>
+                              )}
+                            </td>
+                            <td>
+                              {hotel.distance !== undefined && hotel.distance !== null && hotel.distance !== "" ? (
+                                <span>{hotel.distance} m</span>
+                              ) : (
+                                "N/A"
+                              )}
+                            </td>
+                            <td>
+                              {(hotel.walking_time !== undefined && hotel.walking_time !== null && hotel.walking_time !== "") ? (
+                                <span>{String(hotel.walking_time)} min</span>
+                              ) : (
+                                "N/A"
+                              )}
+                            </td>
+                            <td>
+                              {(hotel.walking_distance !== undefined && hotel.walking_distance !== null && hotel.walking_distance !== "") ? (
+                                <span>{String(hotel.walking_distance)} m</span>
+                              ) : (
+                                "N/A"
+                              )}
+                            </td>
+                            {/* Price extraction */}
+                            {(() => {
+                              const prices = hotel.prices || hotel.price_sections || [];
+                              let minStart = null;
+                              let maxEnd = null;
+                              prices.forEach(p => {
+                                if (!p) return;
+                                if (p.start_date && (!minStart || p.start_date < minStart)) minStart = p.start_date;
+                                if (p.end_date && (!maxEnd || p.end_date > maxEnd)) maxEnd = p.end_date;
+                              });
+                              const priceDates = minStart || maxEnd ? `${minStart || ''}${minStart && maxEnd ? ' — ' : ''}${maxEnd || ''}` : '-';
 
-        {/* Reseller popup shown when a non-owner clicks Edit */}
-        <Modal show={showResellerPopup} onHide={() => setShowResellerPopup(false)} size="sm" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Read-only</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <div>This shared inventory cannot be edited by your organization.</div>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="primary" onClick={() => setShowResellerPopup(false)}>OK</Button>
-          </Modal.Footer>
-        </Modal>
+                              const pickPrice = (type) => {
+                                const found = prices.find(p => String(p.room_type).toLowerCase() === String(type).toLowerCase());
+                                return found && found.selling_price != null ? found.selling_price : null;
+                              };
 
-        {/* Add Hotel Modal */}
-        <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
-          <Modal.Header closeButton className="border-0">
-            <Modal.Title className="d-flex align-items-center">
-              <Plus size={22} className="me-2" style={{ color: '#1B78CE' }} />
-              <span style={{ color: '#1B78CE' }}>Add New Hotel</span>
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Tabs activeKey={addHotelTab} onSelect={(k) => setAddHotelTab(k)} className="mb-3">
-              <Tab eventKey="hotel" title="Hotel">
-                <Form>
-                  <Row className="g-3">
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">City <span className="text-danger">*</span></Form.Label>
-                        <Form.Select
-                          value={hotelForm.city}
-                          onChange={(e) => setHotelForm({ ...hotelForm, city: e.target.value })}
-                        >
-                          <option value="">Select City</option>
-                          {dedupedCities.map(city => (
-                            <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
-                          ))}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Hotel Name <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.name}
-                          onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-                          placeholder="Enter hotel name"
-                        />
-                      </Form.Group>
-                    </Col>
+                              const doublePrice = pickPrice('double');
+                              const triplePrice = pickPrice('triple');
+                              const quadPrice = pickPrice('quad');
+                              const quintPrice = pickPrice('quint');
 
-                    <Col xs={12}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Address <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                          as="textarea"
-                          rows={2}
-                          value={hotelForm.address}
-                          onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
-                          placeholder="Enter full address"
-                        />
-                      </Form.Group>
-                    </Col>
+                              // room price: choose the lowest selling_price (or price) among all entries
+                              let roomPrice = null;
+                              prices.forEach(p => {
+                                if (!p) return;
+                                const sp = p.selling_price != null ? p.selling_price : p.price;
+                                if (sp != null && (roomPrice == null || sp < roomPrice)) roomPrice = sp;
+                              });
 
-                    <Col md={4}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Category</Form.Label>
-                        <div className="d-flex">
+                              let sharingPrice = null;
+                              prices.forEach(p => {
+                                if (p && p.is_sharing_allowed) {
+                                  const sp = p.selling_price != null ? p.selling_price : p.price;
+                                  if (sharingPrice == null || (sp != null && sp < sharingPrice)) sharingPrice = sp;
+                                }
+                              });
+                              if (sharingPrice == null) {
+                                const byType = prices.find(p => p && String(p.room_type).toLowerCase() === 'sharing');
+                                if (byType) sharingPrice = byType.selling_price != null ? byType.selling_price : byType.price;
+                              }
+
+                              const fmt = (v) => (v == null ? 'N/A' : (Number.isFinite(Number(v)) ? Number(v).toLocaleString() : String(v)));
+
+                              return (
+                                <>
+                                  <td>
+                                    <div className="d-flex align-items-center justify-content-between">
+                                      <div>{priceDates}</div>
+                                      <Button variant="link" size="sm" onClick={() => openPriceModal(hotel)}>Show Prices</Button>
+                                    </div>
+                                  </td>
+                                  <td>{fmt(roomPrice)}</td>
+                                  <td>{fmt(sharingPrice)}</td>
+                                  <td>{fmt(quintPrice)}</td>
+                                  <td>{fmt(quadPrice)}</td>
+                                  <td>{fmt(triplePrice)}</td>
+                                  <td>{fmt(doublePrice)}</td>
+                                </>
+                              );
+                            })()}
+
+                            <td>
+                              {/* Pictures: show first photo thumbnail if available and open gallery on click */}
+                              {(() => {
+                                const photos = hotel.photos_data || hotel.photos || hotel.photo_urls || hotel.images || hotel.photos_list || [];
+                                const arr = Array.isArray(photos) ? photos : [];
+                                // Prefer entries that actually have an image/url (skip caption-only records)
+                                const imgs = arr.filter(p => {
+                                  if (!p) return false;
+                                  if (typeof p === 'string') return String(p).trim() !== '';
+                                  const raw = p.image || p.url || '';
+                                  return raw && String(raw).trim() !== '';
+                                });
+                                if (imgs.length === 0) return 'N/A';
+                                const first = imgs[0];
+                                const rawSrc = typeof first === 'string' ? first : (first.image || first.url || '');
+                                const src = normalizeMediaUrlGlobal(rawSrc);
+                                if (!src) return 'N/A';
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <img src={src} alt="hotel" style={{ width: 60, height: 40, objectFit: 'cover', borderRadius: 6, cursor: 'pointer' }} onClick={() => openGallery(hotel)} />
+                                    <Button variant="link" size="sm" onClick={() => openGallery(hotel)}>View ({imgs.length})</Button>
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td>
+                              {/* Location: link to google_location if present */}
+                              {hotel.google_location ? (
+                                <a href={hotel.google_location} target="_blank" rel="noreferrer"><MapPin size={14} className="me-1" />Map</a>
+                              ) : (
+                                'N/A'
+                              )}
+                            </td>
+                            <td>
+                              {(() => {
+                                const hotelOrg = hotel.organization || hotel.organization_id || hotel.owner_organization_id || hotel.org || null;
+                                const isOwner = organizationId && hotelOrg && String(hotelOrg) === String(organizationId);
+                                return (
+                                  <Dropdown>
+                                    <Dropdown.Toggle variant="secondary" size="sm" id={`hotel-actions-${hotel.id}`}>
+                                      Actions
+                                    </Dropdown.Toggle>
+
+                                    <Dropdown.Menu align="end">
+                                      <Dropdown.Item onClick={() => openAvailabilityModal(hotel)}>
+                                        <BedDouble size={14} className="me-2" /> View Availability
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => { setSelectedHotel(hotel); setShowViewModal(true); }}>
+                                        <Eye size={14} className="me-2" /> View Details
+                                      </Dropdown.Item>
+                                      <Dropdown.Item
+                                        onClick={() => { if (isOwner) openEditModal(hotel); else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
+                                        title={isOwner ? "Edit Hotel" : "Click to see why editing is disabled"}
+                                      >
+                                        <Edit2 size={14} className="me-2" /> Edit
+                                      </Dropdown.Item>
+                                      <Dropdown.Item
+                                        onClick={() => { if (isOwner) { setSelectedHotel(hotel); setShowDeleteModal(true); } else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
+                                        title={isOwner ? "Delete Hotel" : "Deleting disabled for resellers"}
+                                      >
+                                        <Trash2 size={14} className="me-2" /> Delete
+                                      </Dropdown.Item>
+                                    </Dropdown.Menu>
+                                  </Dropdown>
+                                );
+                              })()}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </Table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Container>
+
+          {/* Reseller popup shown when a non-owner clicks Edit */}
+          <Modal show={showResellerPopup} onHide={() => setShowResellerPopup(false)} size="sm" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>Read-only</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <div>This shared inventory cannot be edited by your organization.</div>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="primary" onClick={() => setShowResellerPopup(false)}>OK</Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Add Hotel Modal */}
+          <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
+            <Modal.Header closeButton className="border-0">
+              <Modal.Title className="d-flex align-items-center">
+                <Plus size={22} className="me-2" style={{ color: '#1B78CE' }} />
+                <span style={{ color: '#1B78CE' }}>Add New Hotel</span>
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <Tabs activeKey={addHotelTab} onSelect={(k) => setAddHotelTab(k)} className="mb-3">
+                <Tab eventKey="hotel" title="Hotel">
+                  <Form>
+                    <Row className="g-3">
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">City <span className="text-danger">*</span></Form.Label>
                           <Form.Select
-                            value={hotelForm.category}
-                            onChange={(e) => setHotelForm({ ...hotelForm, category: e.target.value })}
+                            value={hotelForm.city}
+                            onChange={(e) => setHotelForm({ ...hotelForm, city: e.target.value })}
                           >
-                            {Array.isArray(categoriesList) && categoriesList.length > 0 ? (
+                            <option value="">Select City</option>
+                            {dedupedCities.map(city => (
+                              <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
+                            ))}
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Hotel Name <span className="text-danger">*</span></Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.name}
+                            onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
+                            placeholder="Enter hotel name"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Address <span className="text-danger">*</span></Form.Label>
+                          <Form.Control
+                            as="textarea"
+                            rows={2}
+                            value={hotelForm.address}
+                            onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
+                            placeholder="Enter full address"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Category</Form.Label>
+                          <div className="d-flex">
+                            <Form.Select
+                              value={hotelForm.category}
+                              onChange={(e) => setHotelForm({ ...hotelForm, category: e.target.value })}
+                            >
+                              <option value="">Select Category</option>
+                              {Array.isArray(categoriesList) && categoriesList.length > 0 ? (
                                 categoriesList.map(cat => (
                                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                                 ))
                               ) : (
-                                <option value="">-- No categories --</option>
+                                <option value="" disabled>-- No categories --</option>
                               )}
-                          </Form.Select>
-                          <Button variant="outline-primary" className="ms-2" onClick={async () => { setShowCategoryModal(true); await fetchCategories(); }} title="Manage Categories">+</Button>
+                            </Form.Select>
+                            <Button variant="outline-primary" className="ms-2" onClick={async () => { setShowCategoryModal(true); await fetchCategories(); }} title="Manage Categories">+</Button>
+                          </div>
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">
+                            <BedDouble size={18} className="me-2" />
+                            Bed Type
+                          </Form.Label>
+                          <div className="d-flex">
+                            <Form.Select
+                              value={hotelForm.bed_type}
+                              onChange={(e) => setHotelForm({ ...hotelForm, bed_type: e.target.value })}
+                              disabled={bedTypeLoading}
+                            >
+                              <option value="">Select Bed Type</option>
+                              {bedTypesList.map((bt) => (
+                                <option key={bt.id} value={bt.id}>
+                                  {bt.name} (Capacity: {bt.capacity})
+                                </option>
+                              ))}
+                            </Form.Select>
+                            <Button variant="outline-primary" className="ms-2" onClick={openAddBedType} title="Add New Bed Type">+</Button>
+                          </div>
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Distance (m)</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.distance}
+                            onChange={(e) => setHotelForm({ ...hotelForm, distance: e.target.value })}
+                            placeholder="e.g., 500"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Walking Time (min)</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.walking_time}
+                            onChange={(e) => setHotelForm({ ...hotelForm, walking_time: e.target.value })}
+                            placeholder="e.g., 10"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Walking Distance (m)</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.walking_distance}
+                            onChange={(e) => setHotelForm({ ...hotelForm, walking_distance: e.target.value })}
+                            placeholder="e.g., 400"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Contact Number</Form.Label>
+                          <Form.Control
+                            type="tel"
+                            value={hotelForm.contact_number}
+                            onChange={(e) => setHotelForm({ ...hotelForm, contact_number: e.target.value })}
+                            placeholder="+92 XXX XXXXXXX"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Google Location Link</Form.Label>
+                          <Form.Control
+                            type="url"
+                            value={hotelForm.google_location}
+                            onChange={(e) => setHotelForm({ ...hotelForm, google_location: e.target.value })}
+                            placeholder="https://maps.google.com/..."
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Available From</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={hotelForm.available_start_date}
+                            onChange={(e) => setHotelForm({ ...hotelForm, available_start_date: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Available Until</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={hotelForm.available_end_date}
+                            onChange={(e) => setHotelForm({ ...hotelForm, available_end_date: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      {/* Contact Details */}
+                      <Col xs={12}>
+                        <Form.Label className="fw-medium">Contact Details</Form.Label>
+                        {contactDetails.map((c, idx) => (
+                          <Row className="g-2 mb-2" key={idx}>
+                            <Col md={5}>
+                              <Form.Control
+                                placeholder="Contact Person"
+                                value={c.contact_person}
+                                onChange={(e) => {
+                                  const copy = [...contactDetails];
+                                  copy[idx].contact_person = e.target.value;
+                                  setContactDetails(copy);
+                                }}
+                              />
+                            </Col>
+                            <Col md={5}>
+                              <Form.Control
+                                placeholder="Contact Number"
+                                value={c.contact_number}
+                                onChange={(e) => {
+                                  const copy = [...contactDetails];
+                                  copy[idx].contact_number = e.target.value;
+                                  setContactDetails(copy);
+                                }}
+                              />
+                            </Col>
+                            <Col md={2} className="d-flex align-items-center">
+                              <Button variant="danger" size="sm" onClick={() => {
+                                if (contactDetails.length === 1) return;
+                                const copy = contactDetails.filter((_, i) => i !== idx);
+                                setContactDetails(copy);
+                              }}>Remove</Button>
+                            </Col>
+                          </Row>
+                        ))}
+                        <Button size="sm" onClick={() => setContactDetails([...contactDetails, { contact_person: "", contact_number: "" }])}>Add Contact</Button>
+                      </Col>
+
+                      {/* Price Sections (renamed per-request to numbered Hotel Price entries) */}
+                      <Col xs={12}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <Form.Label className="fw-medium mb-0">Hotel Prices</Form.Label>
+                          <Button size="sm" onClick={() => setPriceSections([...priceSections, { start_date: "", end_date: "", room_type: "room", price: "", purchase_price: "", bed_prices: [] }])} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }} title="Add another hotel price">+ Add Hotel Price</Button>
                         </div>
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Distance (m)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.distance}
-                          onChange={(e) => setHotelForm({ ...hotelForm, distance: e.target.value })}
-                          placeholder="e.g., 500"
-                        />
-                      </Form.Group>
-                    </Col>
 
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Walking Time (min)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.walking_time}
-                          onChange={(e) => setHotelForm({ ...hotelForm, walking_time: e.target.value })}
-                          placeholder="e.g., 10"
-                        />
-                      </Form.Group>
-                    </Col>
+                        {priceSections.map((p, idx) => (
+                          <div key={idx} className="mb-3 p-2 rounded" style={{ backgroundColor: '#fafafa', border: '1px solid #eee' }}>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <strong>Hotel Price {idx + 1}</strong>
+                              <Button size="sm" variant="outline-danger" onClick={() => { if (priceSections.length === 1) return; setPriceSections(priceSections.filter((_, i) => i !== idx)); }}>Remove</Button>
+                            </div>
 
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Walking Distance (m)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.walking_distance}
-                          onChange={(e) => setHotelForm({ ...hotelForm, walking_distance: e.target.value })}
-                          placeholder="e.g., 400"
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Contact Number</Form.Label>
-                        <Form.Control
-                          type="tel"
-                          value={hotelForm.contact_number}
-                          onChange={(e) => setHotelForm({ ...hotelForm, contact_number: e.target.value })}
-                          placeholder="+92 XXX XXXXXXX"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Google Location Link</Form.Label>
-                        <Form.Control
-                          type="url"
-                          value={hotelForm.google_location}
-                          onChange={(e) => setHotelForm({ ...hotelForm, google_location: e.target.value })}
-                          placeholder="https://maps.google.com/..."
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Available From</Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={hotelForm.available_start_date}
-                          onChange={(e) => setHotelForm({ ...hotelForm, available_start_date: e.target.value })}
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Available Until</Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={hotelForm.available_end_date}
-                          onChange={(e) => setHotelForm({ ...hotelForm, available_end_date: e.target.value })}
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    {/* Contact Details */}
-                    <Col xs={12}>
-                      <Form.Label className="fw-medium">Contact Details</Form.Label>
-                      {contactDetails.map((c, idx) => (
-                        <Row className="g-2 mb-2" key={idx}>
-                          <Col md={5}>
-                            <Form.Control
-                              placeholder="Contact Person"
-                              value={c.contact_person}
-                              onChange={(e) => {
-                                const copy = [...contactDetails];
-                                copy[idx].contact_person = e.target.value;
-                                setContactDetails(copy);
-                              }}
-                            />
-                          </Col>
-                          <Col md={5}>
-                            <Form.Control
-                              placeholder="Contact Number"
-                              value={c.contact_number}
-                              onChange={(e) => {
-                                const copy = [...contactDetails];
-                                copy[idx].contact_number = e.target.value;
-                                setContactDetails(copy);
-                              }}
-                            />
-                          </Col>
-                          <Col md={2} className="d-flex align-items-center">
-                            <Button variant="danger" size="sm" onClick={() => {
-                              if (contactDetails.length === 1) return;
-                              const copy = contactDetails.filter((_, i) => i !== idx);
-                              setContactDetails(copy);
-                            }}>Remove</Button>
-                          </Col>
-                        </Row>
-                      ))}
-                      <Button size="sm" onClick={() => setContactDetails([...contactDetails, { contact_person: "", contact_number: "" }])}>Add Contact</Button>
-                    </Col>
-
-                    {/* Price Sections (renamed per-request to numbered Hotel Price entries) */}
-                    <Col xs={12}>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <Form.Label className="fw-medium mb-0">Hotel Prices</Form.Label>
-                            <Button size="sm" onClick={() => setPriceSections([...priceSections, { start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }])} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }} title="Add another hotel price">+ Add Hotel Price</Button>
-                          </div>
-
-                      {priceSections.map((p, idx) => (
-                        <div key={idx} className="mb-3 p-2 rounded" style={{ backgroundColor: '#fafafa', border: '1px solid #eee' }}>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <strong>Hotel Price {idx + 1}</strong>
-                            <Button size="sm" variant="outline-danger" onClick={() => { if (priceSections.length === 1) return; setPriceSections(priceSections.filter((_, i) => i !== idx)); }}>Remove</Button>
-                          </div>
-
-                          <Row className="g-2 align-items-center">
-                            <Col md={6}><Form.Control type="date" value={p.start_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
-                            <Col md={6}><Form.Control type="date" value={p.end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
-                          </Row>
-                          <Row className="g-2 mt-2">
-                            <Col xs={12} className="mb-2"><strong>Only-Room Price</strong></Col>
-                            <Col md={4}><Form.Select value={""} disabled><option value="">Room price</option></Form.Select></Col>
-                            <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={p.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].price = e.target.value; setPriceSections(copy); }} /></Col>
-                            <Col md={4}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={p.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
-                          </Row>
-
-                          {/* Bed-specific prices within this price section */}
-                          {(p.bed_prices || []).map((bp, bidx) => (
-                            <Row key={bidx} className="g-2 align-items-center mt-2">
-                              <Col md={4}>
-                                <Form.Select value={bp.type || p.room_type || "sharing"} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
-                                  <option value="sharing">Sharing</option>
-                                  <option value="single">Single Bed</option>
-                                  <option value="double">Double Bed</option>
-                                  <option value="triple">Triple Bed</option>
-                                  <option value="quad">Quad Bed</option>
-                                  <option value="quint">Quint Bed</option>
-                                </Form.Select>
-                              </Col>
-                              <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={bp.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].price = e.target.value; setPriceSections(copy); }} /></Col>
-                              <Col md={3}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={bp.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
-                              <Col md={1} className="d-flex">
-                                <Button size="sm" variant="danger" onClick={() => { const copy = [...priceSections]; copy[idx].bed_prices = copy[idx].bed_prices.filter((_, i) => i !== bidx); setPriceSections(copy); }}>Remove</Button>
-                              </Col>
+                            <Row className="g-2 align-items-center">
+                              <Col md={6}><Form.Control type="date" value={p.start_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
+                              <Col md={6}><Form.Control type="date" value={p.end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
                             </Row>
-                          ))}
+                            <Row className="g-2 mt-2">
+                              <Col xs={12} className="mb-2"><strong>Only-Room Price</strong></Col>
+                              <Col md={4}><Form.Select value={""} disabled><option value="">Room price</option></Form.Select></Col>
+                              <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={p.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].price = e.target.value; setPriceSections(copy); }} /></Col>
+                              <Col md={4}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={p.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
+                            </Row>
 
-                          <div className="d-flex gap-3 mt-2">
-                            <Button size="sm" className="" onClick={() => {
-                              const copy = [...priceSections];
-                              const defaultType = (copy[idx] && copy[idx].room_type) ? copy[idx].room_type : 'sharing';
-                              copy[idx].bed_prices = copy[idx].bed_prices ? [...copy[idx].bed_prices, { type: defaultType, price: '', purchase_price: '' }] : [{ type: defaultType, price: '', purchase_price: '' }];
-                              setPriceSections(copy);
-                            }} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }}>+ Add Bed Type</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </Col>
+                            {/* Bed-specific prices within this price section */}
+                            {(p.bed_prices || []).map((bp, bidx) => (
+                              <Row key={bidx} className="g-2 align-items-center mt-2">
+                                <Col md={4}>
+                                  <Form.Select value={bp.type || p.room_type || ""} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
+                                    <option value="">Select Bed Type</option>
+                                    {bedTypesList.map((bt) => (
+                                      <option key={bt.id} value={bt.slug || bt.name.toLowerCase().replace(/\s+/g, '-')}>
+                                        {bt.name} (Capacity: {bt.capacity})
+                                      </option>
+                                    ))}
+                                  </Form.Select>
+                                </Col>
+                                <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={bp.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].price = e.target.value; setPriceSections(copy); }} /></Col>
+                                <Col md={3}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={bp.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
+                                <Col md={1} className="d-flex">
+                                  <Button size="sm" variant="danger" onClick={() => { const copy = [...priceSections]; copy[idx].bed_prices = copy[idx].bed_prices.filter((_, i) => i !== bidx); setPriceSections(copy); }}>Remove</Button>
+                                </Col>
+                              </Row>
+                            ))}
 
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Photos</Form.Label>
-                        <Form.Control type="file" accept="image/*" multiple onChange={(e) => setPhotoFiles(Array.from(e.target.files))} />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Video</Form.Label>
-                        <Form.Control type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)} />
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={6} className="d-flex align-items-center">
-                      <Form.Check type="checkbox" label={<span className="fw-medium">Allow Reselling</span>} checked={resellingAllowed} onChange={(e) => setResellingAllowed(e.target.checked)} />
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Status</Form.Label>
-                        <Form.Select value={hotelStatus} onChange={(e) => setHotelStatus(e.target.value)}>
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="pending">Pending</option>
-                          <option value="maintenance">Maintenance</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                  </Row>
-                </Form>
-              </Tab>
-              <Tab eventKey="rooms" title={`Rooms (${rooms.length})`}>
-                <div>
-                  <div className="mb-3 d-flex justify-content-between align-items-center">
-                    <h6>Rooms Builder</h6>
-                    <div>
-                      <Button size="sm" onClick={addRoom} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Room</Button>
-                      <Button size="sm" variant="outline-secondary" onClick={() => setRooms([])}>Clear All</Button>
-                    </div>
-                  </div>
-
-                  {rooms.length === 0 && (
-                    <div className="text-muted">No rooms added yet. Click "Add Room" to create room entries.</div>
-                  )}
-
-                  {rooms.map((r, ri) => (
-                    <Card key={`room-${ri}`} className="mb-2">
-                      <Card.Body>
-                        <Row className="g-2">
-                          <Col md={3}>
-                            <Form.Select value={r.floor || "Ground Floor"} onChange={(e) => { const copy = [...rooms]; copy[ri].floor = e.target.value; setRooms(copy); }}>
-                              <option value="Ground Floor">Ground Floor</option>
-                              <option value="1st Floor">1st Floor</option>
-                              <option value="2nd Floor">2nd Floor</option>
-                              <option value="3rd Floor">3rd Floor</option>
-                              <option value="4th Floor">4th Floor</option>
-                              <option value="5th Floor">5th Floor</option>
-                              <option value="6th Floor">6th Floor</option>
-                              <option value="7th Floor">7th Floor</option>
-                              <option value="8th Floor">8th Floor</option>
-                              <option value="9th Floor">9th Floor</option>
-                              <option value="10th Floor">10th Floor</option>
-                            </Form.Select>
-                          </Col>
-                          <Col md={3}>
-                            <Form.Control placeholder="Room No" value={r.room_no} onChange={(e) => { const copy = [...rooms]; copy[ri].room_no = e.target.value; setRooms(copy); }} />
-                          </Col>
-                          <Col md={3}>
-                            <Form.Select value={r.room_type} onChange={(e) => { const copy = [...rooms]; const newType = e.target.value; copy[ri].room_type = newType; const found = roomTypes.find(rt => rt.value === newType); if (found) copy[ri].capacity = found.capacity; setRooms(copy); }}>
-                              {roomTypes
-                                .filter(rt => {
-                                  // allow the current room's selected type to remain selectable
-                                  if (rt.value === r.room_type) return true;
-                                  // hide types already selected by other rooms
-                                  return !rooms.some((other, idx) => idx !== ri && other.room_type === rt.value);
-                                })
-                                .map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
-                            </Form.Select>
-                          </Col>
-                          <Col md={2}>
-                            <Form.Select value={r.status || 'available'} onChange={(e) => { const copy = [...rooms]; copy[ri].status = e.target.value; setRooms(copy); }}>
-                              {roomStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                            </Form.Select>
-                          </Col>
-                          <Col md={1} className="d-flex align-items-center">
-                            <Button variant="danger" size="sm" onClick={() => removeRoom(ri)}>Remove</Button>
-                          </Col>
-                        </Row>
-
-                        <hr />
-                        <div>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <strong>Beds ({(r.details || []).length})</strong>
-                            <div>
-                              <Button size="sm" onClick={() => addBedToRoom(ri)} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Bed</Button>
-                              <Button size="sm" variant="outline-secondary" onClick={() => { const copy = [...rooms]; copy[ri].details = []; setRooms(copy); }}>Clear Beds</Button>
+                            <div className="d-flex gap-3 mt-2">
+                              <Button size="sm" className="" onClick={() => {
+                                const copy = [...priceSections];
+                                const defaultType = (copy[idx] && copy[idx].room_type) ? copy[idx].room_type : 'sharing';
+                                copy[idx].bed_prices = copy[idx].bed_prices ? [...copy[idx].bed_prices, { type: defaultType, price: '', purchase_price: '' }] : [{ type: defaultType, price: '', purchase_price: '' }];
+                                setPriceSections(copy);
+                              }} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }}>+ Add Bed Type</Button>
                             </div>
                           </div>
+                        ))}
+                      </Col>
 
-                          {(r.details || []).map((b, bi) => (
-                            <Row className="g-2 mb-2" key={`bed-${ri}-${bi}`}>
-                              <Col md={6}>
-                                <Form.Control placeholder="Bed No" value={b.bed_no} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].bed_no = e.target.value; setRooms(copy); }} />
-                              </Col>
-                              <Col md={4} className="d-flex align-items-center">
-                                <Form.Check type="checkbox" label="Assigned" checked={!!b.is_assigned} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].is_assigned = e.target.checked; setRooms(copy); }} />
-                              </Col>
-                              <Col md={2} className="d-flex align-items-center">
-                                <Button variant="danger" size="sm" onClick={() => removeBedFromRoom(ri, bi)}>Remove</Button>
-                              </Col>
-                            </Row>
-                          ))}
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  ))}
-                </div>
-              </Tab>
-            </Tabs>
-          </Modal.Body>
-          <Modal.Footer className="border-0">
-            <div className="d-flex w-100 justify-content-between align-items-center">
-              <div className="text-muted small">Fields marked <span className="text-danger">*</span> are required</div>
-              <div>
-                <Button variant="outline-secondary" onClick={() => setShowAddModal(false)} className="me-2">Cancel</Button>
-                <Button onClick={handleAddHotel} style={{ backgroundColor: '#1B78CE', border: 'none' }} disabled={!hotelForm.city || !hotelForm.name || !hotelForm.address}>
-                  <Save size={16} className="me-1" /> Save Hotel
-                </Button>
-              </div>
-            </div>
-          </Modal.Footer>
-        </Modal>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Photos</Form.Label>
+                          <Form.Control type="file" accept="image/*" multiple onChange={(e) => setPhotoFiles(Array.from(e.target.files))} />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Video</Form.Label>
+                          <Form.Control type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)} />
+                        </Form.Group>
+                      </Col>
 
-        {/* Category Management Modal */}
-        <Modal show={showCategoryModal} onHide={() => setShowCategoryModal(false)} size="md" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Manage Hotel Categories</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <div>
-              <div className="mb-3 d-flex gap-2">
-                <input className="form-control" placeholder="Category name" value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} />
-                <input className="form-control" placeholder="Slug (optional)" value={categoryForm.slug} onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })} />
-                <Button onClick={async () => {
-                  // create or update
-                  // client-side validation
-                  if (!categoryForm.name || categoryForm.name.trim() === '') {
-                    setAlert({ show: true, type: 'danger', message: 'Category name is required.' });
-                    return;
-                  }
+                      <Col md={6} className="d-flex align-items-center">
+                        <Form.Check type="checkbox" label={<span className="fw-medium">Allow Reselling</span>} checked={resellingAllowed} onChange={(e) => setResellingAllowed(e.target.checked)} />
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Status</Form.Label>
+                          <Form.Select value={hotelStatus} onChange={(e) => setHotelStatus(e.target.value)}>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="pending">Pending</option>
+                            <option value="maintenance">Maintenance</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  </Form>
+                </Tab>
+                <Tab eventKey="rooms" title={`Rooms (${rooms.length})`}>
+                  <div>
+                    <div className="mb-3 d-flex justify-content-between align-items-center">
+                      <h6>Rooms Builder</h6>
+                      <div>
+                        <Button size="sm" onClick={addRoom} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Room</Button>
+                        <Button size="sm" variant="outline-secondary" onClick={() => setRooms([])}>Clear All</Button>
+                      </div>
+                    </div>
 
-                  try {
-                    setCategoryLoading(true);
-                    const payload = { name: categoryForm.name.trim() };
-                    // only include slug if provided
-                    if (categoryForm.slug && categoryForm.slug.trim() !== '') payload.slug = categoryForm.slug.trim();
+                    {rooms.length === 0 && (
+                      <div className="text-muted">No rooms added yet. Click "Add Room" to create room entries.</div>
+                    )}
 
-                    // include organization query param when available so category is scoped
-                    const orgQuery = organizationId ? `?organization=${organizationId}` : '';
+                    {rooms.map((r, ri) => (
+                      <Card key={`room-${ri}`} className="mb-2">
+                        <Card.Body>
+                          <Row className="g-2">
+                            <Col md={3}>
+                              <Form.Select value={r.floor || "Ground Floor"} onChange={(e) => { const copy = [...rooms]; copy[ri].floor = e.target.value; setRooms(copy); }}>
+                                <option value="Ground Floor">Ground Floor</option>
+                                <option value="1st Floor">1st Floor</option>
+                                <option value="2nd Floor">2nd Floor</option>
+                                <option value="3rd Floor">3rd Floor</option>
+                                <option value="4th Floor">4th Floor</option>
+                                <option value="5th Floor">5th Floor</option>
+                                <option value="6th Floor">6th Floor</option>
+                                <option value="7th Floor">7th Floor</option>
+                                <option value="8th Floor">8th Floor</option>
+                                <option value="9th Floor">9th Floor</option>
+                                <option value="10th Floor">10th Floor</option>
+                              </Form.Select>
+                            </Col>
+                            <Col md={3}>
+                              <Form.Control placeholder="Room No" value={r.room_no} onChange={(e) => { const copy = [...rooms]; copy[ri].room_no = e.target.value; setRooms(copy); }} />
+                            </Col>
+                            <Col md={3}>
+                              <Form.Select value={r.room_type} onChange={(e) => { const copy = [...rooms]; const newType = e.target.value; copy[ri].room_type = newType; const found = roomTypes.find(rt => rt.value === newType); if (found) copy[ri].capacity = found.capacity; setRooms(copy); }}>
+                                {roomTypes
+                                  .filter(rt => {
+                                    // allow the current room's selected type to remain selectable
+                                    if (rt.value === r.room_type) return true;
+                                    // hide types already selected by other rooms
+                                    return !rooms.some((other, idx) => idx !== ri && other.room_type === rt.value);
+                                  })
+                                  .map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+                              </Form.Select>
+                            </Col>
+                            <Col md={2}>
+                              <Form.Select value={r.status || 'available'} onChange={(e) => { const copy = [...rooms]; copy[ri].status = e.target.value; setRooms(copy); }}>
+                                {roomStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                              </Form.Select>
+                            </Col>
+                            <Col md={1} className="d-flex align-items-center">
+                              <Button variant="danger" size="sm" onClick={() => removeRoom(ri)}>Remove</Button>
+                            </Col>
+                          </Row>
 
-                    if (editingCategory) {
-                      await api.put(`/hotel-categories/${editingCategory.id}/` + orgQuery, payload);
-                      setEditingCategory(null);
-                    } else {
-                      await api.post(`/hotel-categories/` + orgQuery, payload);
-                    }
+                          <hr />
+                          <div>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <strong>Beds ({(r.details || []).length})</strong>
+                              <div>
+                                <Button size="sm" onClick={() => addBedToRoom(ri)} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Bed</Button>
+                                <Button size="sm" variant="outline-secondary" onClick={() => { const copy = [...rooms]; copy[ri].details = []; setRooms(copy); }}>Clear Beds</Button>
+                              </div>
+                            </div>
 
-                    setCategoryForm({ id: null, name: '', slug: '' });
-                    await fetchCategories();
-                    setAlert({ show: true, type: 'success', message: 'Category saved.' });
-                  } catch (err) {
-                    console.error('Category save error', err);
-                    // try to extract validation errors from response
-                    let msg = 'Failed to save category.';
-                    try {
-                      if (err?.response?.data) {
-                        const data = err.response.data;
-                        if (typeof data === 'string') msg = data;
-                        else if (data.detail) msg = data.detail;
-                        else if (typeof data === 'object') msg = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
-                      } else if (err.message) {
-                        msg = err.message;
-                      }
-                    } catch (e) {
-                      // fallback
-                    }
-                    setAlert({ show: true, type: 'danger', message: msg });
-                  } finally {
-                    setCategoryLoading(false);
-                  }
-                }}>{editingCategory ? 'Update' : 'Add'}</Button>
-              </div>
-
-              <div>
-                <Table striped bordered hover size="sm">
-                  <thead>
-                    <tr><th>Name</th><th>Slug</th><th>Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {categoriesList.map(cat => (
-                      <tr key={cat.id}>
-                        <td>{cat.name}</td>
-                        <td>{cat.slug}</td>
-                        <td>
-                          <Button size="sm" variant="outline-secondary" className="me-2" onClick={() => { setEditingCategory(cat); setCategoryForm({ id: cat.id, name: cat.name, slug: cat.slug }); }}>Edit</Button>
-                          <Button size="sm" variant="outline-danger" onClick={async () => {
-                            if (!window.confirm('Delete category?')) return;
-                            try { await api.delete(`/hotel-categories/${cat.id}/`); await fetchCategories(); } catch (e) { console.error(e); alert('Failed to delete'); }
-                          }}>Delete</Button>
-                        </td>
-                      </tr>
+                            {(r.details || []).map((b, bi) => (
+                              <Row className="g-2 mb-2" key={`bed-${ri}-${bi}`}>
+                                <Col md={6}>
+                                  <Form.Control placeholder="Bed No" value={b.bed_no} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].bed_no = e.target.value; setRooms(copy); }} />
+                                </Col>
+                                <Col md={4} className="d-flex align-items-center">
+                                  <Form.Check type="checkbox" label="Assigned" checked={!!b.is_assigned} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].is_assigned = e.target.checked; setRooms(copy); }} />
+                                </Col>
+                                <Col md={2} className="d-flex align-items-center">
+                                  <Button variant="danger" size="sm" onClick={() => removeBedFromRoom(ri, bi)}>Remove</Button>
+                                </Col>
+                              </Row>
+                            ))}
+                          </div>
+                        </Card.Body>
+                      </Card>
                     ))}
-                  </tbody>
-                </Table>
+                  </div>
+                </Tab>
+              </Tabs>
+            </Modal.Body>
+            <Modal.Footer className="border-0">
+              <div className="d-flex w-100 justify-content-between align-items-center">
+                <div className="text-muted small">Fields marked <span className="text-danger">*</span> are required</div>
+                <div>
+                  <Button variant="outline-secondary" onClick={() => setShowAddModal(false)} className="me-2">Cancel</Button>
+                  <Button onClick={handleAddHotel} style={{ backgroundColor: '#1B78CE', border: 'none' }} disabled={!hotelForm.city || !hotelForm.name || !hotelForm.address}>
+                    <Save size={16} className="me-1" /> Save Hotel
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>Close</Button>
-          </Modal.Footer>
-        </Modal>
+            </Modal.Footer>
+          </Modal>
 
-        {/* Delete Blocked Modal - shows when backend refuses deletion due to linked data */}
-        <Modal show={showDeleteBlockedModal} onHide={() => setShowDeleteBlockedModal(false)} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <AlertCircle size={24} className="me-2 text-warning" />
-              Cannot Delete Hotel
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <p>
-              The hotel <strong>{selectedHotel?.name}</strong> cannot be deleted because there are other records linked to it (for example rooms or bookings).
-            </p>
-            <Alert variant="warning">
-              Deleting this hotel is blocked by existing dependent records. Remove or reassign those records first, then try again.
-            </Alert>
-            {deleteBlockedLoading ? (
-              <div className="text-center py-3">
-                <Spinner animation="border" />
-                <div className="mt-2">Loading linked records...</div>
+          {/* Category Management Modal */}
+          <Modal show={showCategoryModal} onHide={() => setShowCategoryModal(false)} size="md" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>Manage Hotel Categories</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <div>
+                <div className="mb-3 d-flex gap-2">
+                  <input className="form-control" placeholder="Category name" value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} />
+                  <input className="form-control" placeholder="Slug (optional)" value={categoryForm.slug} onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })} />
+                  <Button onClick={async () => {
+                    // create or update
+                    // client-side validation
+                    if (!categoryForm.name || categoryForm.name.trim() === '') {
+                      setAlert({ show: true, type: 'danger', message: 'Category name is required.' });
+                      return;
+                    }
+
+                    try {
+                      setCategoryLoading(true);
+                      const payload = { name: categoryForm.name.trim() };
+                      // only include slug if provided
+                      if (categoryForm.slug && categoryForm.slug.trim() !== '') payload.slug = categoryForm.slug.trim();
+
+                      // include organization query param when available so category is scoped
+                      const orgQuery = organizationId ? `?organization=${organizationId}` : '';
+
+                      if (editingCategory) {
+                        await api.put(`/hotel-categories/${editingCategory.id}/` + orgQuery, payload);
+                        setEditingCategory(null);
+                      } else {
+                        await api.post(`/hotel-categories/` + orgQuery, payload);
+                      }
+
+                      setCategoryForm({ id: null, name: '', slug: '' });
+                      await fetchCategories();
+                      setAlert({ show: true, type: 'success', message: 'Category saved.' });
+                    } catch (err) {
+                      console.error('Category save error', err);
+                      // try to extract validation errors from response
+                      let msg = 'Failed to save category.';
+                      try {
+                        if (err?.response?.data) {
+                          const data = err.response.data;
+                          if (typeof data === 'string') msg = data;
+                          else if (data.detail) msg = data.detail;
+                          else if (typeof data === 'object') msg = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+                        } else if (err.message) {
+                          msg = err.message;
+                        }
+                      } catch {
+                        // fallback
+                      }
+                      setAlert({ show: true, type: 'danger', message: msg });
+                    } finally {
+                      setCategoryLoading(false);
+                    }
+                  }}>{editingCategory ? 'Update' : 'Add'}</Button>
+                </div>
+
+                <div>
+                  <Table striped bordered hover size="sm">
+                    <thead>
+                      <tr><th>Name</th><th>Slug</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {categoriesList.map(cat => (
+                        <tr key={cat.id}>
+                          <td>{cat.name}</td>
+                          <td>{cat.slug}</td>
+                          <td>
+                            <Button size="sm" variant="outline-secondary" className="me-2" onClick={() => { setEditingCategory(cat); setCategoryForm({ id: cat.id, name: cat.name, slug: cat.slug }); }}>Edit</Button>
+                            <Button size="sm" variant="outline-danger" onClick={async () => {
+                              if (!window.confirm('Delete category?')) return;
+                              try { await api.delete(`/hotel-categories/${cat.id}/`); await fetchCategories(); } catch (e) { console.error(e); alert('Failed to delete'); }
+                            }}>Delete</Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
               </div>
-            ) : (
-              <>
-                {deleteBlockedDependents && deleteBlockedDependents.length > 0 ? (
-                  <div className="mt-3">
-                    <strong>Linked records preventing deletion:</strong>
-                    <Table size="sm" className="mt-2">
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>Close</Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Delete Blocked Modal - shows when backend refuses deletion due to linked data */}
+          <Modal show={showDeleteBlockedModal} onHide={() => setShowDeleteBlockedModal(false)} centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <AlertCircle size={24} className="me-2 text-warning" />
+                Cannot Delete Hotel
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <p>
+                The hotel <strong>{selectedHotel?.name}</strong> cannot be deleted because there are other records linked to it (for example rooms or bookings).
+              </p>
+              <Alert variant="warning">
+                Deleting this hotel is blocked by existing dependent records. Remove or reassign those records first, then try again.
+              </Alert>
+              {deleteBlockedLoading ? (
+                <div className="text-center py-3">
+                  <Spinner animation="border" />
+                  <div className="mt-2">Loading linked records...</div>
+                </div>
+              ) : (
+                <>
+                  {deleteBlockedDependents && deleteBlockedDependents.length > 0 ? (
+                    <div className="mt-3">
+                      <strong>Linked records preventing deletion:</strong>
+                      <Table size="sm" className="mt-2">
+                        <thead>
+                          <tr>
+                            <th>Type</th>
+                            <th>ID / Identifier</th>
+                            <th>Info</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {deleteBlockedDependents.map((d, idx) => (
+                            <tr key={idx}>
+                              <td>{d.type}</td>
+                              <td>{d.id}</td>
+                              <td>{d.room_number || d.extra}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                      <div className="mt-2 small text-muted">You can edit or remove these records to allow deletion.</div>
+                    </div>
+                  ) : (
+                    deleteBlockedMessage ? (
+                      <div className="mt-3">
+                        <strong>Server message:</strong>
+                        <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{deleteBlockedMessage}</pre>
+                      </div>
+                    ) : (
+                      <div className="mt-2 small text-muted">No linked records were found via the API. Check Django admin or server logs for details.</div>
+                    )
+                  )}
+                </>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowDeleteBlockedModal(false)}>Close</Button>
+              <Button variant="outline-primary" onClick={() => { setShowDeleteBlockedModal(false); openEditModal(selectedHotel); }}>View Rooms</Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Edit Hotel Modal - Similar structure to Add Modal */}
+          <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <Edit2 size={24} className="me-2" />
+                Edit Hotel
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <Tabs activeKey={addHotelTab} onSelect={(k) => setAddHotelTab(k)} className="mb-3">
+                <Tab eventKey="hotel" title="Hotel">
+                  <Form>
+                    <Row className="g-3">
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">City <span className="text-danger">*</span></Form.Label>
+                          <Form.Select
+                            value={hotelForm.city}
+                            onChange={(e) => setHotelForm({ ...hotelForm, city: e.target.value })}
+                          >
+                            <option value="">Select City</option>
+                            {dedupedCities.map(city => (
+                              <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
+                            ))}
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Hotel Name <span className="text-danger">*</span></Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.name}
+                            onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
+                            placeholder="Enter hotel name"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col xs={12}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Address <span className="text-danger">*</span></Form.Label>
+                          <Form.Control
+                            as="textarea"
+                            rows={2}
+                            value={hotelForm.address}
+                            onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
+                            placeholder="Enter full address"
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Category</Form.Label>
+                          <Form.Select
+                            value={hotelForm.category}
+                            onChange={(e) => setHotelForm({ ...hotelForm, category: e.target.value })}
+                          >
+                            {categoriesList && categoriesList.length > 0 ? (
+                              categoriesList.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))
+                            ) : (
+                              <option value="">-- No categories --</option>
+                            )}
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Distance (m)</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.distance}
+                            onChange={(e) => setHotelForm({ ...hotelForm, distance: e.target.value })}
+                            placeholder="e.g., 500 or 500 m"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={2}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Walking Time (minutes)</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={hotelForm.walking_time}
+                            onChange={(e) => setHotelForm({ ...hotelForm, walking_time: e.target.value })}
+                            placeholder="e.g., 6"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={2}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Walking Distance (m)</Form.Label>
+                          <Form.Control
+                            type="text"
+                            value={hotelForm.walking_distance}
+                            onChange={(e) => setHotelForm({ ...hotelForm, walking_distance: e.target.value })}
+                            placeholder="e.g., 400"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={1} className="d-flex align-items-center">
+                        <Form.Check
+                          type="checkbox"
+                          label={<span className="fw-medium">Active</span>}
+                          checked={hotelForm.is_active}
+                          onChange={(e) => setHotelForm({ ...hotelForm, is_active: e.target.checked })}
+                        />
+                      </Col>
+
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Contact Number</Form.Label>
+                          <Form.Control
+                            type="tel"
+                            value={hotelForm.contact_number}
+                            onChange={(e) => setHotelForm({ ...hotelForm, contact_number: e.target.value })}
+                            placeholder="+92 XXX XXXXXXX"
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Google Location Link</Form.Label>
+                          <Form.Control
+                            type="url"
+                            value={hotelForm.google_location}
+                            onChange={(e) => setHotelForm({ ...hotelForm, google_location: e.target.value })}
+                            placeholder="https://maps.google.com/..."
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Available From</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={hotelForm.available_start_date}
+                            onChange={(e) => setHotelForm({ ...hotelForm, available_start_date: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Available Until</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={hotelForm.available_end_date}
+                            onChange={(e) => setHotelForm({ ...hotelForm, available_end_date: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      {/* Contact Details */}
+                      <Col xs={12}>
+                        <Form.Label className="fw-medium">Contact Details</Form.Label>
+                        {contactDetails.map((c, idx) => (
+                          <Row className="g-2 mb-2" key={idx}>
+                            <Col md={5}>
+                              <Form.Control
+                                placeholder="Contact Person"
+                                value={c.contact_person}
+                                onChange={(e) => {
+                                  const copy = [...contactDetails];
+                                  copy[idx].contact_person = e.target.value;
+                                  setContactDetails(copy);
+                                }}
+                              />
+                            </Col>
+                            <Col md={5}>
+                              <Form.Control
+                                placeholder="Contact Number"
+                                value={c.contact_number}
+                                onChange={(e) => {
+                                  const copy = [...contactDetails];
+                                  copy[idx].contact_number = e.target.value;
+                                  setContactDetails(copy);
+                                }}
+                              />
+                            </Col>
+                            <Col md={2} className="d-flex align-items-center">
+                              <Button variant="danger" size="sm" onClick={() => {
+                                if (contactDetails.length === 1) return;
+                                const copy = contactDetails.filter((_, i) => i !== idx);
+                                setContactDetails(copy);
+                              }}>Remove</Button>
+                            </Col>
+                          </Row>
+                        ))}
+                        <Button size="sm" onClick={() => setContactDetails([...contactDetails, { contact_person: "", contact_number: "" }])}>Add Contact</Button>
+                      </Col>
+
+                      {/* Price Sections (renamed per-request to numbered Hotel Price entries) */}
+                      <Col xs={12}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <Form.Label className="fw-medium mb-0">Hotel Prices</Form.Label>
+                          <Button size="sm" onClick={() => setPriceSections([...priceSections, { start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }])} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }} title="Add another hotel price">+ Add Hotel Price</Button>
+                        </div>
+
+                        {priceSections.map((p, idx) => (
+                          <div key={idx} className="mb-3 p-2 rounded" style={{ backgroundColor: '#fafafa', border: '1px solid #eee' }}>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <strong>Hotel Price {idx + 1}</strong>
+                              <Button size="sm" variant="outline-danger" onClick={() => { if (priceSections.length === 1) return; setPriceSections(priceSections.filter((_, i) => i !== idx)); }}>Remove</Button>
+                            </div>
+
+                            <Row className="g-2 align-items-center">
+                              <Col md={6}><Form.Control type="date" value={p.start_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
+                              <Col md={6}><Form.Control type="date" value={p.end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
+                            </Row>
+                            <Row className="g-2 mt-2">
+                              <Col xs={12} className="mb-2"><strong>Only-Room Price</strong></Col>
+                              <Col md={4}><Form.Select value={""} disabled><option value="">Room price</option></Form.Select></Col>
+                              <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={p.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].price = e.target.value; setPriceSections(copy); }} /></Col>
+                              <Col md={4}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={p.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
+                            </Row>
+
+                            {/* Bed-specific prices within this price section */}
+                            {(p.bed_prices || []).map((bp, bidx) => (
+                              <Row key={bidx} className="g-2 align-items-center mt-2">
+                                <Col md={4}>
+                                  <Form.Select value={bp.type || p.room_type || "sharing"} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
+                                    <option value="sharing">Sharing</option>
+                                    <option value="single">Single Bed</option>
+                                    <option value="double">Double Bed</option>
+                                    <option value="triple">Triple Bed</option>
+                                    <option value="quad">Quad Bed</option>
+                                    <option value="quint">Quint Bed</option>
+                                    <option value="6" disabled>6 Bed</option>
+                                    <option value="7" disabled>7 Bed</option>
+                                    <option value="8" disabled>8 Bed</option>
+                                    <option value="9" disabled>9 Bed</option>
+                                    <option value="10" disabled>10 Bed</option>
+                                  </Form.Select>
+                                </Col>
+                                <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={bp.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].price = e.target.value; setPriceSections(copy); }} /></Col>
+                                <Col md={3}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={bp.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
+                                <Col md={1} className="d-flex">
+                                  <Button size="sm" variant="danger" onClick={() => { const copy = [...priceSections]; copy[idx].bed_prices = copy[idx].bed_prices.filter((_, i) => i !== bidx); setPriceSections(copy); }}>Remove</Button>
+                                </Col>
+                              </Row>
+                            ))}
+
+                            <div className="d-flex gap-3 mt-2">
+                              <Button size="sm" className="" onClick={() => {
+                                const copy = [...priceSections];
+                                const defaultType = (copy[idx] && copy[idx].room_type) ? copy[idx].room_type : 'sharing';
+                                copy[idx].bed_prices = copy[idx].bed_prices ? [...copy[idx].bed_prices, { type: defaultType, price: '', purchase_price: '' }] : [{ type: defaultType, price: '', purchase_price: '' }];
+                                setPriceSections(copy);
+                              }} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }}>+ Add Bed Type</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </Col>
+
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Photos</Form.Label>
+                          <Form.Control type="file" accept="image/*" multiple onChange={(e) => setPhotoFiles(Array.from(e.target.files))} />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Video</Form.Label>
+                          <Form.Control type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)} />
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={6} className="d-flex align-items-center">
+                        <Form.Check type="checkbox" label={<span className="fw-medium">Allow Reselling</span>} checked={resellingAllowed} onChange={(e) => setResellingAllowed(e.target.checked)} />
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="fw-medium">Status</Form.Label>
+                          <Form.Select value={hotelStatus} onChange={(e) => setHotelStatus(e.target.value)}>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="pending">Pending</option>
+                            <option value="maintenance">Maintenance</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  </Form>
+                </Tab>
+                <Tab eventKey="rooms" title={`Rooms (${rooms.length})`}>
+                  <div>
+                    <div className="mb-3 d-flex justify-content-between align-items-center">
+                      <h6>Rooms Builder</h6>
+                      <div>
+                        <Button size="sm" onClick={addRoom} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Room</Button>
+                        <Button size="sm" variant="outline-secondary" onClick={() => setRooms([])}>Clear All</Button>
+                      </div>
+                    </div>
+
+                    {rooms.length === 0 && (
+                      <div className="text-muted">No rooms added yet. Click "Add Room" to create room entries.</div>
+                    )}
+
+                    {rooms.map((r, ri) => (
+                      <Card key={`room-${ri}`} className="mb-2">
+                        <Card.Body>
+                          <Row className="g-2">
+                            <Col md={3}>
+                              <Form.Select value={r.floor || "Ground Floor"} onChange={(e) => { const copy = [...rooms]; copy[ri].floor = e.target.value; setRooms(copy); }}>
+                                <option value="Ground Floor">Ground Floor</option>
+                                <option value="1st Floor">1st Floor</option>
+                                <option value="2nd Floor">2nd Floor</option>
+                                <option value="3rd Floor">3rd Floor</option>
+                                <option value="4th Floor">4th Floor</option>
+                                <option value="5th Floor">5th Floor</option>
+                                <option value="6th Floor">6th Floor</option>
+                                <option value="7th Floor">7th Floor</option>
+                                <option value="8th Floor">8th Floor</option>
+                                <option value="9th Floor">9th Floor</option>
+                                <option value="10th Floor">10th Floor</option>
+                              </Form.Select>
+                            </Col>
+                            <Col md={3}>
+                              <Form.Control placeholder="Room No" value={r.room_no} onChange={(e) => { const copy = [...rooms]; copy[ri].room_no = e.target.value; setRooms(copy); }} />
+                            </Col>
+                            <Col md={3}>
+                              <Form.Select value={r.room_type} onChange={(e) => { const copy = [...rooms]; const newType = e.target.value; copy[ri].room_type = newType; const found = roomTypes.find(rt => rt.value === newType); if (found) copy[ri].capacity = found.capacity; setRooms(copy); }}>
+                                {roomTypes
+                                  .filter(rt => {
+                                    if (rt.value === r.room_type) return true;
+                                    return !rooms.some((other, idx) => idx !== ri && other.room_type === rt.value);
+                                  })
+                                  .map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
+                              </Form.Select>
+                            </Col>
+                            <Col md={2}>
+                              <Form.Select value={r.status || 'available'} onChange={(e) => { const copy = [...rooms]; copy[ri].status = e.target.value; setRooms(copy); }}>
+                                {roomStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                              </Form.Select>
+                            </Col>
+                            <Col md={1} className="d-flex align-items-center">
+                              <Button variant="danger" size="sm" onClick={() => removeRoom(ri)}>Remove</Button>
+                            </Col>
+                          </Row>
+
+                          <hr />
+                          <div>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <strong>Beds ({(r.details || []).length})</strong>
+                              <div>
+                                <Button size="sm" onClick={() => addBedToRoom(ri)} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Bed</Button>
+                                <Button size="sm" variant="outline-secondary" onClick={() => { const copy = [...rooms]; copy[ri].details = []; setRooms(copy); }}>Clear Beds</Button>
+                              </div>
+                            </div>
+
+                            {(r.details || []).map((b, bi) => (
+                              <Row className="g-2 mb-2" key={`bed-${ri}-${bi}`}>
+                                <Col md={6}>
+                                  <Form.Control placeholder="Bed No" value={b.bed_no} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].bed_no = e.target.value; setRooms(copy); }} />
+                                </Col>
+                                <Col md={4} className="d-flex align-items-center">
+                                  <Form.Check type="checkbox" label="Assigned" checked={!!b.is_assigned} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].is_assigned = e.target.checked; setRooms(copy); }} />
+                                </Col>
+                                <Col md={2} className="d-flex align-items-center">
+                                  <Button variant="danger" size="sm" onClick={() => removeBedFromRoom(ri, bi)}>Remove</Button>
+                                </Col>
+                              </Row>
+                            ))}
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
+                </Tab>
+              </Tabs>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+                <X size={18} className="me-1" />
+                Cancel
+              </Button>
+              <Button
+                style={{ backgroundColor: "#1B78CE", border: "none" }}
+                onClick={handleEditHotel}
+              >
+                <Save size={18} className="me-1" />
+                Update Hotel
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Delete Confirmation Modal */}
+          <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <AlertCircle size={24} className="me-2 text-danger" />
+                Confirm Delete
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <p>Are you sure you want to delete <strong>{selectedHotel?.name}</strong>?</p>
+              <Alert variant="warning" className="mb-0">
+                <AlertCircle size={18} className="me-2" />
+                This action cannot be undone. All associated rooms and bookings will also be affected.
+              </Alert>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleDeleteHotel}>
+                <Trash2 size={18} className="me-1" />
+                Delete Hotel
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Hotel Availability Modal with Floor Maps */}
+          <Modal show={showAvailabilityModal} onHide={() => setShowAvailabilityModal(false)} size="xl" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <BedDouble size={24} className="me-2" />
+                Hotel Availability - {selectedHotel?.name}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+              {/* Date Range Selector */}
+              <Row className="mb-4">
+                <Col md={5}>
+                  <Form.Group>
+                    <Form.Label>From Date</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={dateRange.date_from}
+                      onChange={(e) => setDateRange({ ...dateRange, date_from: e.target.value })}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={5}>
+                  <Form.Group>
+                    <Form.Label>To Date</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={dateRange.date_to}
+                      onChange={(e) => setDateRange({ ...dateRange, date_to: e.target.value })}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={2} className="d-flex align-items-end">
+                  <Button
+                    variant="primary"
+                    className="w-100"
+                    onClick={() => fetchHotelAvailability(selectedHotel.id)}
+                  >
+                    <Search size={18} className="me-1" />
+                    Search
+                  </Button>
+                </Col>
+              </Row>
+
+              {availabilityLoading ? (
+                <div className="text-center py-5">
+                  <Spinner animation="border" variant="primary" />
+                  <p className="mt-3 text-muted">Loading availability data...</p>
+                </div>
+              ) : hotelAvailability ? (
+                <>
+                  {/* Summary Statistics */}
+                  <Row className="mb-4">
+                    <Col md={3}>
+                      <Card className="border-0 shadow-sm text-center">
+                        <Card.Body>
+                          <h6 className="text-muted">Total Rooms</h6>
+                          <h3 className="mb-0 text-primary">{hotelAvailability.total_rooms}</h3>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                    <Col md={3}>
+                      <Card className="border-0 shadow-sm text-center">
+                        <Card.Body>
+                          <h6 className="text-muted">Available Rooms</h6>
+                          <h3 className="mb-0 text-success">{hotelAvailability.available_rooms}</h3>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                    <Col md={3}>
+                      <Card className="border-0 shadow-sm text-center">
+                        <Card.Body>
+                          <h6 className="text-muted">Available Beds</h6>
+                          <h3 className="mb-0 text-info">{hotelAvailability.available_beds}</h3>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                    <Col md={3}>
+                      <Card className="border-0 shadow-sm text-center">
+                        <Card.Body>
+                          <h6 className="text-muted">Occupied Rooms</h6>
+                          <h3 className="mb-0 text-danger">{hotelAvailability.occupied_rooms}</h3>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  </Row>
+
+                  {/* Room Type Summary */}
+                  <Card className="border-0 shadow-sm mb-4">
+                    <Card.Header className="bg-light">
+                      <h6 className="mb-0">Room Type Breakdown</h6>
+                    </Card.Header>
+                    <Card.Body>
+                      <Row>
+                        {hotelAvailability['total_double-rooms'] && (
+                          <Col md={3} className="mb-3">
+                            <div className="p-3 rounded" style={{ backgroundColor: "#e3f2fd" }}>
+                              <strong>Double Rooms</strong>
+                              <div className="mt-2">
+                                <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_double-rooms']}</Badge>
+                                <Badge bg="success">Available: {hotelAvailability['available_double-rooms']}</Badge>
+                              </div>
+                            </div>
+                          </Col>
+                        )}
+                        {hotelAvailability['total_Triple-rooms'] && (
+                          <Col md={3} className="mb-3">
+                            <div className="p-3 rounded" style={{ backgroundColor: "#e8f5e9" }}>
+                              <strong>Triple Rooms</strong>
+                              <div className="mt-2">
+                                <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_Triple-rooms']}</Badge>
+                                <Badge bg="success">Available: {hotelAvailability['available_Triple-rooms']}</Badge>
+                              </div>
+                            </div>
+                          </Col>
+                        )}
+                        {hotelAvailability['total_quad-rooms'] && (
+                          <Col md={3} className="mb-3">
+                            <div className="p-3 rounded" style={{ backgroundColor: "#fff3e0" }}>
+                              <strong>Quad Rooms</strong>
+                              <div className="mt-2">
+                                <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_quad-rooms']}</Badge>
+                                <Badge bg="success">Available: {hotelAvailability['available_quad-rooms']}</Badge>
+                              </div>
+                            </div>
+                          </Col>
+                        )}
+                        {hotelAvailability['total_quint-rooms'] && (
+                          <Col md={3} className="mb-3">
+                            <div className="p-3 rounded" style={{ backgroundColor: "#fce4ec" }}>
+                              <strong>Quint Rooms</strong>
+                              <div className="mt-2">
+                                <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_quint-rooms']}</Badge>
+                                <Badge bg="success">Available: {hotelAvailability['available_quint-rooms']}</Badge>
+                              </div>
+                            </div>
+                          </Col>
+                        )}
+                        {hotelAvailability['available_sharing-beds'] && (
+                          <Col md={3} className="mb-3">
+                            <div className="p-3 rounded" style={{ backgroundColor: "#f3e5f5" }}>
+                              <strong>Sharing Beds</strong>
+                              <div className="mt-2">
+                                <Badge bg="success">Available: {hotelAvailability['available_sharing-beds']}</Badge>
+                              </div>
+                            </div>
+                          </Col>
+                        )}
+                      </Row>
+                    </Card.Body>
+                  </Card>
+
+                  {/* Floor-wise Room Details */}
+                  {hotelAvailability.floors && hotelAvailability.floors.length > 0 ? (
+                    <Tabs defaultActiveKey="floor-0" className="mb-3">
+                      {hotelAvailability.floors.map((floor, index) => (
+                        <Tab
+                          eventKey={`floor-${index}`}
+                          title={`Floor ${floor.floor_no}`}
+                          key={index}
+                        >
+                          <Card className="border-0 shadow-sm">
+                            {floor.floor_map_url && (
+                              <Card.Header className="bg-light">
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <h6 className="mb-0">Floor {floor.floor_no} Layout</h6>
+                                  <a
+                                    href={floor.floor_map_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-sm btn-outline-primary"
+                                  >
+                                    View Full Map
+                                  </a>
+                                </div>
+                                {floor.floor_map_url && (
+                                  <div className="mt-3">
+                                    <img
+                                      src={floor.floor_map_url}
+                                      alt={`Floor ${floor.floor_no} Map`}
+                                      style={{ width: "100%", maxHeight: "300px", objectFit: "contain" }}
+                                      className="rounded"
+                                    />
+                                  </div>
+                                )}
+                              </Card.Header>
+                            )}
+                            <Card.Body>
+                              <h6 className="mb-3">Rooms on Floor {floor.floor_no}</h6>
+                              <div style={{ overflowX: "auto" }}>
+                                <Table hover bordered responsive>
+                                  <thead style={{ backgroundColor: "#f8f9fa" }}>
+                                    <tr>
+                                      <th>Room No</th>
+                                      <th>Type</th>
+                                      <th>Capacity</th>
+                                      <th>Available Beds</th>
+                                      <th>Status</th>
+                                      <th>Guest Names</th>
+                                      <th>Check-in</th>
+                                      <th>Check-out</th>
+                                      <th>Booking ID</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {floor.rooms.map((room) => (
+                                      <tr key={room.room_id}>
+                                        <td><strong>{room.room_no}</strong></td>
+                                        <td>
+                                          <Badge bg="info">{room.room_type}</Badge>
+                                        </td>
+                                        <td>
+                                          <Users size={16} className="me-1" />
+                                          {room.capacity}
+                                        </td>
+                                        <td>
+                                          <BedDouble size={16} className="me-1" />
+                                          {room.available_beds}
+                                        </td>
+                                        <td>{getRoomStatusBadge(room.status)}</td>
+                                        <td>
+                                          {room.guest_names && room.guest_names.length > 0 ? (
+                                            <ul className="mb-0 ps-3">
+                                              {room.guest_names.map((name, idx) => (
+                                                <li key={idx}>{name}</li>
+                                              ))}
+                                            </ul>
+                                          ) : (
+                                            <span className="text-muted">-</span>
+                                          )}
+                                        </td>
+                                        <td>
+                                          {room.checkin_date ? (
+                                            <small>
+                                              <Calendar size={14} className="me-1" />
+                                              {new Date(room.checkin_date).toLocaleDateString()}
+                                            </small>
+                                          ) : (
+                                            <span className="text-muted">-</span>
+                                          )}
+                                        </td>
+                                        <td>
+                                          {room.checkout_date ? (
+                                            <small>
+                                              <Calendar size={14} className="me-1" />
+                                              {new Date(room.checkout_date).toLocaleDateString()}
+                                            </small>
+                                          ) : (
+                                            <span className="text-muted">-</span>
+                                          )}
+                                        </td>
+                                        <td>
+                                          {room.current_booking_id ? (
+                                            <Badge bg="secondary">#{room.current_booking_id}</Badge>
+                                          ) : (
+                                            <span className="text-muted">-</span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </Table>
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        </Tab>
+                      ))}
+                    </Tabs>
+                  ) : (
+                    <Alert variant="info">
+                      <AlertCircle size={20} className="me-2" />
+                      No floor or room data available for the selected date range.
+                    </Alert>
+                  )}
+                </>
+              ) : (
+                <Alert variant="info">
+                  <AlertCircle size={20} className="me-2" />
+                  Select a date range and click Search to view availability.
+                </Alert>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowAvailabilityModal(false)}>
+                Close
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* View Hotel Details Modal */}
+          <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="xl" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <Eye size={24} className="me-2" />
+                Hotel Details - {selectedHotel?.name}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              {selectedHotel && (
+                <Tabs defaultActiveKey="details" className="mb-3">
+                  <Tab eventKey="details" title="Hotel Details">
+                    <div className="mt-3">
+                      <Row className="mb-3">
+                        <Col md={6}>
+                          <strong>Hotel Name:</strong>
+                          <p>{selectedHotel.name}</p>
+                        </Col>
+                        <Col md={6}>
+                          <strong>City:</strong>
+                          <p>{selectedHotel?.city_name ? selectedHotel.city_name : getCityName(selectedHotel?.city)}</p>
+                        </Col>
+                      </Row>
+                      <Row className="mb-3">
+                        <Col md={12}>
+                          <strong>Address:</strong>
+                          <p>{selectedHotel.address}</p>
+                        </Col>
+                      </Row>
+                      <Row className="mb-3">
+                        <Col md={6}>
+                          <strong>Category:</strong>
+                          <p>{getCategoryBadge(selectedHotel.category)}</p>
+                        </Col>
+                        <Col md={6}>
+                          <strong>Distance:</strong>
+                          <p>{selectedHotel.distance || "N/A"}</p>
+                        </Col>
+                      </Row>
+                      <Row className="mb-3">
+                        <Col md={6}>
+                          <strong>Contact:</strong>
+                          <p>{selectedHotel.contact_number || "N/A"}</p>
+                        </Col>
+                        <Col md={6}>
+                          <strong>Status:</strong>
+                          <p>
+                            {selectedHotel.is_active ? (
+                              <Badge bg="success">Active</Badge>
+                            ) : (
+                              <Badge bg="danger">Inactive</Badge>
+                            )}
+                          </p>
+                        </Col>
+                      </Row>
+                      {selectedHotel.available_start_date && (
+                        <Row className="mb-3">
+                          <Col md={12}>
+                            <strong>Availability:</strong>
+                            <p>
+                              {new Date(selectedHotel.available_start_date).toLocaleDateString()} - {new Date(selectedHotel.available_end_date).toLocaleDateString()}
+                            </p>
+                          </Col>
+                        </Row>
+                      )}
+                      {selectedHotel.google_location && (
+                        <Row className="mb-3">
+                          <Col md={12}>
+                            <strong>Location:</strong>
+                            <p>
+                              <a href={selectedHotel.google_location} target="_blank" rel="noopener noreferrer">
+                                View on Google Maps
+                              </a>
+                            </p>
+                          </Col>
+                        </Row>
+                      )}
+                    </div>
+                  </Tab>
+                  <Tab eventKey="roommap" title="Room & Bed Map">
+                    <div className="mt-3">
+                      {/* Read-only view of room & bed map inside the details modal. Editing is done via Edit Hotel -> Rooms tab. */}
+                      <RoomMapManager hotelId={selectedHotel.id} onSaved={() => setShowViewModal(false)} readOnly={true} />
+                    </div>
+                  </Tab>
+                </Tabs>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowViewModal(false)}>
+                Close
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Bed Type Management Modal */}
+          <Modal show={showBedTypeModal} onHide={() => setShowBedTypeModal(false)} size="md" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <BedDouble size={22} className="me-2" />
+                Manage Bed Types
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <div>
+                {/* Create/Edit Form */}
+                <div className="mb-3">
+                  <Form.Group className="mb-2">
+                    <Form.Label>Bed Type Name *</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="e.g., King Size, Queen Size"
+                      value={bedTypeForm.name}
+                      onChange={(e) => setBedTypeForm({ ...bedTypeForm, name: e.target.value })}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-2">
+                    <Form.Label>Slug (optional)</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Auto-generated if left blank"
+                      value={bedTypeForm.slug}
+                      onChange={(e) => setBedTypeForm({ ...bedTypeForm, slug: e.target.value })}
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Capacity (Max 10) *</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={bedTypeForm.capacity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 1;
+                        setBedTypeForm({ ...bedTypeForm, capacity: Math.min(Math.max(val, 1), 10) });
+                      }}
+                    />
+                    <Form.Text className="text-muted">
+                      Allowed: single, sharing, double, triple, quad, quint, 6-10 beds (max 10)
+                    </Form.Text>
+                  </Form.Group>
+                  <Button
+                    onClick={handleSaveBedType}
+                    style={{ backgroundColor: '#1B78CE', border: 'none' }}
+                    className="w-100"
+                  >
+                    <Save size={16} className="me-2" />
+                    {editingBedType ? 'Update Bed Type' : 'Create Bed Type'}
+                  </Button>
+                </div>
+
+                <hr />
+
+                {/* Existing Bed Types List */}
+                <div>
+                  <h6 className="mb-3">Existing Bed Types</h6>
+                  {bedTypeLoading ? (
+                    <div className="text-center py-3">
+                      <Spinner animation="border" size="sm" />
+                    </div>
+                  ) : bedTypesList.length === 0 ? (
+                    <div className="text-center text-muted py-3">
+                      No bed types created yet
+                    </div>
+                  ) : (
+                    <Table striped bordered hover size="sm">
                       <thead>
                         <tr>
-                          <th>Type</th>
-                          <th>ID / Identifier</th>
-                          <th>Info</th>
+                          <th>Name</th>
+                          <th>Capacity</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {deleteBlockedDependents.map((d, idx) => (
-                          <tr key={idx}>
-                            <td>{d.type}</td>
-                            <td>{d.id}</td>
-                            <td>{d.room_number || d.extra}</td>
+                        {bedTypesList.map(bt => (
+                          <tr key={bt.id}>
+                            <td>{bt.name}</td>
+                            <td>{bt.capacity}</td>
+                            <td>
+                              <Button
+                                size="sm"
+                                variant="outline-secondary"
+                                className="me-2"
+                                onClick={() => openEditBedType(bt)}
+                              >
+                                <Edit2 size={14} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline-danger"
+                                onClick={() => handleDeleteBedType(bt)}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </Table>
-                    <div className="mt-2 small text-muted">You can edit or remove these records to allow deletion.</div>
-                  </div>
-                ) : (
-                  deleteBlockedMessage ? (
-                    <div className="mt-3">
-                      <strong>Server message:</strong>
-                      <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{deleteBlockedMessage}</pre>
-                    </div>
-                  ) : (
-                    <div className="mt-2 small text-muted">No linked records were found via the API. Check Django admin or server logs for details.</div>
-                  )
-                )}
-              </>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowDeleteBlockedModal(false)}>Close</Button>
-            <Button variant="outline-primary" onClick={() => { setShowDeleteBlockedModal(false); openEditModal(selectedHotel); }}>View Rooms</Button>
-          </Modal.Footer>
-        </Modal>
-
-        {/* Edit Hotel Modal - Similar structure to Add Modal */}
-        <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Edit2 size={24} className="me-2" />
-              Edit Hotel
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Tabs activeKey={addHotelTab} onSelect={(k) => setAddHotelTab(k)} className="mb-3">
-              <Tab eventKey="hotel" title="Hotel">
-                <Form>
-                  <Row className="g-3">
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">City <span className="text-danger">*</span></Form.Label>
-                        <Form.Select
-                          value={hotelForm.city}
-                          onChange={(e) => setHotelForm({ ...hotelForm, city: e.target.value })}
-                        >
-                          <option value="">Select City</option>
-                          {dedupedCities.map(city => (
-                            <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
-                          ))}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Hotel Name <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.name}
-                          onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-                          placeholder="Enter hotel name"
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    <Col xs={12}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Address <span className="text-danger">*</span></Form.Label>
-                        <Form.Control
-                          as="textarea"
-                          rows={2}
-                          value={hotelForm.address}
-                          onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
-                          placeholder="Enter full address"
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={4}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Category</Form.Label>
-                        <Form.Select
-                          value={hotelForm.category}
-                          onChange={(e) => setHotelForm({ ...hotelForm, category: e.target.value })}
-                        >
-                          {categoriesList && categoriesList.length > 0 ? (
-                            categoriesList.map(cat => (
-                              <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))
-                          ) : (
-                            <option value="">-- No categories --</option>
-                          )}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group>
-                          <Form.Label className="fw-medium">Distance (m)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.distance}
-                            onChange={(e) => setHotelForm({ ...hotelForm, distance: e.target.value })}
-                            placeholder="e.g., 500 or 500 m"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Walking Time (minutes)</Form.Label>
-                        <Form.Control
-                          type="number"
-                          value={hotelForm.walking_time}
-                          onChange={(e) => setHotelForm({ ...hotelForm, walking_time: e.target.value })}
-                          placeholder="e.g., 6"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Walking Distance (m)</Form.Label>
-                        <Form.Control
-                          type="text"
-                          value={hotelForm.walking_distance}
-                          onChange={(e) => setHotelForm({ ...hotelForm, walking_distance: e.target.value })}
-                          placeholder="e.g., 400"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={1} className="d-flex align-items-center">
-                      <Form.Check
-                        type="checkbox"
-                        label={<span className="fw-medium">Active</span>}
-                        checked={hotelForm.is_active}
-                        onChange={(e) => setHotelForm({ ...hotelForm, is_active: e.target.checked })}
-                      />
-                    </Col>
-
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Contact Number</Form.Label>
-                        <Form.Control
-                          type="tel"
-                          value={hotelForm.contact_number}
-                          onChange={(e) => setHotelForm({ ...hotelForm, contact_number: e.target.value })}
-                          placeholder="+92 XXX XXXXXXX"
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Google Location Link</Form.Label>
-                        <Form.Control
-                          type="url"
-                          value={hotelForm.google_location}
-                          onChange={(e) => setHotelForm({ ...hotelForm, google_location: e.target.value })}
-                          placeholder="https://maps.google.com/..."
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Available From</Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={hotelForm.available_start_date}
-                          onChange={(e) => setHotelForm({ ...hotelForm, available_start_date: e.target.value })}
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Available Until</Form.Label>
-                        <Form.Control
-                          type="date"
-                          value={hotelForm.available_end_date}
-                          onChange={(e) => setHotelForm({ ...hotelForm, available_end_date: e.target.value })}
-                        />
-                      </Form.Group>
-                    </Col>
-
-                    {/* Contact Details */}
-                    <Col xs={12}>
-                      <Form.Label className="fw-medium">Contact Details</Form.Label>
-                      {contactDetails.map((c, idx) => (
-                        <Row className="g-2 mb-2" key={idx}>
-                          <Col md={5}>
-                            <Form.Control
-                              placeholder="Contact Person"
-                              value={c.contact_person}
-                              onChange={(e) => {
-                                const copy = [...contactDetails];
-                                copy[idx].contact_person = e.target.value;
-                                setContactDetails(copy);
-                              }}
-                            />
-                          </Col>
-                          <Col md={5}>
-                            <Form.Control
-                              placeholder="Contact Number"
-                              value={c.contact_number}
-                              onChange={(e) => {
-                                const copy = [...contactDetails];
-                                copy[idx].contact_number = e.target.value;
-                                setContactDetails(copy);
-                              }}
-                            />
-                          </Col>
-                          <Col md={2} className="d-flex align-items-center">
-                            <Button variant="danger" size="sm" onClick={() => {
-                              if (contactDetails.length === 1) return;
-                              const copy = contactDetails.filter((_, i) => i !== idx);
-                              setContactDetails(copy);
-                            }}>Remove</Button>
-                          </Col>
-                        </Row>
-                      ))}
-                      <Button size="sm" onClick={() => setContactDetails([...contactDetails, { contact_person: "", contact_number: "" }])}>Add Contact</Button>
-                    </Col>
-
-                    {/* Price Sections (renamed per-request to numbered Hotel Price entries) */}
-                    <Col xs={12}>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <Form.Label className="fw-medium mb-0">Hotel Prices</Form.Label>
-                            <Button size="sm" onClick={() => setPriceSections([...priceSections, { start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }])} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }} title="Add another hotel price">+ Add Hotel Price</Button>
-                          </div>
-
-                      {priceSections.map((p, idx) => (
-                        <div key={idx} className="mb-3 p-2 rounded" style={{ backgroundColor: '#fafafa', border: '1px solid #eee' }}>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <strong>Hotel Price {idx + 1}</strong>
-                            <Button size="sm" variant="outline-danger" onClick={() => { if (priceSections.length === 1) return; setPriceSections(priceSections.filter((_, i) => i !== idx)); }}>Remove</Button>
-                          </div>
-
-                          <Row className="g-2 align-items-center">
-                            <Col md={6}><Form.Control type="date" value={p.start_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
-                            <Col md={6}><Form.Control type="date" value={p.end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
-                          </Row>
-                          <Row className="g-2 mt-2">
-                            <Col xs={12} className="mb-2"><strong>Only-Room Price</strong></Col>
-                            <Col md={4}><Form.Select value={""} disabled><option value="">Room price</option></Form.Select></Col>
-                            <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={p.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].price = e.target.value; setPriceSections(copy); }} /></Col>
-                            <Col md={4}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={p.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
-                          </Row>
-
-                          {/* Bed-specific prices within this price section */}
-                          {(p.bed_prices || []).map((bp, bidx) => (
-                            <Row key={bidx} className="g-2 align-items-center mt-2">
-                              <Col md={4}>
-                                <Form.Select value={bp.type || p.room_type || "sharing"} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
-                                  <option value="sharing">Sharing</option>
-                                  <option value="single">Single Bed</option>
-                                  <option value="double">Double Bed</option>
-                                  <option value="triple">Triple Bed</option>
-                                  <option value="quad">Quad Bed</option>
-                                  <option value="quint">Quint Bed</option>
-                                </Form.Select>
-                              </Col>
-                              <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={bp.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].price = e.target.value; setPriceSections(copy); }} /></Col>
-                              <Col md={3}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={bp.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
-                              <Col md={1} className="d-flex">
-                                <Button size="sm" variant="danger" onClick={() => { const copy = [...priceSections]; copy[idx].bed_prices = copy[idx].bed_prices.filter((_, i) => i !== bidx); setPriceSections(copy); }}>Remove</Button>
-                              </Col>
-                            </Row>
-                          ))}
-
-                          <div className="d-flex gap-3 mt-2">
-                            <Button size="sm" className="" onClick={() => {
-                              const copy = [...priceSections];
-                              const defaultType = (copy[idx] && copy[idx].room_type) ? copy[idx].room_type : 'sharing';
-                              copy[idx].bed_prices = copy[idx].bed_prices ? [...copy[idx].bed_prices, { type: defaultType, price: '', purchase_price: '' }] : [{ type: defaultType, price: '', purchase_price: '' }];
-                              setPriceSections(copy);
-                            }} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }}>+ Add Bed Type</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </Col>
-
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Photos</Form.Label>
-                        <Form.Control type="file" accept="image/*" multiple onChange={(e) => setPhotoFiles(Array.from(e.target.files))} />
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Video</Form.Label>
-                        <Form.Control type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)} />
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={6} className="d-flex align-items-center">
-                      <Form.Check type="checkbox" label={<span className="fw-medium">Allow Reselling</span>} checked={resellingAllowed} onChange={(e) => setResellingAllowed(e.target.checked)} />
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label className="fw-medium">Status</Form.Label>
-                        <Form.Select value={hotelStatus} onChange={(e) => setHotelStatus(e.target.value)}>
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="pending">Pending</option>
-                          <option value="maintenance">Maintenance</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                  </Row>
-                </Form>
-              </Tab>
-              <Tab eventKey="rooms" title={`Rooms (${rooms.length})`}>
-                <div>
-                  <div className="mb-3 d-flex justify-content-between align-items-center">
-                    <h6>Rooms Builder</h6>
-                    <div>
-                      <Button size="sm" onClick={addRoom} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Room</Button>
-                      <Button size="sm" variant="outline-secondary" onClick={() => setRooms([])}>Clear All</Button>
-                    </div>
-                  </div>
-
-                  {rooms.length === 0 && (
-                    <div className="text-muted">No rooms added yet. Click "Add Room" to create room entries.</div>
                   )}
-
-                  {rooms.map((r, ri) => (
-                    <Card key={`room-${ri}`} className="mb-2">
-                      <Card.Body>
-                        <Row className="g-2">
-                          <Col md={3}>
-                            <Form.Select value={r.floor || "Ground Floor"} onChange={(e) => { const copy = [...rooms]; copy[ri].floor = e.target.value; setRooms(copy); }}>
-                              <option value="Ground Floor">Ground Floor</option>
-                              <option value="1st Floor">1st Floor</option>
-                              <option value="2nd Floor">2nd Floor</option>
-                              <option value="3rd Floor">3rd Floor</option>
-                              <option value="4th Floor">4th Floor</option>
-                              <option value="5th Floor">5th Floor</option>
-                              <option value="6th Floor">6th Floor</option>
-                              <option value="7th Floor">7th Floor</option>
-                              <option value="8th Floor">8th Floor</option>
-                              <option value="9th Floor">9th Floor</option>
-                              <option value="10th Floor">10th Floor</option>
-                            </Form.Select>
-                          </Col>
-                          <Col md={3}>
-                            <Form.Control placeholder="Room No" value={r.room_no} onChange={(e) => { const copy = [...rooms]; copy[ri].room_no = e.target.value; setRooms(copy); }} />
-                          </Col>
-                          <Col md={3}>
-                            <Form.Select value={r.room_type} onChange={(e) => { const copy = [...rooms]; const newType = e.target.value; copy[ri].room_type = newType; const found = roomTypes.find(rt => rt.value === newType); if (found) copy[ri].capacity = found.capacity; setRooms(copy); }}>
-                              {roomTypes
-                                .filter(rt => {
-                                  if (rt.value === r.room_type) return true;
-                                  return !rooms.some((other, idx) => idx !== ri && other.room_type === rt.value);
-                                })
-                                .map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
-                            </Form.Select>
-                          </Col>
-                          <Col md={2}>
-                            <Form.Select value={r.status || 'available'} onChange={(e) => { const copy = [...rooms]; copy[ri].status = e.target.value; setRooms(copy); }}>
-                              {roomStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                            </Form.Select>
-                          </Col>
-                          <Col md={1} className="d-flex align-items-center">
-                            <Button variant="danger" size="sm" onClick={() => removeRoom(ri)}>Remove</Button>
-                          </Col>
-                        </Row>
-
-                        <hr />
-                        <div>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <strong>Beds ({(r.details || []).length})</strong>
-                            <div>
-                              <Button size="sm" onClick={() => addBedToRoom(ri)} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Bed</Button>
-                              <Button size="sm" variant="outline-secondary" onClick={() => { const copy = [...rooms]; copy[ri].details = []; setRooms(copy); }}>Clear Beds</Button>
-                            </div>
-                          </div>
-
-                          {(r.details || []).map((b, bi) => (
-                            <Row className="g-2 mb-2" key={`bed-${ri}-${bi}`}>
-                              <Col md={6}>
-                                <Form.Control placeholder="Bed No" value={b.bed_no} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].bed_no = e.target.value; setRooms(copy); }} />
-                              </Col>
-                              <Col md={4} className="d-flex align-items-center">
-                                <Form.Check type="checkbox" label="Assigned" checked={!!b.is_assigned} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].is_assigned = e.target.checked; setRooms(copy); }} />
-                              </Col>
-                              <Col md={2} className="d-flex align-items-center">
-                                <Button variant="danger" size="sm" onClick={() => removeBedFromRoom(ri, bi)}>Remove</Button>
-                              </Col>
-                            </Row>
-                          ))}
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  ))}
                 </div>
-              </Tab>
-            </Tabs>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-              <X size={18} className="me-1" />
-              Cancel
-            </Button>
-            <Button 
-              style={{ backgroundColor: "#1B78CE", border: "none" }}
-              onClick={handleEditHotel}
-            >
-              <Save size={18} className="me-1" />
-              Update Hotel
-            </Button>
-          </Modal.Footer>
-        </Modal>
-
-        {/* Delete Confirmation Modal */}
-        <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <AlertCircle size={24} className="me-2 text-danger" />
-              Confirm Delete
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <p>Are you sure you want to delete <strong>{selectedHotel?.name}</strong>?</p>
-            <Alert variant="warning" className="mb-0">
-              <AlertCircle size={18} className="me-2" />
-              This action cannot be undone. All associated rooms and bookings will also be affected.
-            </Alert>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDeleteHotel}>
-              <Trash2 size={18} className="me-1" />
-              Delete Hotel
-            </Button>
-          </Modal.Footer>
-        </Modal>
-
-        {/* Hotel Availability Modal with Floor Maps */}
-        <Modal show={showAvailabilityModal} onHide={() => setShowAvailabilityModal(false)} size="xl" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <BedDouble size={24} className="me-2" />
-              Hotel Availability - {selectedHotel?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
-            {/* Date Range Selector */}
-            <Row className="mb-4">
-              <Col md={5}>
-                <Form.Group>
-                  <Form.Label>From Date</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={dateRange.date_from}
-                    onChange={(e) => setDateRange({ ...dateRange, date_from: e.target.value })}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={5}>
-                <Form.Group>
-                  <Form.Label>To Date</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={dateRange.date_to}
-                    onChange={(e) => setDateRange({ ...dateRange, date_to: e.target.value })}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={2} className="d-flex align-items-end">
-                <Button 
-                  variant="primary" 
-                  className="w-100"
-                  onClick={() => fetchHotelAvailability(selectedHotel.id)}
-                >
-                  <Search size={18} className="me-1" />
-                  Search
-                </Button>
-              </Col>
-            </Row>
-
-            {availabilityLoading ? (
-              <div className="text-center py-5">
-                <Spinner animation="border" variant="primary" />
-                <p className="mt-3 text-muted">Loading availability data...</p>
               </div>
-            ) : hotelAvailability ? (
-              <>
-                {/* Summary Statistics */}
-                <Row className="mb-4">
-                  <Col md={3}>
-                    <Card className="border-0 shadow-sm text-center">
-                      <Card.Body>
-                        <h6 className="text-muted">Total Rooms</h6>
-                        <h3 className="mb-0 text-primary">{hotelAvailability.total_rooms}</h3>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={3}>
-                    <Card className="border-0 shadow-sm text-center">
-                      <Card.Body>
-                        <h6 className="text-muted">Available Rooms</h6>
-                        <h3 className="mb-0 text-success">{hotelAvailability.available_rooms}</h3>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={3}>
-                    <Card className="border-0 shadow-sm text-center">
-                      <Card.Body>
-                        <h6 className="text-muted">Available Beds</h6>
-                        <h3 className="mb-0 text-info">{hotelAvailability.available_beds}</h3>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col md={3}>
-                    <Card className="border-0 shadow-sm text-center">
-                      <Card.Body>
-                        <h6 className="text-muted">Occupied Rooms</h6>
-                        <h3 className="mb-0 text-danger">{hotelAvailability.occupied_rooms}</h3>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </Row>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => {
+                setShowBedTypeModal(false);
+                setBedTypeForm({ id: null, name: '', slug: '', capacity: 1 });
+                setEditingBedType(null);
+              }}>
+                Close
+              </Button>
+            </Modal.Footer>
+          </Modal>
 
-                {/* Room Type Summary */}
-                <Card className="border-0 shadow-sm mb-4">
-                  <Card.Header className="bg-light">
-                    <h6 className="mb-0">Room Type Breakdown</h6>
-                  </Card.Header>
-                  <Card.Body>
-                    <Row>
-                      {hotelAvailability['total_double-rooms'] && (
-                        <Col md={3} className="mb-3">
-                          <div className="p-3 rounded" style={{ backgroundColor: "#e3f2fd" }}>
-                            <strong>Double Rooms</strong>
-                            <div className="mt-2">
-                              <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_double-rooms']}</Badge>
-                              <Badge bg="success">Available: {hotelAvailability['available_double-rooms']}</Badge>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                      {hotelAvailability['total_Triple-rooms'] && (
-                        <Col md={3} className="mb-3">
-                          <div className="p-3 rounded" style={{ backgroundColor: "#e8f5e9" }}>
-                            <strong>Triple Rooms</strong>
-                            <div className="mt-2">
-                              <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_Triple-rooms']}</Badge>
-                              <Badge bg="success">Available: {hotelAvailability['available_Triple-rooms']}</Badge>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                      {hotelAvailability['total_quad-rooms'] && (
-                        <Col md={3} className="mb-3">
-                          <div className="p-3 rounded" style={{ backgroundColor: "#fff3e0" }}>
-                            <strong>Quad Rooms</strong>
-                            <div className="mt-2">
-                              <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_quad-rooms']}</Badge>
-                              <Badge bg="success">Available: {hotelAvailability['available_quad-rooms']}</Badge>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                      {hotelAvailability['total_quint-rooms'] && (
-                        <Col md={3} className="mb-3">
-                          <div className="p-3 rounded" style={{ backgroundColor: "#fce4ec" }}>
-                            <strong>Quint Rooms</strong>
-                            <div className="mt-2">
-                              <Badge bg="secondary" className="me-2">Total: {hotelAvailability['total_quint-rooms']}</Badge>
-                              <Badge bg="success">Available: {hotelAvailability['available_quint-rooms']}</Badge>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                      {hotelAvailability['available_sharing-beds'] && (
-                        <Col md={3} className="mb-3">
-                          <div className="p-3 rounded" style={{ backgroundColor: "#f3e5f5" }}>
-                            <strong>Sharing Beds</strong>
-                            <div className="mt-2">
-                              <Badge bg="success">Available: {hotelAvailability['available_sharing-beds']}</Badge>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                    </Row>
-                  </Card.Body>
-                </Card>
+          {/* Show Prices Modal - Display all prices including extended bed types */}
+          <Modal show={showPriceModal} onHide={() => setShowPriceModal(false)} size="lg" centered>
+            <Modal.Header closeButton>
+              <Modal.Title>
+                Hotel Prices - {priceModalHotel?.name || 'N/A'}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              {priceModalHotel && (() => {
+                const prices = priceModalHotel.prices || priceModalHotel.price_sections || [];
 
-                {/* Floor-wise Room Details */}
-                {hotelAvailability.floors && hotelAvailability.floors.length > 0 ? (
-                  <Tabs defaultActiveKey="floor-0" className="mb-3">
-                    {hotelAvailability.floors.map((floor, index) => (
-                      <Tab 
-                        eventKey={`floor-${index}`} 
-                        title={`Floor ${floor.floor_no}`}
-                        key={index}
-                      >
-                        <Card className="border-0 shadow-sm">
-                          {floor.floor_map_url && (
-                            <Card.Header className="bg-light">
-                              <div className="d-flex justify-content-between align-items-center">
-                                <h6 className="mb-0">Floor {floor.floor_no} Layout</h6>
-                                <a 
-                                  href={floor.floor_map_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="btn btn-sm btn-outline-primary"
-                                >
-                                  View Full Map
-                                </a>
-                              </div>
-                              {floor.floor_map_url && (
-                                <div className="mt-3">
-                                  <img 
-                                    src={floor.floor_map_url} 
-                                    alt={`Floor ${floor.floor_no} Map`}
-                                    style={{ width: "100%", maxHeight: "300px", objectFit: "contain" }}
-                                    className="rounded"
-                                  />
-                                </div>
-                              )}
-                            </Card.Header>
-                          )}
-                          <Card.Body>
-                            <h6 className="mb-3">Rooms on Floor {floor.floor_no}</h6>
-                            <div style={{ overflowX: "auto" }}>
-                              <Table hover bordered responsive>
-                                <thead style={{ backgroundColor: "#f8f9fa" }}>
-                                  <tr>
-                                    <th>Room No</th>
-                                    <th>Type</th>
-                                    <th>Capacity</th>
-                                    <th>Available Beds</th>
-                                    <th>Status</th>
-                                    <th>Guest Names</th>
-                                    <th>Check-in</th>
-                                    <th>Check-out</th>
-                                    <th>Booking ID</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {floor.rooms.map((room) => (
-                                    <tr key={room.room_id}>
-                                      <td><strong>{room.room_no}</strong></td>
-                                      <td>
-                                        <Badge bg="info">{room.room_type}</Badge>
-                                      </td>
-                                      <td>
-                                        <Users size={16} className="me-1" />
-                                        {room.capacity}
-                                      </td>
-                                      <td>
-                                        <BedDouble size={16} className="me-1" />
-                                        {room.available_beds}
-                                      </td>
-                                      <td>{getRoomStatusBadge(room.status)}</td>
-                                      <td>
-                                        {room.guest_names && room.guest_names.length > 0 ? (
-                                          <ul className="mb-0 ps-3">
-                                            {room.guest_names.map((name, idx) => (
-                                              <li key={idx}>{name}</li>
-                                            ))}
-                                          </ul>
-                                        ) : (
-                                          <span className="text-muted">-</span>
-                                        )}
-                                      </td>
-                                      <td>
-                                        {room.checkin_date ? (
-                                          <small>
-                                            <Calendar size={14} className="me-1" />
-                                            {new Date(room.checkin_date).toLocaleDateString()}
-                                          </small>
-                                        ) : (
-                                          <span className="text-muted">-</span>
-                                        )}
-                                      </td>
-                                      <td>
-                                        {room.checkout_date ? (
-                                          <small>
-                                            <Calendar size={14} className="me-1" />
-                                            {new Date(room.checkout_date).toLocaleDateString()}
-                                          </small>
-                                        ) : (
-                                          <span className="text-muted">-</span>
-                                        )}
-                                      </td>
-                                      <td>
-                                        {room.current_booking_id ? (
-                                          <Badge bg="secondary">#{room.current_booking_id}</Badge>
-                                        ) : (
-                                          <span className="text-muted">-</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </Table>
-                            </div>
-                          </Card.Body>
-                        </Card>
-                      </Tab>
-                    ))}
-                  </Tabs>
-                ) : (
-                  <Alert variant="info">
-                    <AlertCircle size={20} className="me-2" />
-                    No floor or room data available for the selected date range.
-                  </Alert>
-                )}
-              </>
-            ) : (
-              <Alert variant="info">
-                <AlertCircle size={20} className="me-2" />
-                Select a date range and click Search to view availability.
-              </Alert>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowAvailabilityModal(false)}>
-              Close
-            </Button>
-          </Modal.Footer>
-        </Modal>
+                // Helper to get bed type name - returns lowercase standardized names
+                const getBedTypeName = (type) => {
+                  if (!type) return 'room';
+                  const typeStr = String(type).toLowerCase().trim();
 
-        {/* View Hotel Details Modal */}
-        <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="xl" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Eye size={24} className="me-2" />
-              Hotel Details - {selectedHotel?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedHotel && (
-              <Tabs defaultActiveKey="details" className="mb-3">
-                <Tab eventKey="details" title="Hotel Details">
-                  <div className="mt-3">
-                    <Row className="mb-3">
-                      <Col md={6}>
-                        <strong>Hotel Name:</strong>
-                        <p>{selectedHotel.name}</p>
-                      </Col>
-                      <Col md={6}>
-                        <strong>City:</strong>
-                        <p>{selectedHotel?.city_name ? selectedHotel.city_name : getCityName(selectedHotel?.city)}</p>
-                      </Col>
-                    </Row>
-                    <Row className="mb-3">
-                      <Col md={12}>
-                        <strong>Address:</strong>
-                        <p>{selectedHotel.address}</p>
-                      </Col>
-                    </Row>
-                    <Row className="mb-3">
-                      <Col md={6}>
-                        <strong>Category:</strong>
-                        <p>{getCategoryBadge(selectedHotel.category)}</p>
-                      </Col>
-                      <Col md={6}>
-                        <strong>Distance:</strong>
-                        <p>{selectedHotel.distance || "N/A"}</p>
-                      </Col>
-                    </Row>
-                    <Row className="mb-3">
-                      <Col md={6}>
-                        <strong>Contact:</strong>
-                        <p>{selectedHotel.contact_number || "N/A"}</p>
-                      </Col>
-                      <Col md={6}>
-                        <strong>Status:</strong>
-                        <p>
-                          {selectedHotel.is_active ? (
-                            <Badge bg="success">Active</Badge>
-                          ) : (
-                            <Badge bg="danger">Inactive</Badge>
-                          )}
-                        </p>
-                      </Col>
-                    </Row>
-                    {selectedHotel.available_start_date && (
-                      <Row className="mb-3">
-                        <Col md={12}>
-                          <strong>Availability:</strong>
-                          <p>
-                            {new Date(selectedHotel.available_start_date).toLocaleDateString()} - {new Date(selectedHotel.available_end_date).toLocaleDateString()}
-                          </p>
-                        </Col>
-                      </Row>
-                    )}
-                    {selectedHotel.google_location && (
-                      <Row className="mb-3">
-                        <Col md={12}>
-                          <strong>Location:</strong>
-                          <p>
-                            <a href={selectedHotel.google_location} target="_blank" rel="noopener noreferrer">
-                              View on Google Maps
-                            </a>
-                          </p>
-                        </Col>
-                      </Row>
+                  const typeMap = {
+                    'single': 'single', 'sharing': 'sharing', 'double': 'double',
+                    'triple': 'triple', 'quad': 'quad', 'quint': 'quint', 'room': 'room',
+                    '6': '6', '7': '7', '8': '8', '9': '9', '10': '10',
+                    '6-bed': '6', '7-bed': '7', '8-bed': '8', '9-bed': '9', '10-bed': '10',
+                    '6 bed': '6', '7 bed': '7', '8 bed': '8', '9 bed': '9', '10 bed': '10'
+                  };
+
+                  if (typeMap[typeStr]) return typeMap[typeStr];
+
+                  const foundBedType = bedTypesList.find(bt =>
+                    String(bt.slug).toLowerCase() === typeStr || String(bt.name).toLowerCase() === typeStr
+                  );
+
+                  if (foundBedType) {
+                    const name = foundBedType.name.toLowerCase();
+                    return typeMap[name] || name;
+                  }
+
+                  return typeStr;
+                };
+
+                // Group prices by date range
+                const dateRangeMap = {};
+                prices.forEach(p => {
+                  const key = `${p.start_date || 'N/A'}_${p.end_date || 'N/A'}`;
+                  if (!dateRangeMap[key]) {
+                    dateRangeMap[key] = { start_date: p.start_date || 'N/A', end_date: p.end_date || 'N/A', prices: {} };
+                  }
+                  const bedType = getBedTypeName(p.room_type);
+                  const purchasePrice = p.purchase_price || 0;
+                  dateRangeMap[key].prices[bedType] = purchasePrice;
+                });
+
+                // Fixed column order
+                const bedTypeColumns = ['room', 'sharing', 'double', 'triple', 'quad', 'quint', '6', '7', '8', '9', '10'];
+                const columnNames = {
+                  'room': 'Room', 'sharing': 'Sharing', 'double': 'Double', 'triple': 'Triple',
+                  'quad': 'Quad', 'quint': 'Quint', '6': '6 Bed', '7': '7 Bed',
+                  '8': '8 Bed', '9': '9 Bed', '10': '10 Bed'
+                };
+
+                const dateRanges = Object.values(dateRangeMap);
+
+                return (
+                  <div>
+                    <h6 className="mb-3">Hotel Prices by Date Range (Purchase Prices)</h6>
+                    {prices.length === 0 ? (
+                      <div className="text-center text-muted py-3">No prices available for this hotel</div>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <Table striped bordered hover size="sm">
+                          <thead>
+                            <tr>
+                              <th>Start Date</th>
+                              <th>End Date</th>
+                              {bedTypeColumns.map((bedType, idx) => <th key={idx}>{columnNames[bedType]}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dateRanges.map((range, idx) => (
+                              <tr key={idx}>
+                                <td>{range.start_date}</td>
+                                <td>{range.end_date}</td>
+                                {bedTypeColumns.map((bedType, bidx) => {
+                                  const price = range.prices[bedType];
+                                  return <td key={bidx}>{price != null && price !== 0 ? `${Number(price).toLocaleString()} PKR` : 'N/A'}</td>;
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </div>
                     )}
                   </div>
-                </Tab>
-                <Tab eventKey="roommap" title="Room & Bed Map">
-                  <div className="mt-3">
-                    {/* Read-only view of room & bed map inside the details modal. Editing is done via Edit Hotel -> Rooms tab. */}
-                    <RoomMapManager hotelId={selectedHotel.id} onSaved={() => setShowViewModal(false)} readOnly={true} />
-                  </div>
-                </Tab>
-              </Tabs>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowViewModal(false)}>
-              Close
-            </Button>
-          </Modal.Footer>
-        </Modal>
+                );
+              })()}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowPriceModal(false)}>
+                Close
+              </Button>
+            </Modal.Footer>
+          </Modal>
+        </div>
       </div>
-    </div>
-    
-    <style>{`
+
+      <style>{`
       @media (max-width: 991.98px) {
         .page-container {
           flex-direction: column !important;

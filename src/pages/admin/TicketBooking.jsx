@@ -610,6 +610,20 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     return formatRawStopoverDuration(raw);
   };
 
+  // Get formatted stopover flight number (e.g., "PIA-202")
+  const getStopoverFlightNumber = (stop, ticket) => {
+    const flightNumber = stop.flight_number || stop.flightNo || stop.flight_no || stop.number || stop.stopover_flight_number || null;
+    if (!flightNumber) return null;
+    if (flightNumber.includes('-')) return flightNumber; // already formatted
+    // Get code from ticket's flight_number
+    const parentFn = ticket && ticket.flight_number;
+    if (parentFn && parentFn.includes('-')) {
+      const code = parentFn.split('-')[0];
+      return `${code}-${flightNumber}`;
+    }
+    return flightNumber;
+  };
+
   // Determine seat warning style
   const seatWarningStyle =
     ticket.left_seats <= 9
@@ -690,7 +704,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
                   <>
                     <hr className="w-50 m-0" />
                     <div
-                      className="position-relative d-flex flex-column align-items-center"
+                      className="d-flex flex-column align-items-center"
                       style={{ margin: "0 10px" }}
                     >
                       <span
@@ -704,14 +718,14 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
                         }}
                       ></span>
                       <div
-                        className="text-muted small"
-                        style={{
-                          position: "absolute",
-                          top: "14px", // adjust space between dot and text
-                          whiteSpace: "nowrap",
-                        }}
+                        className="text-muted small mt-2"
+                        style={{ whiteSpace: "nowrap" }}
                       >
-                        {resolveCityName(outboundStopover.stopover_city, outboundStopover) || "Unknown City"}
+                        <div>{resolveCityName(outboundStopover.stopover_city, outboundStopover) || "Unknown City"}</div>
+                        {(() => {
+                          const flightNum = getStopoverFlightNumber(outboundStopover, ticket);
+                          return flightNum ? <div style={{ fontSize: '0.75rem', color: '#495057' }}>{flightNum}</div> : null;
+                        })()}
                       </div>
                     </div>
                     <hr className="w-50 m-0" />
@@ -722,7 +736,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
               </div>
             </div>
 
-            <div className="text-muted mt-4 small mt-1">
+            <div className="text-muted mt-4 small">
               {outboundStopover ? ` Stopover — ${formatStopoverDurationForDisplay("Departure", outboundStopover) || "N/A"}` : "Non-stop"}
             </div>
           </div>
@@ -823,16 +837,16 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
                               zIndex: 1,
                             }}
                           ></span>
-                          <div
-                            className="text-muted small"
-                            style={{
-                              position: "absolute",
-                              top: "14px", // adjust space between dot and text
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                                                {resolveCityName(returnStopover.stopover_city, returnStopover) || "Unknown City"}
-                          </div>
+                            <div
+                              className="text-muted small mt-2"
+                              style={{ whiteSpace: "nowrap" }}
+                            >
+                              <div>{resolveCityName(returnStopover.stopover_city, returnStopover) || "Unknown City"}</div>
+                              {(() => {
+                                const flightNum = getStopoverFlightNumber(returnStopover, ticket);
+                                return flightNum ? <div style={{ fontSize: '0.75rem', color: '#495057' }}>{flightNum}</div> : null;
+                              })()}
+                            </div>
                         </div>
                         <hr className="w-50 m-0" />
                       </>
@@ -842,7 +856,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
                   </div>
                 </div>
 
-                <div className="text-muted mt-4 small mt-1">
+                <div className="text-muted mt-4 small">
                   {returnStopover ? `${resolveCityName(returnStopover.stopover_city, returnStopover) || 'Stopover'} Stopover — ${formatStopoverDurationForDisplay("Return", returnStopover) || "N/A"}` : "Non-stop"}
                 </div>
               </div>
