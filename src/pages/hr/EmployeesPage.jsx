@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Button, InputGroup, Form, Spinner, Tabs, Tab } from 'react-bootstrap';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import api from '../../utils/Api';
+import api from './api';
 import { ToastProvider, useToast } from './components/ToastProvider';
-import { useEmployees, EmployeeProvider } from './components/EmployeeContext';
+import { EmployeeProvider, useEmployees } from './components/EmployeeContext';
 import EmployeeFilters from './components/EmployeeFilters';
 import EmployeeList from './components/EmployeeList';
 import AddEmployeeModal from './components/AddEmployeeModal';
-import EditEmployeeModal from './components/EditEmployeeModal';
 import './styles/hr.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -18,8 +17,6 @@ const EmployeesInner = ({ embedded = false }) => {
   const [loading, setLoading] = useState(false); // used for search
   const [searchResults, setSearchResults] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(null);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ role: '', branch: '', is_active: '' });
 
@@ -54,6 +51,7 @@ const EmployeesInner = ({ embedded = false }) => {
     if (pathname.startsWith('/hr/movements')) return 'movements';
     if (pathname.startsWith('/hr/commissions')) return 'commissions';
     if (pathname.startsWith('/hr/punctuality')) return 'punctuality';
+    if (pathname.startsWith('/hr/approvals')) return 'approvals';
     return 'dashboard';
   };
 
@@ -88,17 +86,28 @@ const EmployeesInner = ({ embedded = false }) => {
           <div style={{marginLeft:12}}>
             <EmployeeFilters filters={filters} setFilters={setFilters} />
           </div>
+          <Button 
+            variant="outline-danger" 
+            size="sm" 
+            className="ms-2"
+            onClick={() => {
+              setSearch('');
+              setFilters({ role: '', branch: '', is_active: '' });
+              setSearchResults(null);
+            }}
+          >
+            Reset
+          </Button>
         </Form>
 
         {loading ? (
           <div className="text-center py-5"><Spinner animation="border" /></div>
         ) : (
-          <EmployeeList employees={searchResults || employees || []} refresh={fetchEmployees} onEdit={(e)=>{ setEditingEmployee(e); setShowEdit(true); }} />
+          <EmployeeList employees={searchResults || employees || []} refresh={fetchEmployees} />
         )}
       </div>
 
       <AddEmployeeModal show={showAdd} onHide={() => setShowAdd(false)} onAdded={handleAdded} />
-      <EditEmployeeModal show={showEdit} onHide={() => setShowEdit(false)} employee={editingEmployee} onSaved={(data)=>{ setShowEdit(false); refresh(); }} />
     </div>
   );
 
@@ -118,6 +127,8 @@ const EmployeesInner = ({ embedded = false }) => {
               case 'attendance': navigate('/hr/attendance'); break;
               case 'movements': navigate('/hr/movements'); break;
               case 'commissions': navigate('/hr/commissions'); break;
+              case 'approvals': navigate('/hr/approvals'); break;
+              case 'payments': navigate('/hr/payments'); break;
               case 'punctuality': navigate('/hr/punctuality'); break;
               default: navigate('/hr');
             }
@@ -129,6 +140,8 @@ const EmployeesInner = ({ embedded = false }) => {
           <Tab eventKey="attendance" title="Attendance" />
           <Tab eventKey="movements" title="Movements" />
           <Tab eventKey="commissions" title="Commissions" />
+          <Tab eventKey="approvals" title="Approvals" />
+          <Tab eventKey="payments" title="Payments" />
           <Tab eventKey="punctuality" title="Punctuality" />
         </Tabs>
         {content}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import api from '../../../utils/Api';
+import api from '../api';
 import { useToast } from './ToastProvider';
 
 // Props:
@@ -10,32 +10,24 @@ import { useToast } from './ToastProvider';
 // - onCreated: optional callback(createdMovement) called after successful create
 const StartMovementModal = ({ show, onHide, employeeId, employees = [], onCreated }) => {
   const [form, setForm] = useState({ reason: '', start_time: '', employee: employeeId || '' });
-  const { show: toast } = useToast();
   const [saving, setSaving] = useState(false);
+
+  const { show: toast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { employee: Number(form.employee || employeeId), reason: form.reason };
-      if (form.start_time) payload.start_time = new Date(form.start_time).toISOString();
-
-      let resp;
-      if (form.id) {
-        // editing existing movement
-        resp = await api.patch(`/hr/movements/${form.id}/`, payload);
-      } else {
-        // create movement with start only (end handled separately)
-        resp = await api.post('/hr/movements/', payload);
-      }
-
+      const payload = { employee: form.employee || employeeId, reason: form.reason, start_time: form.start_time || undefined };
+      const resp = await api.post('/hr/movements/', payload);
+      // If server returns created movement object, call onCreated
       if (resp && resp.data) {
         onCreated && onCreated(resp.data);
-        toast('success', 'Movement saved');
       }
+      toast('success', 'Started', 'Movement started');
     } catch (err) {
       console.warn('Start movement backend failed', err?.message);
-      toast('danger', 'Failed to save movement', err?.message || '');
+      toast('danger', 'Failed', err?.response?.data?.detail || err?.message || 'Failed to start movement');
     } finally {
       setSaving(false);
       onHide && onHide();
@@ -68,7 +60,6 @@ const StartMovementModal = ({ show, onHide, employeeId, employees = [], onCreate
             <Form.Label>Start Time</Form.Label>
             <Form.Control type="datetime-local" value={form.start_time} onChange={(e)=>setForm({...form, start_time:e.target.value})} />
           </Form.Group>
-            {/* End time is intentionally omitted when creating a movement; closing movements is handled via the Movements list */}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="btn-ghost" onClick={onHide}>Cancel</Button>

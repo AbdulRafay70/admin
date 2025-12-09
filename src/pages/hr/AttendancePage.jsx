@@ -1,287 +1,137 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Container, Row, Col, Card, Table, Button, Form, InputGroup, Tabs, Tab, Dropdown, ButtonGroup, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Button, Form, InputGroup, Tabs, Tab, Badge } from 'react-bootstrap';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import api from '../../utils/Api';
+import api from './api';
 import { ToastProvider, useToast } from './components/ToastProvider';
-import { useEmployees, EmployeeProvider } from './components/EmployeeContext';
+import { EmployeeProvider, useEmployees } from './components/EmployeeContext';
 import './styles/hr.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const AttendanceInner = ({ embedded = false }) => {
   const [records, setRecords] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const { show: toast } = useToast();
   const { employees } = useEmployees();
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState('');
-  const [showEdit, setShowEdit] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10)); // Default to today
+  const [dateRangeStart, setDateRangeStart] = useState('');
+  const [dateRangeEnd, setDateRangeEnd] = useState('');
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const resp = await api.get('/hr/attendance/');
-        let atts = Array.isArray(resp.data) ? resp.data : [];
-        // map attendance employee field to full object when possible
-        const empMap = {};
-        (employees || []).forEach(e => { empMap[e.id] = e; });
-        atts = atts.map(a => ({ ...a, employee: (typeof a.employee === 'object' ? a.employee : (empMap[Number(a.employee)] || { id: Number(a.employee), first_name: 'Employee', last_name: '' } )) }));
+        // Fetch all employees
+        const empResp = await api.get('/hr/employees/');
+        const allEmps = Array.isArray(empResp.data) ? empResp.data : empResp.data.results || [];
+        setAllEmployees(allEmps);
 
-        // Build a single row per active employee for the target date
-        const today = new Date().toISOString().slice(0,10);
-        const targetDate = dateFilter || today;
-
-        if (employees && employees.length > 0) {
-          // index attendance records by employee id for the target date
-          const attByEmp = {};
-          (atts || []).forEach(a => {
-            try {
-              const empId = a.employee && typeof a.employee === 'object' ? a.employee.id : Number(a.employee);
-              if (a.date === targetDate) attByEmp[empId] = a;
-            } catch (e) { /* ignore */ }
-          });
-
-          const derived = (employees || [])
-            .filter(e => e && (e.is_active === undefined ? true : e.is_active))
-            .map(e => {
-              const existing = attByEmp[e.id];
-              if (existing) return { ...existing, employee: (typeof existing.employee === 'object' ? existing.employee : e) };
-              return { id: null, date: targetDate, check_in: null, check_out: null, working_hours: '', status: 'pending', notes: '', employee: e };
-            });
-
-          setRecords(derived);
-        } else {
-          // fallback: use raw attendance rows
-          setRecords(atts);
+        // Build attendance query params
+        let params = '';
+        if (dateRangeStart && dateRangeEnd) {
+          params = `?start_date=${dateRangeStart}&end_date=${dateRangeEnd}`;
+        } else if (dateFilter) {
+          params = `?date=${dateFilter}`;
         }
+
+        // Fetch attendance records
+        const resp = await api.get(`/hr/attendance/${params}`);
+        let atts = Array.isArray(resp.data) ? resp.data : resp.data.results || [];
+
+        // Create attendance map keyed by employee ID + date
+        const attendanceMap = {};
+        atts.forEach(att => {
+          const key = `${att.employee}_${att.date}`;
+          attendanceMap[key] = att;
+        });
+
+        // Determine which dates to show
+        let datesToShow = [];
+        if (dateRangeStart && dateRangeEnd) {
+          const start = new Date(dateRangeStart);
+          const end = new Date(dateRangeEnd);
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            datesToShow.push(d.toISOString().slice(0, 10));
+          }
+        } else {
+          datesToShow = [dateFilter];
+        }
+
+        // Merge employees with attendance - create a record for each employee+date combination
+        const mergedRecords = [];
+        allEmps.forEach(emp => {
+          datesToShow.forEach(date => {
+            const key = `${emp.id}_${date}`;
+            if (attendanceMap[key]) {
+              mergedRecords.push(attendanceMap[key]);
+            } else {
+              // Employee has no attendance for this date - mark as absent
+              mergedRecords.push({
+                id: `absent_${emp.id}_${date}`,
+                employee: emp.id,
+                employee_name: emp.name,
+                date: date,
+                check_in: null,
+                check_out: null,
+                working_hours: null,
+                status: 'absent',
+                notes: 'No attendance record'
+              });
+            }
+          });
+        });
+
+        setRecords(mergedRecords);
       } catch (e) {
         console.warn('Attendance fetch failed', e?.message);
         toast('danger', 'Attendance fetch failed', e?.message || '');
       }
     };
     fetch();
-  }, [employees, dateFilter]);
+  }, [dateFilter, dateRangeStart, dateRangeEnd]);
 
   const filtered = useMemo(() => {
     return records.filter(r => {
-      const fullname = `${r.employee.first_name} ${r.employee.last_name || ''}`.toLowerCase();
-      if (query && !fullname.includes(query.toLowerCase())) return false;
-      if (statusFilter !== 'ALL' && r.status !== statusFilter) return false;
+      if (query) {
+        const empName = r.employee_name || '';
+        const empId = String(r.employee || '');
+        const search = query.toLowerCase();
+        if (!empName.toLowerCase().includes(search) && !empId.includes(search)) return false;
+      }
+      if (statusFilter && r.status !== statusFilter) return false;
       if (dateFilter && r.date !== dateFilter) return false;
       return true;
     });
   }, [records, query, statusFilter, dateFilter]);
 
-  // summary counts for the cards (for selected date or today)
-  const summary = useMemo(() => {
-    const target = dateFilter || new Date().toISOString().slice(0,10);
-    const items = (records || []).filter(r => r.date === target);
-    let present = 0, absent = 0, late = 0;
-    items.forEach(it => {
-      const s = String(it.status || '').toLowerCase();
-      if (s === 'present' || s === 'in') present++;
-      else if (s === 'absent') absent++;
-      else if (s === 'late') late++;
-    });
-    return { present, absent, late, total: items.length };
-  }, [records, dateFilter]);
-
-  const doCheckIn = async (rec) => {
-    const now = new Date().toISOString();
-    // optimistic update: set check_in locally
-    setRecords(prev => prev.map(p => p.id === rec.id ? { ...p, status: 'IN', check_in: now } : p));
-    try {
-      const payload = { employee: rec.employee && rec.employee.id ? rec.employee.id : rec.employee, time: now };
-      const resp = await api.post('/hr/attendance/check_in/', payload);
-      const att = resp.data;
-      // upsert returned attendance into records array
-      setRecords(prev => {
-        const exists = prev.findIndex(r => r.id === att.id || (r.employee && r.employee.id === att.employee && r.date === att.date));
-        if (exists >= 0) {
-          const copy = [...prev]; copy[exists] = { ...copy[exists], ...att, employee: (typeof att.employee === 'object' ? att.employee : (copy[exists].employee && copy[exists].employee.id ? copy[exists].employee : { id: att.employee })) };
-          return copy;
-        }
-        return [{ ...att, employee: (typeof att.employee === 'object' ? att.employee : { id: att.employee }) }, ...prev];
-      });
-    } catch (e) {
-      console.warn('Check-in backend failed', e?.message);
-      toast('danger', 'Check-in failed', e?.message || '');
-    }
+  const resetFilters = () => { 
+    setQuery(''); 
+    setStatusFilter(''); 
+    setDateFilter(new Date().toISOString().slice(0, 10)); // Reset to today
   };
 
-  const doCheckOut = async (rec) => {
-    const now = new Date().toISOString();
-    setRecords(prev => prev.map(p => p.id === rec.id ? { ...p, status: 'OUT', check_out: now } : p));
-    try {
-      const payload = { employee: rec.employee && rec.employee.id ? rec.employee.id : rec.employee, time: now };
-      const resp = await api.post('/hr/attendance/check_out/', payload);
-      const att = resp.data;
-      setRecords(prev => {
-        const exists = prev.findIndex(r => r.id === att.id || (r.employee && r.employee.id === att.employee && r.date === att.date));
-        if (exists >= 0) {
-          const copy = [...prev]; copy[exists] = { ...copy[exists], ...att, employee: (typeof att.employee === 'object' ? att.employee : (copy[exists].employee && copy[exists].employee.id ? copy[exists].employee : { id: att.employee })) };
-          return copy;
-        }
-        return [{ ...att, employee: (typeof att.employee === 'object' ? att.employee : { id: att.employee }) }, ...prev];
-      });
-    } catch (e) {
-      console.warn('Check-out backend failed', e?.message);
-      toast('danger', 'Check-out failed', e?.message || '');
-    }
+  const exportPDF = () => {
+    toast('info', 'Export', 'PDF export functionality coming soon');
+    // TODO: Implement PDF export
   };
 
-  // Edit modal used to update check-in/out times and status
-  const EditAttendanceModal = ({ show, onHide, record, onSaved }) => {
-    const [form, setForm] = useState(() => ({
-      date: record?.date || new Date().toISOString().slice(0,10),
-      check_in: record?.check_in ? record.check_in : '',
-      check_out: record?.check_out ? record.check_out : '',
-      status: record?.status ? String(record.status).toLowerCase() : 'present',
-      notes: record?.notes || ''
-    }));
-    useEffect(()=>{ setForm({ date: record?.date || new Date().toISOString().slice(0,10), check_in: record?.check_in || '', check_out: record?.check_out || '', status: record?.status ? String(record.status).toLowerCase() : 'present', notes: record?.notes || '' }); }, [record, show]);
-
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      try {
-        if (record && record.id) {
-          const payload = {
-            date: form.date,
-            check_in: form.check_in || null,
-            check_out: form.check_out || null,
-            status: form.status,
-            notes: form.notes
-          };
-          const resp = await api.patch(`/hr/attendance/${record.id}/`, payload);
-          onSaved && onSaved(resp.data);
-          toast('success','Saved','Attendance updated');
-        } else {
-          const payload = {
-            date: form.date,
-            check_in: form.check_in || null,
-            check_out: form.check_out || null,
-            status: form.status,
-            notes: form.notes,
-            employee: record && record.employee ? (record.employee.id || record.employee) : null
-          };
-          const resp = await api.post('/hr/attendance/', payload);
-          onSaved && onSaved(resp.data);
-          toast('success','Saved','Attendance created');
-        }
-      } catch (e) {
-        console.warn('Save attendance failed', e?.message);
-        toast('danger','Save failed', e?.response?.data?.detail || e?.message || '');
-      } finally {
-        onHide && onHide();
-      }
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      'on_time': { bg: 'success', text: 'On Time' },
+      'grace': { bg: 'warning', text: 'Grace' },
+      'late': { bg: 'danger', text: 'Late' },
+      'present': { bg: 'info', text: 'Present' },
+      'absent': { bg: 'secondary', text: 'Absent' },
+      'half_day': { bg: 'warning', text: 'Half Day' }
     };
-
-    return (
-      <Modal show={show} onHide={onHide} centered>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Header closeButton className="modal-header-accent"><Modal.Title>Edit Attendance</Modal.Title></Modal.Header>
-          <Modal.Body>
-            <Form.Group className="mb-2">
-              <Form.Label>Date</Form.Label>
-              <Form.Control type="date" value={form.date} onChange={e=>setForm({...form, date: e.target.value})} required />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Check In</Form.Label>
-              <Form.Control type="datetime-local" value={form.check_in ? new Date(form.check_in).toISOString().slice(0,16) : ''} onChange={e=>setForm({...form, check_in: e.target.value ? new Date(e.target.value).toISOString() : ''})} />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Check Out</Form.Label>
-              <Form.Control type="datetime-local" value={form.check_out ? new Date(form.check_out).toISOString().slice(0,16) : ''} onChange={e=>setForm({...form, check_out: e.target.value ? new Date(e.target.value).toISOString() : ''})} />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Status</Form.Label>
-              <Form.Select value={form.status} onChange={e=>setForm({...form, status: e.target.value})}>
-                <option value="present">Present</option>
-                <option value="absent">Absent</option>
-                <option value="half_day">Half Day</option>
-                <option value="late">Late</option>
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Notes</Form.Label>
-              <Form.Control value={form.notes} onChange={e=>setForm({...form, notes: e.target.value})} />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="btn-ghost" onClick={onHide}>Cancel</Button>
-            <Button type="submit" className="btn-primary">Save</Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-    );
+    const s = statusMap[status] || { bg: 'secondary', text: status };
+    return <Badge bg={s.bg}>{s.text}</Badge>;
   };
-
-  const _upsertFromResp = (att) => {
-    if (!att) return;
-    setRecords(prev => {
-      const exists = prev.findIndex(r => r.id === att.id || (r.employee && r.employee.id === att.employee && r.date === att.date));
-      if (exists >= 0) {
-        const copy = [...prev]; copy[exists] = { ...copy[exists], ...att, employee: (typeof att.employee === 'object' ? att.employee : (copy[exists].employee && copy[exists].employee.id ? copy[exists].employee : { id: att.employee })) };
-        return copy;
-      }
-      return [{ ...att, employee: (typeof att.employee === 'object' ? att.employee : { id: att.employee }) }, ...prev];
-    });
-  };
-
-  const markPresent = async (rec) => {
-    // Try provider-specific action, then PATCH, then create
-    const emp = rec.employee && rec.employee.id ? rec.employee.id : rec.employee;
-    const date = rec.date || new Date().toISOString().slice(0,10);
-    // optimistic (backend expects lowercase choices)
-    setRecords(prev => prev.map(p => p.id === rec.id ? { ...p, status: 'present' } : p));
-    try {
-      // try action endpoint
-      try {
-        const r = await api.post('/hr/attendance/mark_present/', { employee: emp, date });
-        if (r && r.data) { _upsertFromResp(r.data); toast('success','Marked','Marked present'); return; }
-      } catch (e) { /* ignore, try next */ }
-
-      if (rec.id) {
-        const r = await api.patch(`/hr/attendance/${rec.id}/`, { status: 'present' });
-        if (r && r.data) { _upsertFromResp(r.data); toast('success','Marked','Marked present'); return; }
-      }
-
-      const r2 = await api.post('/hr/attendance/', { employee: emp, date, status: 'present' });
-      if (r2 && r2.data) { _upsertFromResp(r2.data); toast('success','Marked','Marked present'); return; }
-    } catch (e) {
-      console.warn('Mark present failed', e?.message);
-      toast('danger','Mark failed', e?.message || '');
-    }
-  };
-
-  const markAbsent = async (rec) => {
-    const emp = rec.employee && rec.employee.id ? rec.employee.id : rec.employee;
-    const date = rec.date || new Date().toISOString().slice(0,10);
-    setRecords(prev => prev.map(p => p.id === rec.id ? { ...p, status: 'absent' } : p));
-    try {
-      try {
-        const r = await api.post('/hr/attendance/mark_absent/', { employee: emp, date });
-        if (r && r.data) { _upsertFromResp(r.data); toast('success','Marked','Marked absent'); return; }
-      } catch (e) { /* ignore */ }
-
-      if (rec.id) {
-        const r = await api.patch(`/hr/attendance/${rec.id}/`, { status: 'absent' });
-        if (r && r.data) { _upsertFromResp(r.data); toast('success','Marked','Marked absent'); return; }
-      }
-
-      const r2 = await api.post('/hr/attendance/', { employee: emp, date, status: 'absent' });
-      if (r2 && r2.data) { _upsertFromResp(r2.data); toast('success','Marked','Marked absent'); return; }
-    } catch (e) {
-      console.warn('Mark absent failed', e?.message);
-      toast('danger','Mark failed', e?.message || '');
-    }
-  };
-
-  const resetFilters = () => { setQuery(''); setStatusFilter('ALL'); setDateFilter(''); };
 
   const location = useLocation();
   const navigate = useNavigate();
+  const pathname = location?.pathname || '';
 
   const routeToKey = (pathname) => {
     if (pathname.startsWith('/hr/employees')) return 'employees';
@@ -289,122 +139,134 @@ const AttendanceInner = ({ embedded = false }) => {
     if (pathname.startsWith('/hr/movements')) return 'movements';
     if (pathname.startsWith('/hr/commissions')) return 'commissions';
     if (pathname.startsWith('/hr/punctuality')) return 'punctuality';
+    if (pathname.startsWith('/hr/approvals')) return 'approvals';
     return 'dashboard';
   };
 
   const [localKey, setLocalKey] = React.useState(routeToKey(location.pathname));
   React.useEffect(()=>{ setLocalKey(routeToKey(location.pathname)); }, [location.pathname]);
 
+  const todayRecords = records.filter(r => r.date === new Date().toISOString().slice(0, 10));
+  const presentToday = todayRecords.filter(r => ['on_time', 'grace', 'present'].includes(r.status)).length;
+  const lateToday = todayRecords.filter(r => r.status === 'late').length;
+  const absentToday = todayRecords.filter(r => r.status === 'absent').length;
+
   const content = (
     <div className="hr-container">
       <div className="hr-topbar">
         <div>
           <div className="title">Attendance</div>
-          <div className="subtitle">Quick overview and daily actions for employee attendance</div>
+          <div className="subtitle">View employee attendance status — on time, grace, late, present, or absent</div>
         </div>
         <div className="hr-actions">
           <Button className="btn-ghost" onClick={resetFilters}>Reset</Button>
-          <Button className="btn-primary">Export CSV</Button>
+          <Button className="btn-primary" onClick={exportPDF}>Export PDF</Button>
         </div>
       </div>
 
       <div className="hr-cards">
         <div className="hr-card">
-          <h4>Present</h4>
-          <p>{summary.present}</p>
+          <h4>Present Today</h4>
+          <p>{presentToday}</p>
         </div>
         <div className="hr-card">
-          <h4>Absent</h4>
-          <p>{summary.absent}</p>
+          <h4>Late Today</h4>
+          <p>{lateToday}</p>
         </div>
         <div className="hr-card">
-          <h4>Late</h4>
-          <p>{summary.late}</p>
+          <h4>Absent Today</h4>
+          <p>{absentToday}</p>
+        </div>
+        <div className="hr-card">
+          <h4>Total Records</h4>
+          <p>{todayRecords.length}</p>
         </div>
       </div>
 
       <div className="hr-panel">
-        <div className="hr-filters">
-          <InputGroup className="filter-input" size="sm" style={{maxWidth:140}}>
+        <div className="hr-filters mb-3">
+          <InputGroup style={{ maxWidth: 300 }}>
             <InputGroup.Text>🔍</InputGroup.Text>
-            <Form.Control placeholder="Search employee" value={query} onChange={e => setQuery(e.target.value)} />
+            <Form.Control placeholder="Search by employee name or ID" value={query} onChange={e => setQuery(e.target.value)} />
           </InputGroup>
 
-          <Form.Select size="sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{maxWidth:140}}>
-            <option value="ALL">All Status</option>
-            <option value="IN">In</option>
-            <option value="OUT">Out</option>
-            <option value="PENDING">Pending</option>
+          <Form.Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ maxWidth: 150 }}>
+            <option value="">All Status</option>
+            <option value="on_time">On Time</option>
+            <option value="grace">Grace Period</option>
+            <option value="late">Late</option>
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
+            <option value="half_day">Half Day</option>
           </Form.Select>
 
-          <Form.Control size="sm" type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{maxWidth:140}} />
+          <Form.Control 
+            type="date" 
+            value={dateFilter} 
+            onChange={e => {
+              setDateFilter(e.target.value);
+              setDateRangeStart('');
+              setDateRangeEnd('');
+            }} 
+            style={{ maxWidth: 160 }}
+            placeholder="Single Date" 
+          />
+
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <Form.Control 
+              type="date" 
+              value={dateRangeStart} 
+              onChange={e => {
+                setDateRangeStart(e.target.value);
+                if (e.target.value) setDateFilter('');
+              }} 
+              style={{ minWidth: 160 }}
+              placeholder="Start Date" 
+            />
+            <span style={{ color: '#666' }}>to</span>
+            <Form.Control 
+              type="date" 
+              value={dateRangeEnd} 
+              onChange={e => {
+                setDateRangeEnd(e.target.value);
+                if (e.target.value) setDateFilter('');
+              }} 
+              style={{ minWidth: 160 }}
+              placeholder="End Date" 
+            />
+          </div>
         </div>
 
         {filtered.length === 0 ? (
-          <div className="hr-empty">No attendance records found.</div>
+          <div className="hr-empty">No attendance records found for the selected filters.</div>
         ) : (
-          <Table className="hr-table" responsive>
+          <Table className="hr-table" responsive hover>
             <thead>
               <tr>
                 <th>Employee</th>
                 <th>Date</th>
-                <th>Check-in</th>
-                <th>Check-out</th>
+                <th>Check-In</th>
+                <th>Check-Out</th>
+                <th>Working Hours</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(r => (
                 <tr key={r.id}>
-                  <td>
-                    <div style={{display:'flex',alignItems:'center',gap:12}}>
-                      <div className="avatar">{(r.employee.first_name||'')[0]}{(r.employee.last_name||'')[0]}</div>
-                      <div>
-                        <div style={{fontWeight:700}}>{r.employee.first_name} {r.employee.last_name}</div>
-                        <div className="small-muted">ID: {r.employee.id}</div>
-                      </div>
-                    </div>
-                  </td>
+                  <td>{r.employee_name || `Employee #${r.employee}`}</td>
                   <td>{r.date}</td>
-                  <td>{r.check_in ? new Date(r.check_in).toLocaleTimeString() : '-'}</td>
-                  <td>{r.check_out ? new Date(r.check_out).toLocaleTimeString() : '-'}</td>
-                  <td>
-                    {(() => {
-                      const s = String(r.status || '').toLowerCase();
-                      const cls = s === 'present' || s === 'in' ? 'status-in' : s === 'out' ? 'status-out' : s === 'absent' ? 'status-out' : 'status-pending';
-                      const label = s === 'present' ? 'Present' : s === 'absent' ? 'Absent' : s === 'half_day' ? 'Half Day' : s === 'late' ? 'Late' : (r.status || '');
-                      return <span className={`status-chip ${cls}`}>{label}</span>;
-                    })()}
-                  </td>
-                  <td>
-                    <div style={{display:'flex',gap:8, alignItems:'center'}}>
-                      {/* single icon-only dropdown containing all actions (check in/out, mark present/absent, edit, late, half-day) */}
-                      <Dropdown align="end">
-                        <Dropdown.Toggle variant="light" size="sm" id={`actions-icon-${r.id||Math.random()}`} style={{padding:'6px 8px', borderRadius:6}}>
-                          {/* vertical ellipsis SVG for compact icon */}
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
-                        </Dropdown.Toggle>
-                        <Dropdown.Menu>
-                          <Dropdown.Item onClick={() => doCheckIn(r)}>Check In</Dropdown.Item>
-                          <Dropdown.Item onClick={() => doCheckOut(r)}>Check Out</Dropdown.Item>
-                          <Dropdown.Divider />
-                          <Dropdown.Item onClick={()=>markPresent(r)}>Mark Present</Dropdown.Item>
-                          <Dropdown.Item onClick={()=>markAbsent(r)}>Mark Absent</Dropdown.Item>
-                          <Dropdown.Item onClick={()=>{ setEditTarget(r); setShowEdit(true); }}>Edit attendance</Dropdown.Item>
-                          <Dropdown.Divider />
-                          <Dropdown.Item onClick={()=>{ setRecords(prev => prev.map(p => p.id === r.id ? { ...p, status: 'late' } : p)); api.post('/hr/attendance/mark_late/', { employee: r.employee.id || r.employee, date: r.date || new Date().toISOString().slice(0,10) }).then(resp=>_upsertFromResp(resp.data)).catch(()=>{}); }}>Mark Late</Dropdown.Item>
-                          <Dropdown.Item onClick={()=>{ setRecords(prev => prev.map(p => p.id === r.id ? { ...p, status: 'half_day' } : p)); api.post('/hr/attendance/mark_half_day/', { employee: r.employee.id || r.employee, date: r.date || new Date().toISOString().slice(0,10) }).then(resp=>_upsertFromResp(resp.data)).catch(()=>{}); }}>Mark Half Day</Dropdown.Item>
-                        </Dropdown.Menu>
-                      </Dropdown>
-                    </div>
-                  </td>
+                  <td>{r.check_in ? new Date(r.check_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                  <td>{r.check_out ? new Date(r.check_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                  <td>{r.working_hours ? r.working_hours : '-'}</td>
+                  <td>{getStatusBadge(r.status)}</td>
+                  <td className="text-muted small">{r.notes || '-'}</td>
                 </tr>
               ))}
             </tbody>
           </Table>
         )}
-        <EditAttendanceModal show={showEdit} onHide={()=>{setShowEdit(false); setEditTarget(null);}} record={editTarget} onSaved={(saved)=>{ _upsertFromResp(saved); }} />
       </div>
     </div>
   );
@@ -425,6 +287,8 @@ const AttendanceInner = ({ embedded = false }) => {
               case 'attendance': navigate('/hr/attendance'); break;
               case 'movements': navigate('/hr/movements'); break;
               case 'commissions': navigate('/hr/commissions'); break;
+              case 'approvals': navigate('/hr/approvals'); break;
+              case 'payments': navigate('/hr/payments'); break;
               case 'punctuality': navigate('/hr/punctuality'); break;
               default: navigate('/hr');
             }
@@ -436,6 +300,8 @@ const AttendanceInner = ({ embedded = false }) => {
           <Tab eventKey="attendance" title="Attendance" />
           <Tab eventKey="movements" title="Movements" />
           <Tab eventKey="commissions" title="Commissions" />
+          <Tab eventKey="approvals" title="Approvals" />
+          <Tab eventKey="payments" title="Payments" />
           <Tab eventKey="punctuality" title="Punctuality" />
         </Tabs>
         {content}

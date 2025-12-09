@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import api from '../../../utils/Api';
+import api from '../api';
 import { useToast } from './ToastProvider';
 
-const AddPunctualityModal = ({ show, onHide, initial = null, employees = [], employeeId = null, onSaved, forceDate = null }) => {
-  const [form, setForm] = useState({ employee: employeeId || '', date: '', record_type: 'late', minutes: 0, notes: '' });
+const AddPunctualityModal = ({ show, onHide, initial = null, employees = [], onSaved }) => {
+  const [form, setForm] = useState({ employee: '', date: '', record_type: 'Late', minutes: 0, notes: '' });
   const [saving, setSaving] = useState(false);
   const { show: toast } = useToast();
 
   useEffect(() => {
     if (initial) setForm({
-      employee: initial.employee || employeeId || '',
-      date: forceDate || initial.date || new Date().toISOString().slice(0,10),
-      record_type: (initial.record_type || 'late').toString().toLowerCase(),
+      employee: initial.employee || '',
+      date: initial.date || new Date().toISOString().slice(0,10),
+      record_type: initial.record_type || 'Late',
       minutes: initial.minutes || 0,
       notes: initial.notes || '',
     });
-    else setForm({ employee: employeeId || '', date: forceDate || new Date().toISOString().slice(0,10), record_type: 'late', minutes: 0, notes: '' });
-  }, [initial, show, employeeId, forceDate]);
+    else setForm({ employee: '', date: new Date().toISOString().slice(0,10), record_type: 'Late', minutes: 0, notes: '' });
+  }, [initial, show]);
 
   const handleSubmit = async (e) => {
     e && e.preventDefault && e.preventDefault();
@@ -26,7 +26,7 @@ const AddPunctualityModal = ({ show, onHide, initial = null, employees = [], emp
       // Backend expects: employee, date (YYYY-MM-DD), record_type, minutes, notes
       const payload = {
         employee: form.employee,
-        date: forceDate || form.date,
+        date: form.date,
         record_type: form.record_type,
         minutes: Number(form.minutes || 0),
         notes: form.notes,
@@ -59,27 +59,24 @@ const AddPunctualityModal = ({ show, onHide, initial = null, employees = [], emp
           <Modal.Title>{initial ? 'Edit Record' : 'Add Punctuality Record'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          { !employeeId && (
-            <Form.Group className="mb-2">
-              <Form.Label>Employee</Form.Label>
-              <Form.Control as="select" required value={form.employee} onChange={(e)=>setForm({...form, employee: e.target.value})}>
-                <option value="">Select employee</option>
-                {employees.map(emp => (<option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>))}
-              </Form.Control>
-            </Form.Group>
-          )}
+          <Form.Group className="mb-2">
+            <Form.Label>Employee</Form.Label>
+            <Form.Control as="select" required value={form.employee} onChange={(e)=>setForm({...form, employee: e.target.value})}>
+              <option value="">Select employee</option>
+              {employees.map(emp => (<option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>))}
+            </Form.Control>
+          </Form.Group>
 
           <Form.Group className="mb-2">
             <Form.Label>Date</Form.Label>
-            <Form.Control type="date" required value={form.date} onChange={(e)=>setForm({...form, date: e.target.value})} disabled={!!forceDate} />
-            {forceDate && <div className="form-text">Date locked to {forceDate}</div>}
+            <Form.Control type="date" required value={form.date} onChange={(e)=>setForm({...form, date: e.target.value})} />
           </Form.Group>
 
           <Form.Group className="mb-2">
             <Form.Label>Type</Form.Label>
             <Form.Control as="select" value={form.record_type} onChange={(e)=>setForm({...form, record_type: e.target.value})}>
-              <option value="late">Late</option>
-              <option value="early">Early</option>
+              <option>Late</option>
+              <option>Early</option>
             </Form.Control>
           </Form.Group>
 

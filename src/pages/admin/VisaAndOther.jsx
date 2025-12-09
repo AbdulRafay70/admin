@@ -5270,7 +5270,7 @@ const Visa = () => {
                                 />
                               </div>
 
-                              {/* Child Selling Price */}rice */}
+                              {/* Child Selling Price */}
                               <div>
                                 <label htmlFor="" className="Control-label">
                                   Child Selling
@@ -5302,7 +5302,7 @@ const Visa = () => {
                                 />
                               </div>
 
-                              {/* Infant Selling Price */}rice */}
+                              {/* Infant Selling Price */}
                               <div>
                                 <label htmlFor="" className="Control-label">
                                   Infant Selling

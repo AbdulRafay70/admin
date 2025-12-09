@@ -1,0 +1,138 @@
+/* Partners Tabs Styling */
+.partners-tabs-wrapper {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.partners-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.partners-tab-link {
+  position: relative;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6c757d;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.partners-tab-link:hover {
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+.partners-tab-link.active {
+  color: #0d6efd;
+  background-color: transparent;
+  font-weight: 600;
+}
+
+.partners-tab-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -18px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #0d6efd;
+  border-radius: 3px 3px 0 0;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+  .partners-tabs-wrapper {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+
+  .partners-tabs-nav {
+    gap: 6px;
+  }
+
+  .partners-tab-link {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .partners-tab-link.active::after {
+    bottom: -14px;
+    height: 2px;
+  }
+}
+
+@media (max-width: 768px) {
+  .partners-tabs-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 transparent;
+  }
+
+  .partners-tabs-wrapper::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .partners-tabs-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .partners-tabs-wrapper::-webkit-scrollbar-thumb {
+    background-color: #dee2e6;
+    border-radius: 4px;
+  }
+
+  .partners-tabs-nav {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .partners-tab-link {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .partners-tab-link.active::after {
+    bottom: -13px;
+  }
+}
+
+@media (max-width: 576px) {
+  .partners-tabs-wrapper {
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+  }
+
+  .partners-tab-link {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+/* Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.partners-tabs-wrapper {
+  animation: slideIn 0.3s ease;
+}
+
+/* Dark mode support (optional) */

@@ -1,27 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Card, Table, Button, Tabs, Tab } from 'react-bootstrap';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Container, Row, Col, Card, Table, Button, Tabs, Tab, Form, InputGroup, Badge } from 'react-bootstrap';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import api from '../../utils/Api';
+import api from './api';
 import './styles/hr.css';
-import { useEmployees, EmployeeProvider } from './components/EmployeeContext';
+import { EmployeeProvider, useEmployees } from './components/EmployeeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import AddCommissionModal from './components/AddCommissionModal';
 import { ToastProvider, useToast } from './components/ToastProvider';
 
 const CommissionsInner = ({ embedded = false }) => {
   const [commissions, setCommissions] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
   const { show: toast } = useToast();
   const { employees } = useEmployees();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [employeeFilter, setEmployeeFilter] = useState('');
   const fetch = async ()=>{
     try{
       const resp = await api.get('/hr/commissions/');
       setCommissions(resp.data || []);
-    }catch(e){console.error(e); toast('danger','Fetch failed', e?.message || ''); setCommissions([]);}  
+    }catch(e){
+      console.error(e); 
+      toast('danger','Fetch failed', e?.message || ''); 
+      setCommissions([]);
+    }  
   };
 
   useEffect(()=>{fetch();},[]);
+
+  const filteredCommissions = useMemo(() => {
+    return commissions.filter(c => {
+      const empName = c.employee_display || '';
+      const empId = String(c.employee || '');
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = !query || empName.toLowerCase().includes(query) || empId.includes(query);
+      const matchesStatus = !statusFilter || c.status === statusFilter;
+      const matchesEmployee = !employeeFilter || String(c.employee) === employeeFilter;
+      return matchesSearch && matchesStatus && matchesEmployee;
+    });
+  }, [commissions, searchQuery, statusFilter, employeeFilter]);
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setEmployeeFilter('');
+  };
+
+  const getTotalEarned = () => filteredCommissions.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+  const getTotalRedeemed = () => filteredCommissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+  const getTotalPending = () => filteredCommissions.filter(c => c.status === 'pending').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -32,6 +59,7 @@ const CommissionsInner = ({ embedded = false }) => {
     if (pathname.startsWith('/hr/movements')) return 'movements';
     if (pathname.startsWith('/hr/commissions')) return 'commissions';
     if (pathname.startsWith('/hr/punctuality')) return 'punctuality';
+    if (pathname.startsWith('/hr/approvals')) return 'approvals';
     return 'dashboard';
   };
 
@@ -49,32 +77,112 @@ const CommissionsInner = ({ embedded = false }) => {
   };
 
   const content = (
-    <Container fluid className="p-3">
-      <Row className="mb-3"><Col><h3>Commissions</h3></Col><Col className="text-end"><Button className="btn-primary" onClick={()=>setShowAdd(true)}>Add Commission</Button></Col></Row>
-      <Card>
-        <Card.Body>
-          <Table responsive hover>
-            <thead><tr><th>#</th><th>Employee</th><th>Booking</th><th>Amount</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {commissions.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-muted">No commissions</td></tr>
-              ) : commissions.map((c,i)=> (
-                <tr key={c.id||i}><td>{i+1}</td><td>{(() => {
-                  try {
-                    if (c.employee && typeof c.employee === 'number') {
-                      const emp = (employees || []).find(e => e.id === Number(c.employee));
-                      return emp ? `${emp.first_name} ${emp.last_name}` : c.employee;
+    <div className="hr-container">
+      <div className="hr-topbar">
+        <div>
+          <div className="title">Commissions</div>
+          <div className="subtitle">View earned, redeemed, and pending commissions</div>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="hr-cards">
+        <div className="hr-card">
+          <h4>Total Earned</h4>
+          <p>Rs. {getTotalEarned().toLocaleString()}</p>
+        </div>
+        <div className="hr-card">
+          <h4>Total Redeemed</h4>
+          <p>Rs. {getTotalRedeemed().toLocaleString()}</p>
+        </div>
+        <div className="hr-card">
+          <h4>Total Pending</h4>
+          <p>Rs. {getTotalPending().toLocaleString()}</p>
+        </div>
+      </div>
+
+      <div className="hr-panel">
+        {/* Filters */}
+        <div className="d-flex gap-2 mb-3 align-items-center">
+          <InputGroup style={{ maxWidth: 350 }}>
+            <Form.Control 
+              placeholder="Search employee..." 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+            />
+          </InputGroup>
+          <Form.Select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)} 
+            style={{ maxWidth: 180 }}
+          >
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+            <option value="redeemed">Redeemed</option>
+          </Form.Select>
+          <Form.Select 
+            value={employeeFilter} 
+            onChange={(e) => setEmployeeFilter(e.target.value)} 
+            style={{ maxWidth: 200 }}
+          >
+            <option value="">All Employees</option>
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>
+                {emp.first_name} {emp.last_name}
+              </option>
+            ))}
+          </Form.Select>
+          <Button variant="outline-danger" size="sm" onClick={resetFilters}>
+            Reset
+          </Button>
+        </div>
+
+        {/* Commissions Table */}
+        <Table responsive hover className="hr-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Employee</th>
+              <th>Booking</th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredCommissions.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-muted">No commissions found</td></tr>
+            ) : filteredCommissions.map((c, i) => (
+              <tr key={c.id || i}>
+                <td>{i + 1}</td>
+                <td>
+                  {(() => {
+                    try {
+                      if (c.employee && typeof c.employee === 'number') {
+                        const emp = (employees || []).find(e => e.id === Number(c.employee));
+                        return emp ? `${emp.first_name} ${emp.last_name}` : c.employee;
+                      }
+                      return c.employee_display || (c.employee && typeof c.employee === 'object' ? `${c.employee.first_name} ${c.employee.last_name}` : c.employee);
+                    } catch (ee) {
+                      return c.employee_display || c.employee;
                     }
-                    return c.employee_display || (c.employee && typeof c.employee === 'object' ? `${c.employee.first_name} ${c.employee.last_name}` : c.employee);
-                  } catch (ee) { return c.employee_display || c.employee; }
-                })()}</td><td>{c.booking}</td><td>{c.amount}</td><td>{c.date}</td><td>{c.status}</td><td><Button size="sm" onClick={()=>markPaid(c)}>Mark Paid</Button></td></tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
-      <AddCommissionModal show={showAdd} onHide={()=>{setShowAdd(false); fetch();}} onSaved={(c)=>{ setCommissions(prev => [c, ...prev]); }} employees={employees} />
-    </Container>
+                  })()}
+                </td>
+                <td>{c.booking || '-'}</td>
+                <td>Rs. {parseFloat(c.amount || 0).toLocaleString()}</td>
+                <td>{c.date}</td>
+                <td>
+                  <Badge bg={c.status === 'paid' ? 'success' : c.status === 'pending' ? 'warning' : 'info'}>
+                    {c.status}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+    </div>
   );
 
   if (embedded) return <div className="hr-embedded">{content}</div>;
@@ -94,6 +202,8 @@ const CommissionsInner = ({ embedded = false }) => {
               case 'movements': navigate('/hr/movements'); break;
               case 'commissions': navigate('/hr/commissions'); break;
               case 'punctuality': navigate('/hr/punctuality'); break;
+              case 'approvals': navigate('/hr/approvals'); break;
+              case 'payments': navigate('/hr/payments'); break;
               default: navigate('/hr');
             }
           }}
@@ -104,6 +214,8 @@ const CommissionsInner = ({ embedded = false }) => {
           <Tab eventKey="attendance" title="Attendance" />
           <Tab eventKey="movements" title="Movements" />
           <Tab eventKey="commissions" title="Commissions" />
+          <Tab eventKey="approvals" title="Approvals" />
+          <Tab eventKey="payments" title="Payments" />
           <Tab eventKey="punctuality" title="Punctuality" />
         </Tabs>
         {content}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import api from '../../../utils/Api';
+import api from '../api';
 import { useToast } from './ToastProvider';
 
 const AddCommissionModal = ({ show, onHide, employeeId, onSaved, employees }) => {

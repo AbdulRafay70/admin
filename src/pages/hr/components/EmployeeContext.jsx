@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../../../utils/Api';
+import api from '../api';
 
 const EmployeeContext = createContext(null);
 

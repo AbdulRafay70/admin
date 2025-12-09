@@ -1,6 +1,7 @@
 import React from 'react';
 import { Nav } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
+import './PartnersTabs.css';
 
 const tabs = [
   // use relative paths so tabs resolve under the current parent route (e.g. /admin/partners)
@@ -10,8 +11,8 @@ const tabs = [
   { name: 'Discounts', path: 'discounts' },
   { name: 'Organization Links', path: 'organization-links' },
   { name: 'Branches', path: 'branche' },
-  // Portal is a partners tab (navigates to /partners/portal)
-  { name: 'Employees', path: 'empolye' },
+  { name: 'Markup', path: 'markup' },
+  { name: 'Commission Rules', path: 'commission-rules' },
 ];
 
 export default function PartnersTabs({ activeName }) {
@@ -28,28 +29,24 @@ export default function PartnersTabs({ activeName }) {
   };
 
   return (
-    <div className="row mb-3">
-      <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-        <nav className="nav flex-wrap gap-2">
+    <div className="partners-tabs-wrapper">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <nav className="partners-tabs-nav">
           {tabs.map((tab) => (
             <NavLink
               key={tab.name}
               to={resolveTo(tab.path)}
+              end={tab.path === ''}
               className={({ isActive }) =>
-                `nav-link btn btn-link text-decoration-none px-0 me-3 ${
-                  isActive || activeName === tab.name ? 'text-primary fw-semibold' : 'text-muted'
+                `partners-tab-link ${
+                  isActive || activeName === tab.name ? 'active' : ''
                 }`
               }
-              style={{ backgroundColor: 'transparent' }}
             >
               {tab.name}
             </NavLink>
           ))}
         </nav>
-
-        <div className="input-group" style={{ maxWidth: '300px' }}>
-          <input type="text" className="form-control" placeholder="Search partners..." />
-        </div>
       </div>
     </div>
   );

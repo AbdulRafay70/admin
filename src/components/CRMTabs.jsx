@@ -7,7 +7,6 @@ const tabs = [
   { name: 'Customers', path: '/customer-management' },
   { name: 'Follow Ups', path: '/lead-management' },
   { name: 'Passport Leads', path: '/passport-leads' },
-  { name: 'Commission Rules', path: '/commission-management' },
 ];
 
 export default function CRMTabs({ activeName, onSelect }) {
