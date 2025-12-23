@@ -38,6 +38,7 @@ const Partners = ({ embed = false }) => {
   const AGENCIES_CACHE_KEY = "agencies_cache";
   const GROUPS_CACHE_KEY = "groups_cache";
   const BRANCHES_CACHE_KEY = "branches_cache";
+  const ORGANIZATIONS_CACHE_KEY = "organizations_cache";
   const CACHE_EXPIRY_TIME = 30 * 60 * 1000;
 
   // State declarations
@@ -58,8 +59,10 @@ const Partners = ({ embed = false }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [isAgentType, setIsAgentType] = useState(false);
+  const [isAdminType, setIsAdminType] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
+  const [organizations, setOrganizations] = useState([]);
 
   const [partnerForm, setPartnerForm] = useState({
     first_name: "",
@@ -69,6 +72,7 @@ const Partners = ({ embed = false }) => {
     is_active: true,
     groups: [],
     branches: [],
+    organizations: [],
     profile: {
       type: "",
     },
@@ -232,6 +236,28 @@ const Partners = ({ embed = false }) => {
     }
   };
 
+  // Fetch all organizations
+  const fetchOrganizations = async () => {
+    try {
+      const cachedData = localStorage.getItem(ORGANIZATIONS_CACHE_KEY);
+      const cacheTimestamp = localStorage.getItem(`${ORGANIZATIONS_CACHE_KEY}_timestamp`);
+
+      if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME) {
+        setOrganizations(JSON.parse(cachedData));
+      } else {
+        const response = await axios.get(`http://127.0.0.1:8000/api/organizations/`, axiosConfig);
+        const data = response.data || [];
+        setOrganizations(data);
+
+        localStorage.setItem(ORGANIZATIONS_CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(`${ORGANIZATIONS_CACHE_KEY}_timestamp`, Date.now().toString());
+      }
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      setOrganizations([]);
+    }
+  };
+
   // Get agency details for a partner
   const getPartnerAgency = (partner) => {
     if (!partner.profile || partner.profile.type !== "agent") return null;
@@ -337,6 +363,7 @@ const Partners = ({ embed = false }) => {
   // Show create partner modal
   const handleShowCreate = () => {
     setEditingId(null);
+    const currentOrgId = getCurrentOrgId();
     setPartnerForm({
       first_name: "",
       last_name: "",
@@ -347,6 +374,7 @@ const Partners = ({ embed = false }) => {
       groups: [],
       agencies: [],
       branches: [],
+      organizations: currentOrgId ? [currentOrgId] : [],
       profile: {
         type: "",
       },
@@ -368,6 +396,7 @@ const Partners = ({ embed = false }) => {
       groups: partner.groups || [],
       branches: partner.branches || [],
       agencies: partner.agencies || [],
+      organizations: partner.organizations || [],
       profile: {
         type: partner.profile?.type || "",
       },
@@ -375,6 +404,8 @@ const Partners = ({ embed = false }) => {
 
     // Set agent type if editing an agent or area-agent
     setIsAgentType(partner.profile?.type === "agent" || partner.profile?.type === "area-agent");
+    // Set admin type if editing an admin or superadmin
+    setIsAdminType(partner.profile?.type === "admin" || partner.profile?.type === "superadmin");
     setShowModal(true);
   };
 
@@ -391,7 +422,9 @@ const Partners = ({ embed = false }) => {
 
     if (name === "profile.type") {
       const isAgent = value === "agent" || value === "area-agent";
+      const isAdmin = value === "admin" || value === "superadmin";
       setIsAgentType(isAgent);
+      setIsAdminType(isAdmin);
     }
 
     if (name.startsWith("profile.")) {
@@ -410,20 +443,17 @@ const Partners = ({ embed = false }) => {
       }));
     }
   };
-
   // Handle form submission
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const orgId = getCurrentOrgId();
-      if (!orgId) {
-        alert('Unable to determine current organization.');
-        setIsSubmitting(false);
-        return;
-      }
-
       const selectedBranch = localStorage.getItem("selectedBranchId");
       const Branch = selectedBranch ? [selectedBranch] : [];
+
+      // If organizations not selected, use current organization
+      const orgsToUse = (partnerForm.organizations && partnerForm.organizations.length > 0) 
+        ? partnerForm.organizations 
+        : (getCurrentOrgId() ? [getCurrentOrgId()] : []);
 
       const userPayload = {
         username: partnerForm.username,
@@ -432,7 +462,7 @@ const Partners = ({ embed = false }) => {
         first_name: partnerForm.first_name,
         last_name: partnerForm.last_name,
         profile: { type: partnerForm.profile.type },
-        organizations: [orgId],
+        organizations: orgsToUse,
         branches: (partnerForm.branches && partnerForm.branches.length > 0) ? partnerForm.branches : Branch,
         agencies: partnerForm.agencies || [],
         groups: partnerForm.groups,
@@ -445,15 +475,16 @@ const Partners = ({ embed = false }) => {
 
       // Make the API call
       let response;
+      const primaryOrgId = orgsToUse[0] || getCurrentOrgId();
       if (editingId) {
         response = await axios.put(
-          `http://127.0.0.1:8000/api/users/${editingId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/users/${editingId}/?organization=${primaryOrgId}`,
           userPayload,
           axiosConfig
         );
       } else {
         response = await axios.post(
-          `http://127.0.0.1:8000/api/users/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/users/?organization=${primaryOrgId}`,
           userPayload,
           axiosConfig
         );
@@ -549,12 +580,12 @@ const Partners = ({ embed = false }) => {
 
     fetchCurrentUser();
   }, []);
-
   useEffect(() => {
     fetchPartners();
     fetchAgencies();
     fetchGroups();
     fetchBranches();
+    fetchOrganizations();
   }, [refreshTrigger, currentUser]);
 
   // Get groups for selected organization
@@ -1035,6 +1066,38 @@ const Partners = ({ embed = false }) => {
                   onChange={handleChange}
                 />
               </div>
+
+              {/* Organization Dropdown - Only shown for admin/superadmin */}
+              {isAdminType && (
+                <div className="mb-3">
+                  <label htmlFor="" className="Control-label">
+                    Organization
+                  </label>
+                  <Select
+                    isMulti
+                    name="organizations"
+                    options={organizations.map((org) => ({
+                      value: org.id,
+                      label: org.name,
+                    }))}
+                    value={organizations
+                      .filter((org) => partnerForm.organizations.includes(org.id))
+                      .map((org) => ({
+                        value: org.id,
+                        label: org.name,
+                      }))}
+                    onChange={(selected) =>
+                      setPartnerForm((prev) => ({
+                        ...prev,
+                        organizations: selected.map((option) => option.value),
+                      }))
+                    }
+                    className="basic-multi-select"
+                    classNamePrefix="select"
+                    placeholder="Select organization(s)"
+                  />
+                </div>
+              )}
 
               {/* Groups Dropdown */}
               <div className="mb-3">

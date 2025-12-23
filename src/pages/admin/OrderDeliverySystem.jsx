@@ -14,8 +14,12 @@ import Header from "../../components/Header";
 import axios from "axios";
 import { Dropdown } from 'react-bootstrap';
 import { Funnel, Gear } from 'react-bootstrap-icons';
+import TicketTravelBookingInvoice from './TicketOrderList';
+import HotelVoucherInterfaceNew from '../../components/HotelVoucherNew';
 
-const TravelBookingInvoice = () => {
+
+
+const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
   const [showRejectNote, setShowRejectNote] = useState(false);
   const [showVisaInterface, setShowVisaInterface] = useState(false);
   const [bookingData, setBookingData] = useState(null);
@@ -24,7 +28,10 @@ const TravelBookingInvoice = () => {
   const [error, setError] = useState(null);
 
   const navigate = useNavigate();
-  const { orderNo } = useParams();
+  const { orderNo: orderNoParam } = useParams();
+
+  // Use prop if provided, otherwise use URL param
+  const orderNo = orderNoProp || orderNoParam;
 
   // Fetch booking data
   useEffect(() => {
@@ -34,8 +41,10 @@ const TravelBookingInvoice = () => {
         const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
+
+        // Fetch booking by booking_number instead of organization
         const response = await fetch(
-          `http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`, {
+          `http://127.0.0.1:8000/api/bookings/?booking_number=${orderNo}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -46,14 +55,16 @@ const TravelBookingInvoice = () => {
         if (!response.ok) {
           throw new Error(`Failed to fetch booking data: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
-        // Assuming the API returns an array, take the first matching booking
-        const booking = data.results?.find(b => b.booking_number === orderNo) || data[0];
-        console.log(booking.booking_number);
-        console.log(orderNo);
-        
+
+        console.log("📦 API Response:", data);
+        console.log("🔍 Looking for booking:", orderNo);
+
+        // API returns array directly, find the booking by booking_number
+        const booking = Array.isArray(data)
+          ? data.find(b => b.booking_number === orderNo)
+          : data.results?.find(b => b.booking_number === orderNo);
 
         if (!booking) {
           throw new Error("Booking not found");
@@ -63,8 +74,12 @@ const TravelBookingInvoice = () => {
 
         // Now fetch agency data
         if (booking.agency) {
+          // Extract agency ID - it might be an object or just an ID
+          const agencyId = typeof booking.agency === 'object' ? booking.agency.id : booking.agency;
+          console.log("🏢 Fetching agency for ID:", agencyId);
+
           const agencyResponse = await fetch(
-            `http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${booking.agency}`, {
+            `http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${agencyId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -73,8 +88,16 @@ const TravelBookingInvoice = () => {
           );
 
           if (agencyResponse.ok) {
-            const agencyData = await agencyResponse.json();
-            setAgencyData(agencyData.results?.[0] || agencyData[0] || null);
+            const agencyDataResponse = await agencyResponse.json();
+            console.log("📋 Agency API Response:", agencyDataResponse);
+            // Find the agency that matches the agency ID
+            const agency = agencyDataResponse.results?.find(a => a.id === agencyId)
+              || agencyDataResponse.find(a => a.id === agencyId)
+              || null;
+            console.log("✅ Found Agency:", agency);
+            setAgencyData(agency);
+          } else {
+            console.error("❌ Agency API failed:", agencyResponse.status);
           }
         }
       } catch (err) {
@@ -97,7 +120,7 @@ const TravelBookingInvoice = () => {
       const response = await axios.patch(
         `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
         {
-          status: 'under-process',
+          status: 'Approved',
         },
         {
           headers: {
@@ -107,18 +130,18 @@ const TravelBookingInvoice = () => {
         }
       );
 
-      if (response.ok) {
+      if (response.status === 200) {
         // Update local state to reflect the change
-        setBookingData({ ...bookingData, status: 'under-process' });
-        alert('Order status updated to Under Process');
-        // Optionally navigate back to order list
-        // navigate("/order-delivery");
+        setBookingData({ ...bookingData, status: 'Approved' });
+        alert('Order approved successfully!');
+        // Navigate back to order delivery page
+        navigate("/order-delivery");
       } else {
-        throw new Error('Failed to update order status');
+        throw new Error('Failed to approve order');
       }
     } catch (err) {
-      console.error('Error updating order status:', err);
-      alert('Error updating order status. Please try again.');
+      console.error('Error approving order:', err);
+      alert('Error approving order. Please try again.');
     }
   };
 
@@ -177,11 +200,11 @@ const TravelBookingInvoice = () => {
 
   // Helper functions to extract data
   const getAgencyName = () => {
-    return agencyData?.ageny_name || "N/A";
+    return agencyData?.ageny_name || agencyData?.name || "N/A";
   };
 
   const getAgencyCode = () => {
-    return agencyData?.id || "N/A";
+    return agencyData?.agency_code || "N/A";
   };
 
   const getContactInfo = () => {
@@ -321,80 +344,152 @@ const TravelBookingInvoice = () => {
 
   return (
     <div className="container-fluid py-4">
+      <style>{`
+        /* Remove table hover effects */
+        .table tbody tr:hover,
+        .table tbody tr:hover td,
+        .table tbody tr:hover th,
+        .table-hover tbody tr:hover,
+        .table > tbody > tr:hover,
+        .table > tbody > tr:hover > td,
+        .table > tbody > tr:hover > th {
+          background-color: transparent !important;
+          --bs-table-hover-bg: transparent !important;
+          --bs-table-accent-bg: transparent !important;
+          box-shadow: none !important;
+          transform: none !important;
+          transition: none !important;
+        }
+        .table tbody tr {
+          box-shadow: none !important;
+          transform: none !important;
+          transition: none !important;
+        }
+
+        /* Invoice Print Styles */
+        .section-title {
+          font-size: 13px;
+          margin: 20px 0 12px;
+          color: #222;
+          font-weight: 600;
+        }
+        .invoice-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 6px;
+          font-size: 13px;
+        }
+        .invoice-table th {
+          font-weight: 600;
+          text-align: left;
+          padding: 10px 6px;
+          color: #7a7a7a;
+          border-bottom: 1px solid #e9e9e9;
+        }
+        .invoice-table td {
+          padding: 10px 6px;
+          border-bottom: 1px solid #f6f6f6;
+          color: #444;
+        }
+        .section-divider {
+          height: 1px;
+          background: #efefef;
+          margin: 12px 0;
+        }
+      `}</style>
       <div className="card shadow-sm">
         <div className="card-body">
           {/* Header Section */}
-          <div className="row mb-4">
-            <div className="col-md-9">
-              <div className="mb-3">
-                <ArrowBigLeft
-                  size={"30px"}
-                  onClick={() => navigate("/order-delivery")}
-                  className="cursor-pointer mb-2"
-                />
-                <label className="me-2 form-label small text-muted">
-                  Order Number (VOUCHER NO)
-                </label>
-                <h4 className="text-primary">{orderNo}</h4>
+          {/* Header Section - Hidden in Modal */}
+          {!isModal && (
+            <div className="row mb-4">
+              <div className="col-md-9">
+                <div className="mb-3">
+                  <ArrowBigLeft
+                    size={"30px"}
+                    onClick={() => navigate("/order-delivery")}
+                    className="cursor-pointer mb-2"
+                  />
+                  <label className="me-2 form-label small text-muted">
+                    Order Number (VOUCHER NO)
+                  </label>
+                  <h4 className="text-primary">{orderNo}</h4>
 
-                <div className="d-flex flex-wrap mt-3">
-                  <div className="me-4 mb-2">
-                    <div className="fw-bold">Agent Name:</div>
-                    <div>{getAgentName()}</div>
+                  <div className="d-flex flex-wrap mt-3">
+                    <div className="me-4 mb-2">
+                      <div className="fw-bold">Agent Name:</div>
+                      <div>{getAgentName()}</div>
+                    </div>
+                    <div className="me-4 mb-2">
+                      <div className="fw-bold">Agency Name:</div>
+                      <div>{getAgencyName()}</div>
+                    </div>
+                    <div className="me-4 mb-2">
+                      <div className="fw-bold">Contact:</div>
+                      <div>{getContactInfo()}</div>
+                    </div>
+                    <div className="mb-2">
+                      <button className="btn btn-primary ms-2">Print</button>
+                      <button className="btn btn-outline-primary ms-2">
+                        Download
+                      </button>
+                    </div>
                   </div>
-                  <div className="me-4 mb-2">
-                    <div className="fw-bold">Agency Name:</div>
-                    <div>{getAgencyName()}</div>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="d-flex flex-column gap-2">
+                  {/* Visa */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-bold">Visa:</span>
+                    <div className={`badge ${bookingData.total_visa_amount_pkr > 0 ? 'bg-info' : 'bg-secondary'}`}>
+                      {bookingData.total_visa_amount_pkr > 0 ? 'Included' : 'N/A'}
+                    </div>
                   </div>
-                  <div className="me-4 mb-2">
-                    <div className="fw-bold">Contact:</div>
-                    <div>{getContactInfo()}</div>
+
+                  {/* Accommodation */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-bold">Accommodation:</span>
+                    <div className={`badge ${bookingData.total_hotel_amount_pkr > 0 ? 'bg-info' : 'bg-secondary'}`}>
+                      {bookingData.total_hotel_amount_pkr > 0 ? 'Included' : 'N/A'}
+                    </div>
                   </div>
-                  <div className="mb-2">
-                    <button className="btn btn-primary ms-2">Print</button>
-                    <button className="btn btn-outline-primary ms-2">
-                      Download
-                    </button>
+
+                  {/* Transport */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-bold">Transport:</span>
+                    <div className={`badge ${bookingData.total_transport_amount_pkr > 0 ? 'bg-info' : 'bg-secondary'}`}>
+                      {bookingData.total_transport_amount_pkr > 0 ? 'Included' : 'N/A'}
+                    </div>
+                  </div>
+
+                  {/* Tickets */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-bold">Tickets:</span>
+                    <div className={`badge ${bookingData.total_ticket_amount_pkr > 0 ? 'bg-info' : 'bg-secondary'}`}>
+                      {bookingData.total_ticket_amount_pkr > 0 ? 'Included' : 'N/A'}
+                    </div>
+                  </div>
+
+                  {/* Food */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-bold">Food:</span>
+                    <div className={`badge ${bookingData.total_food_amount_pkr > 0 ? 'bg-info' : 'bg-secondary'}`}>
+                      {bookingData.total_food_amount_pkr > 0 ? 'Included' : 'N/A'}
+                    </div>
+                  </div>
+
+                  {/* Ziarat */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-bold">Ziarat:</span>
+                    <div className={`badge ${bookingData.total_ziyarat_amount_pkr > 0 ? 'bg-info' : 'bg-secondary'}`}>
+                      {bookingData.total_ziyarat_amount_pkr > 0 ? 'Included' : 'N/A'}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
-              <div className="d-flex flex-column gap-2">
-                {/* Visa */}
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="small fw-bold">Visa:</span>
-                  <div className={`badge ${bookingData.total_visa_amount > 0 ? 'bg-info' : 'bg-secondary'}`}>
-                    {bookingData.total_visa_amount > 0 ? 'Included' : 'N/A'}
-                  </div>
-                </div>
-
-                {/* Hotel Voucher */}
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="small fw-bold">Hotel Voucher:</span>
-                  <div className={`badge ${bookingData.total_hotel_amount > 0 ? 'bg-info' : 'bg-secondary'}`}>
-                    {bookingData.total_hotel_amount > 0 ? 'Included' : 'N/A'}
-                  </div>
-                </div>
-
-                {/* Transport */}
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="small fw-bold">Transport:</span>
-                  <div className={`badge ${bookingData.total_transport_amount > 0 ? 'bg-info' : 'bg-secondary'}`}>
-                    {bookingData.total_transport_amount > 0 ? 'Included' : 'N/A'}
-                  </div>
-                </div>
-
-                {/* Tickets */}
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="small fw-bold">Tickets:</span>
-                  <div className={`badge ${bookingData.total_ticket_amount > 0 ? 'bg-info' : 'bg-secondary'}`}>
-                    {bookingData.total_ticket_amount > 0 ? 'Included' : 'N/A'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Order Summary */}
           <div className="table-responsive mb-4">
@@ -428,121 +523,213 @@ const TravelBookingInvoice = () => {
           <h6 className="fw-bold mb-3">Booking Overview</h6>
 
           {/* Pax Information */}
-          <h6 className="fw-bold mb-3 mt-5">Pax Information</h6>
-          <div className="table-responsive mb-4">
-            <table className="table table-sm text-center">
-              <thead className="table-light">
-                <tr>
-                  <th className="fw-normal">Passenger Name</th>
-                  <th className="fw-normal">Passport No</th>
-                  <th className="fw-normal">PAX</th>
-                  <th className="fw-normal">DOB</th>
-                  <th className="fw-normal">PHB</th>
-                  <th className="fw-normal">Bed</th>
-                  <th className="fw-normal">Total Pax</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookingData.person_details && bookingData.person_details.length > 0 ? (
-                  bookingData.person_details.map((person, index) => (
-                    <tr key={index}>
-                      <td>{`${person.first_name} ${person.last_name}`}</td>
-                      <td>{person.passport_number || "N/A"}</td>
-                      <td>{person.age_group || "Adult"}</td>
-                      <td>{person.date_of_birth ? new Date(person.date_of_birth).toLocaleDateString() : "N/A"}</td>
-                      <td>MM055</td>
-                      <td>True</td>
-                      <td>{index === 0 ? `${bookingData.total_pax} Pax` : ""}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="text-center">No passenger data available</td>
+          <h5 className="section-title">Pax Information</h5>
+          <table className="invoice-table">
+            <thead>
+              <tr>
+                <th>Passenger Name</th>
+                <th>Passport No</th>
+                <th>PAX</th>
+                <th>DOB</th>
+                <th>Total Pax</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookingData.person_details && bookingData.person_details.length > 0 ? (
+                bookingData.person_details.map((person, index) => (
+                  <tr key={index}>
+                    <td>{`${person.first_name} ${person.last_name}`}</td>
+                    <td>{person.passport_number || "N/A"}</td>
+                    <td>{person.age_group || "Adult"}</td>
+                    <td>{person.date_of_birth ? new Date(person.date_of_birth).toLocaleDateString() : "N/A"}</td>
+                    <td>{index === 0 ? `${bookingData.total_adult} Adult & ${bookingData.total_child} Child` : ""}</td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="text-center">No passenger data available</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div className="section-divider" />
 
           {/* Accommodation */}
           {bookingData.hotel_details && bookingData.hotel_details.length > 0 && (
             <>
-              <h6 className="fw-bold mb-3 mt-5">Accommodation</h6>
-              <div className="table-responsive mb-4">
-                <table className="table table-sm text-center">
-                  <thead className="table-light">
-                    <tr>
-                      <th className="fw-normal">Hotel Name</th>
-                      <th className="fw-normal">Check-in</th>
-                      <th className="fw-normal">Check-Out</th>
-                      <th className="fw-normal">Nights</th>
-                      <th className="fw-normal">Type</th>
-                      <th className="fw-normal">QTY</th>
-                      <th className="fw-normal">Rate</th>
-                      <th className="fw-normal">Net</th>
+              <h5 className="section-title">Accommodation</h5>
+              <table className="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Hotel Name</th>
+                    <th>Check-in</th>
+                    <th>Check-Out</th>
+                    <th>Nights</th>
+                    <th>Type</th>
+                    <th>QTY</th>
+                    <th>Rate</th>
+                    <th>Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookingData.hotel_details.map((hotel, index) => (
+                    <tr key={index}>
+                      <td>{hotel.hotel_name || hotel.name || `Hotel ${index + 1}`}</td>
+                      <td>{hotel.check_in_date || hotel.check_in_time ? new Date(hotel.check_in_date || hotel.check_in_time).toLocaleDateString() : "N/A"}</td>
+                      <td>{hotel.check_out_date || hotel.check_out_time ? new Date(hotel.check_out_date || hotel.check_out_time).toLocaleDateString() : "N/A"}</td>
+                      <td>{hotel.number_of_nights}</td>
+                      <td>{hotel.room_type_name || hotel.room_type || "N/A"}</td>
+                      <td>{hotel.quantity || 1}</td>
+                      <td>{hotel.is_price_pkr ? `PKR ${hotel.price}` : `SAR ${hotel.price}`}</td>
+                      <td>{hotel.is_price_pkr ? `PKR ${hotel.total_price}` : `SAR ${hotel.total_price}`}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {bookingData.hotel_details.map((hotel, index) => (
-                      <tr key={index}>
-                        <td>Hotel {hotel.hotel}</td>
-                        <td>{hotel.check_in_time ? new Date(hotel.check_in_time).toLocaleDateString() : "N/A"}</td>
-                        <td>{hotel.check_out_time ? new Date(hotel.check_out_time).toLocaleDateString() : "N/A"}</td>
-                        <td>{hotel.number_of_nights}</td>
-                        <td>{hotel.room_type}</td>
-                        <td>{hotel.quantity}</td>
-                        <td>{hotel.is_price_pkr ? `PKR ${hotel.price}` : `SAR ${hotel.price}`}</td>
-                        <td>{hotel.is_price_pkr ? `PKR ${hotel.total_price}` : `SAR ${hotel.total_price}`}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="d-flex justify-content-around align-items-center mt-3">
-                  <div>Total Accommodation:</div>
-                  <div className="d-flex gap-5">
-                    <div>{calculateTotalNights()} Nights</div>
-                    <div>SAR {calculateTotalHotelAmount()}</div>
-                  </div>
-                </div>
-              </div>
+                  ))}
+                  <tr className="fw-bold">
+                    <td colSpan="3">Total Accommodation</td>
+                    <td>{calculateTotalNights()}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>SAR {calculateTotalHotelAmount()}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="section-divider" />
             </>
           )}
 
           {/* Transportation */}
           {bookingData.transport_details && bookingData.transport_details.length > 0 && (
-            <div className="row">
-              <div className="col-md-10">
-                <h6 className="fw-bold mb-3 mt-5">Transportation</h6>
-                <div className="table-responsive mb-4">
-                  <table className="table table-sm">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Vehicle type</th>
-                        <th>Route</th>
-                        <th>Rate</th>
-                        <th>QTY</th>
-                        <th>Net</th>
+            <>
+              <h5 className="section-title">Transportation</h5>
+              <table className="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle type</th>
+                    <th>Route</th>
+                    <th>Rate</th>
+                    <th>QTY</th>
+                    <th>Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookingData.transport_details.map((transport, index) => {
+                    // Build route string from sector_details
+                    const buildRoute = () => {
+                      if (!transport.sector_details || transport.sector_details.length === 0) {
+                        return "Route Information";
+                      }
+
+                      // Check if it's a round trip by seeing if first and last locations match
+                      const firstSector = transport.sector_details[0];
+                      const lastSector = transport.sector_details[transport.sector_details.length - 1];
+                      const isRoundTrip = transport.sector_details.length > 1 &&
+                        firstSector.departure_city === lastSector.arrival_city;
+
+                      // Build route string with sector types
+                      const routeParts = [];
+                      transport.sector_details.forEach((sector, idx) => {
+                        if (idx === 0) {
+                          // First sector - add departure city with type
+                          const departureType = sector.is_airport_pickup ? '(A)' : '(H)';
+                          routeParts.push(`${sector.departure_city}${departureType}`);
+                        }
+                        // Add arrival city with type
+                        const arrivalType = sector.is_airport_drop ? '(A)' : '(H)';
+                        routeParts.push(`${sector.arrival_city}${arrivalType}`);
+                      });
+
+                      const routeString = routeParts.join('-');
+                      return isRoundTrip ? `R/T - ${routeString}` : routeString;
+                    };
+
+                    return (
+                      <tr key={index}>
+                        <td>{transport.vehicle_type_display || "N/A"}</td>
+                        <td>{buildRoute()}</td>
+                        <td>SAR {transport.price_in_sar || 0}</td>
+                        <td>1</td>
+                        <td>SAR {transport.price_in_sar || 0}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {bookingData.transport_details.map((transport, index) => (
-                        <tr key={index}>
-                          <td>{transport.vehicle_type}</td>
-                          <td>Route Information</td>
-                          <td>{transport.is_price_pkr ? `PKR ${transport.price}` : `SAR ${transport.price}`}</td>
-                          <td>1</td>
-                          <td>{transport.is_price_pkr ? `PKR ${transport.total_price}` : `SAR ${transport.total_price}`}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="d-flex justify-content-around">
-                    <div>Total Transportation: </div>
-                    <div>SAR {bookingData.total_transport_amount || 0}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+                    );
+                  })}
+                  <tr className="fw-bold">
+                    <td colSpan="4">Total Transportation</td>
+                    <td>SAR {bookingData.total_transport_amount_sar || 0}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="section-divider" />
+            </>
+          )}
+
+          {/* Food Services */}
+          {bookingData.food_details && bookingData.food_details.length > 0 && (
+            <>
+              <h5 className="section-title">Food Services</h5>
+              <table className="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Adult Rate × Qty</th>
+                    <th>Child Rate × Qty</th>
+                    <th>Infant Rate × Qty</th>
+                    <th>Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookingData.food_details.map((food, index) => (
+                    <tr key={index}>
+                      <td>SAR {food.adult_price} × {food.total_adults}</td>
+                      <td>SAR {food.child_price} × {food.total_children}</td>
+                      <td>SAR {food.infant_price} × {food.total_infants}</td>
+                      <td>SAR {food.total_price_sar || (food.total_price_pkr / 50).toFixed(0) || 0}</td>
+                    </tr>
+                  ))}
+                  <tr className="fw-bold">
+                    <td colSpan="3">Total Food Services</td>
+                    <td>SAR {bookingData.total_food_amount_sar || (bookingData.total_food_amount_pkr / 50).toFixed(0) || 0}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="section-divider" />
+            </>
+          )}
+
+          {/* Ziarat Services */}
+          {bookingData.ziyarat_details && bookingData.ziyarat_details.length > 0 && (
+            <>
+              <h5 className="section-title">Ziarat Services</h5>
+              <table className="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Adult Rate × Qty</th>
+                    <th>Child Rate × Qty</th>
+                    <th>Infant Rate × Qty</th>
+                    <th>Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookingData.ziyarat_details.map((ziarat, index) => (
+                    <tr key={index}>
+                      <td>SAR {ziarat.adult_price} × {ziarat.total_adults}</td>
+                      <td>SAR {ziarat.child_price} × {ziarat.total_children}</td>
+                      <td>SAR {ziarat.infant_price} × {ziarat.total_infants}</td>
+                      <td>SAR {ziarat.total_price_sar || (ziarat.total_price_pkr / 50).toFixed(0) || 0}</td>
+                    </tr>
+                  ))}
+                  <tr className="fw-bold">
+                    <td colSpan="3">Total Ziarat Services</td>
+                    <td>SAR {bookingData.total_ziyarat_amount_sar || (bookingData.total_ziyarat_amount_pkr / 50).toFixed(0) || 0}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="section-divider" />
+            </>
           )}
 
           {/* Umrah Visa & Tickets Rates Details */}
@@ -662,19 +849,27 @@ const TravelBookingInvoice = () => {
                   </div>
                   <div className="d-flex justify-content-between mb-2">
                     <span>Visa Rate:</span>
-                    <strong>PKR {bookingData.total_visa_amount || 0}</strong>
+                    <strong>PKR {bookingData.total_visa_amount_pkr || 0}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-2">
                     <span>Tickets:</span>
-                    <strong>PKR {bookingData.total_ticket_amount || 0}</strong>
+                    <strong>PKR {bookingData.total_ticket_amount_pkr || 0}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-2">
                     <span>Hotel:</span>
-                    <strong>PKR {bookingData.total_hotel_amount || 0}</strong>
+                    <strong>PKR {bookingData.total_hotel_amount_pkr || 0}</strong>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span>Transport:</span>
+                    <strong>PKR {bookingData.total_transport_amount_pkr || 0}</strong>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span>Food:</span>
+                    <strong>PKR {bookingData.total_food_amount_pkr || 0}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-3">
-                    <span>Transport:</span>
-                    <strong>PKR {bookingData.total_transport_amount || 0}</strong>
+                    <span>Ziarat:</span>
+                    <strong>PKR {bookingData.total_ziyarat_amount_pkr || 0}</strong>
                   </div>
                   <hr />
                   <div
@@ -691,41 +886,47 @@ const TravelBookingInvoice = () => {
             </div>
           </div>
 
-          <h6 className="fw-bold">
-            Ticket Availability:{" "}
-            <span className="fw-bold" style={{ color: "#8BD399" }}>
-              Available
-            </span>
-          </h6>
-          <h6 className="fw-bold">
-            Hotel Availability:{" "}
-            <span className="fw-bold" style={{ color: "#8BD399" }}>
-              Available
-            </span>
-          </h6>
+          {/* Availability Section - Hidden in Modal */}
+          {!isModal && (
+            <>
+              <h6 className="fw-bold">
+                Ticket Availability:{" "}
+                <span className="fw-bold" style={{ color: "#8BD399" }}>
+                  Available
+                </span>
+              </h6>
+              <h6 className="fw-bold">
+                Hotel Availability:{" "}
+                <span className="fw-bold" style={{ color: "#8BD399" }}>
+                  Available
+                </span>
+              </h6>
 
-          <div className="d-flex flex-wrap gap-2 mt-5">
-            <button
-              className="btn btn-primary"
-              onClick={handleConfirmOrder}
-            >
-              Confirm Order
-            </button>
+              {/* Action Buttons - Hidden in Modal */}
+              <div className="d-flex flex-wrap gap-2 mt-5">
+                <button
+                  className="btn btn-primary"
+                  onClick={handleConfirmOrder}
+                >
+                  Approve
+                </button>
 
-            <button
-              className="btn btn-outline-danger"
-              onClick={() => setShowRejectNote(true)}
-            >
-              Reject With Note
-            </button>
+                <button
+                  className="btn btn-outline-danger"
+                  onClick={() => setShowRejectNote(true)}
+                >
+                  Reject With Note
+                </button>
 
-            <button
-              className="btn btn-outline-secondary"
-              onClick={() => navigate("/order-delivery")}
-            >
-              Close
-            </button>
-          </div>
+                <button
+                  className="btn btn-outline-secondary"
+                  onClick={() => navigate("/order-delivery")}
+                >
+                  Close
+                </button>
+              </div>
+            </>
+          )}
 
           {/* Reject Note Modal */}
           {showRejectNote && (
@@ -739,1033 +940,12 @@ const TravelBookingInvoice = () => {
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
-const HotelVoucherInterface = ({ onClose, orderNo }) => {
-  const [transportList, setTransportList] = useState([
-    {
-      transportType: "",
-      transportSector: "",
-      voucherNumber: "",
-      selfTransport: false,
-    },
-  ]);
+// OLD HOTEL VOUCHER COMPONENT - REPLACED WITH HotelVoucherInterfaceNew
 
-  const [bookingData, setBookingData] = useState(null);
-  const [agencyData, setAgencyData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Fetch booking and agency data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
-        const organizationId = orgData?.id;
-        const token = localStorage.getItem("accessToken");
-        // Fetch booking data
-        const bookingResponse = await axios.get(`http://127.0.0.1:8000/api/bookings/?organization_id=${organizationId}&booking_number=${orderNo}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          }
-        });
-        const booking = bookingResponse.data.results?.find(item => item.booking_number === orderNo) || bookingResponse.data[0];
-
-        if (!booking) {
-          throw new Error('Booking not found');
-        }
-
-        setBookingData(booking);
-
-        // Fetch agency data
-        if (booking.agency) {
-          try {
-            const agencyResponse = await axios.get(`http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${booking.agency}`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              }
-            });
-            const agency = agencyResponse.data.results?.find(agency => agency.id === booking.agency) || agencyResponse.data[0];
-            setAgencyData(agency);
-          } catch (agencyError) {
-            console.error('Error fetching agency data:', agencyError);
-          }
-        }
-      } catch (err) {
-        setError(err.message);
-        console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [orderNo]);
-
-  const handleTransportChange = (index, field, value) => {
-    const updatedList = [...transportList];
-    updatedList[index][field] = value;
-    setTransportList(updatedList);
-  };
-
-  const addTransport = () => {
-    setTransportList([
-      ...transportList,
-      {
-        transportType: "",
-        transportSector: "",
-        voucherNumber: "",
-        selfTransport: false,
-      },
-    ]);
-  };
-
-  const [departureFlight, setDepartureFlight] = useState({
-    airline: "Board(s)v1",
-    flightNumber: "Board(s)v2",
-    from: "Aid",
-    to: "Subbar",
-    departure: "12-06-2024 / 12:30",
-    arrival: "02-07-2024 / 14:30",
-  });
-
-  const [returnFlight, setReturnFlight] = useState({
-    airline: "Board(s)v1",
-    flightNumber: "Board(s)v2",
-    status: "Aid",
-    from: "Due",
-    to: "Subbar",
-    departure: "02-07-2024 / 14:30",
-    arrival: "02-07-2024 / 14:30",
-  });
-
-  const [withoutFlight, setWithoutFlight] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [selectedOption, setSelectedOption] = useState("with full transport");
-
-  const [passengers, setPassengers] = useState([
-    {
-      id: 1,
-      title: "Mr.",
-      firstName: "",
-      lastName: "",
-      passportNumber: "",
-      nationality: "",
-    },
-  ]);
-
-  const addPassenger = () => {
-    const newPassenger = {
-      id: passengers.length + 1,
-      title: "Mr.",
-      firstName: "",
-      lastName: "",
-      passportNumber: "",
-      nationality: "",
-    };
-    setPassengers([...passengers, newPassenger]);
-  };
-
-  const updatePassengerField = (index, field, value) => {
-    const updatedPassengers = [...passengers];
-    updatedPassengers[index][field] = value;
-    setPassengers(updatedPassengers);
-  };
-
-  const removePassenger = (index) => {
-    const updated = [...passengers];
-    updated.splice(index, 1);
-    setPassengers(updated);
-  };
-
-  const [formData, setFormData] = useState({
-    orderNo: orderNo || "",
-    voucherNo: "",
-  });
-
-  const [hotelList, setHotelList] = useState([
-    {
-      hotelName: "",
-      checkIn: "",
-      checkOut: "",
-      roomType: "",
-      specialRequest: "",
-      bookingType: "",
-      voucherNumber: "",
-      paymentType: "",
-    },
-  ]);
-
-  const handleHotelChange = (index, field, value) => {
-    const updatedHotels = [...hotelList];
-    updatedHotels[index][field] = value;
-    setHotelList(updatedHotels);
-  };
-
-  const addHotel = () => {
-    setHotelList([
-      ...hotelList,
-      {
-        hotelName: "",
-        checkIn: "",
-        checkOut: "",
-        roomType: "",
-        specialRequest: "",
-        bookingType: "",
-        voucherNumber: "",
-        paymentType: "",
-      },
-    ]);
-  };
-
-  const [addVisaPrice, setAddVisaPrice] = useState(false);
-  const [longTermVisa, setLongTermVisa] = useState(false);
-  const [oneSideTransport, setOneSideTransport] = useState(false);
-  const [fullTransport, setFullTransport] = useState(false);
-  const [onlyVisa, setOnlyVisa] = useState(false);
-  const [food, setFood] = useState(false);
-  const [meccaZiarat, setMeccaZiarat] = useState(false);
-  const [medinaZiarat, setMedinaZiarat] = useState(false);
-  const [approve, setApprove] = useState(false);
-  const [draft, setDraft] = useState(false);
-  const [selectedShirka, setSelectedShirka] = useState("Rushd al Majd");
-
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ height: "50vh" }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-        <span className="ms-2">Loading hotel voucher data...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="alert alert-danger m-4" role="alert">
-        <h4 className="alert-heading">Error Loading Data</h4>
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={() => window.location.reload()}>
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  if (!bookingData) {
-    return (
-      <div className="alert alert-warning m-4" role="alert">
-        <h4 className="alert-heading">No Data Found</h4>
-        <p>No booking data found for order number: {orderNo}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="">
-        {/* Header */}
-        <div className="row align-items-center mb-4">
-          <div className="col">
-            <div className="d-flex align-items-center">
-              <h5 className="fw-bold mb-0">
-                Passengers Details For Hotel Booking
-              </h5>
-            </div>
-          </div>
-        </div>
-
-        {/* Order Summary Table */}
-        <div className="table-responsive mb-4">
-          <table className="table table-sm text-center">
-            <thead className="table-light">
-              <tr>
-                <th>Order No</th>
-                <th>Agency Code</th>
-                <th>Agreement Status</th>
-                <th>Package No</th>
-                <th>Total Pax</th>
-                <th>Balance</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{orderNo}</td>
-                <td>{bookingData.agency || "N/A"}</td>
-                <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
-                <td>{bookingData.id}</td>
-                <td>{bookingData.total_pax}</td>
-                <td>PKR {bookingData.remaining_amount || 0}</td>
-                <td>
-                  <span className="text-info">{bookingData.status || "N/A"}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Order Info */}
-        <div className="row mb-4">
-          {/* Order No Select */}
-          <div className="col-md-3">
-            <label className="form-label">Order No</label>
-            <select
-              value={formData.orderNo}
-              onChange={(e) =>
-                setFormData({ ...formData, orderNo: e.target.value })
-              }
-              className="form-select"
-            >
-              <option value="">Select Order</option>
-              <option value="MAKKAH">MAKKAH</option>
-              <option value="MADINA">MADINA</option>
-            </select>
-          </div>
-
-          {/* Voucher No Input */}
-          <div className="col-md-3">
-            <label className="form-label">
-              Voucher No.
-            </label>
-            <input
-              type="text"
-              value={formData.voucherNo}
-              onChange={(e) =>
-                setFormData({ ...formData, voucherNo: e.target.value })
-              }
-              className="form-control rounded shadow-none px-1 py-2"
-              required
-              placeholder="1234567"
-            />
-          </div>
-        </div>
-
-        {/* Passengers Table */}
-        {bookingData.person_details?.map((passenger, index) => (
-          <div key={passenger.id} className="row mb-4">
-            {/* Title (Mr/Mrs) */}
-            <div className="col-md-2">
-              <label className="form-label">Title</label>
-              <select
-                value={passenger.person_title || "Mr."}
-                onChange={(e) =>
-                  updatePassengerField(index, "title", e.target.value)
-                }
-                className="form-select"
-              >
-                <option value="Mr.">Mr.</option>
-                <option value="Mrs.">Mrs.</option>
-                <option value="Miss">Miss</option>
-              </select>
-            </div>
-
-            {/* First Name */}
-            <div className="col-md-2">
-              <label className="form-label">
-                First Name
-              </label>
-              <input
-                type="text"
-                value={passenger.first_name}
-                onChange={(e) =>
-                  updatePassengerField(index, "firstName", e.target.value)
-                }
-                className="form-control rounded shadow-none px-1 py-2"
-                placeholder="First Name"
-              />
-            </div>
-
-            {/* Last Name */}
-            <div className="col-md-2">
-              <label className="form-label">
-                Last Name
-              </label>
-              <input
-                type="text"
-                value={passenger.last_name}
-                onChange={(e) =>
-                  updatePassengerField(index, "lastName", e.target.value)
-                }
-                className="form-control rounded shadow-none px-1 py-2"
-                placeholder="Last Name"
-              />
-            </div>
-
-            {/* Passport Number */}
-            <div className="col-md-2">
-              <label className="form-label">
-                Passport No.
-              </label>
-              <input
-                type="text"
-                value={passenger.passport_number}
-                onChange={(e) =>
-                  updatePassengerField(
-                    index,
-                    "passportNumber",
-                    e.target.value
-                  )
-                }
-                className="form-control rounded shadow-none px-1 py-2"
-                placeholder="Passport Number"
-              />
-            </div>
-
-            {/* Nationality */}
-            <div className="col-md-2">
-              <label className="form-label">Pnr</label>
-              <input
-                type="text"
-                value={passenger.country}
-                onChange={(e) =>
-                  updatePassengerField(index, "nationality", e.target.value)
-                }
-                className="form-control rounded shadow-none px-1 py-2"
-                placeholder="Nationality"
-              />
-            </div>
-
-            {/* Remove Button */}
-            <div className="col-md-2 d-flex align-items-end">
-              <button
-                type="button"
-                onClick={() => removePassenger(index)}
-                className="btn btn-danger mb-3"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ))}
-
-        <div className="d-flex justify-content-between mb-4">
-          <button className="btn btn-primary" onClick={addPassenger}>
-            Add Passenger
-          </button>
-        </div>
-
-        {/* Hotel Details */}
-        {bookingData.hotel_details?.map((hotelDetails, index) => (
-          <div key={index} className="mb-4 mt-5">
-            <h5 className="mb-0 fw-bold">Hotel Details {index + 1}</h5>
-            <div className="row flex-wrap">
-              {/* Hotel Name */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Hotel Name</label>
-                  <select
-                    className="form-select"
-                    value={hotelDetails.hotel || ""}
-                    onChange={(e) =>
-                      handleHotelChange(index, "hotelName", e.target.value)
-                    }
-                  >
-                    <option value="">Select Hotel</option>
-                    <option value="MAKKAH">MAKKAH</option>
-                    <option value="MADINA">MADINA</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Check In */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Check In</label>
-                  <input
-                    type="date"
-                    className="form-control rounded shadow-none px-1 py-2"
-                    value={hotelDetails.check_in_time}
-                    onChange={(e) =>
-                      handleHotelChange(index, "checkIn", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Check Out */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Check Out</label>
-                  <input
-                    type="date"
-                    className="form-control rounded shadow-none px-1 py-2"
-                    value={hotelDetails.check_out_time}
-                    onChange={(e) =>
-                      handleHotelChange(index, "checkOut", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Room Type */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Room Type</label>
-                  <select
-                    className="form-select"
-                    value={hotelDetails.room_type}
-                    onChange={(e) =>
-                      handleHotelChange(index, "roomType", e.target.value)
-                    }
-                  >
-                    <option value="">Select Room Type</option>
-                    <option value="Single">Single</option>
-                    <option value="Double">Double</option>
-                    <option value="Triple">Triple</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Special Request */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Special Request</label>
-                  <input
-                    type="text"
-                    className="form-control rounded shadow-none px-1 py-2"
-                    value={hotelList[index]?.specialRequest || ""}
-                    onChange={(e) =>
-                      handleHotelChange(index, "specialRequest", e.target.value)
-                    }
-                    placeholder="Haram View"
-                  />
-                </div>
-              </div>
-
-              {/* Sharing Type */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Sharing Type</label>
-                  <select
-                    className="form-select"
-                    value={hotelList[index]?.bookingType || ""}
-                    onChange={(e) =>
-                      handleHotelChange(index, "bookingType", e.target.value)
-                    }
-                  >
-                    <option value="">Select Sharing Type</option>
-                    <option value="Sharing">Sharing</option>
-                    <option value="Private">Private</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Voucher Number */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">Voucher Number</label>
-                  <input
-                    type="text"
-                    className="form-control rounded shadow-none px-1 py-2"
-                    value={hotelList[index]?.voucherNumber || ""}
-                    onChange={(e) =>
-                      handleHotelChange(index, "voucherNumber", e.target.value)
-                    }
-                    placeholder="156305a"
-                  />
-                </div>
-              </div>
-
-              {/* No. of Nights */}
-              <div className="col-md-2">
-                <div className="mb-3">
-                  <label className="form-label">No. of Nights</label>
-                  <input
-                    type="number"
-                    className="form-control rounded shadow-none px-1 py-2"
-                    value={hotelDetails.number_of_nights}
-                    onChange={(e) =>
-                      handleHotelChange(index, "paymentType", e.target.value)
-                    }
-                    placeholder="2"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-        <button type="button" className="btn btn-primary" onClick={addHotel}>
-          Add Hotel
-        </button>
-
-        {/* Transport Details */}
-        <div className="mb-4 mt-5">
-          <div className="">
-            <h5 className="mb-2 fw-bold">Transport Details</h5>
-          </div>
-          <div>
-            {bookingData.transport_details?.map((transport, index) => (
-              <div key={index} className="row mb-4">
-                <h6 className="mb-3 fw-bold">Transport {index + 1}</h6>
-
-                {/* Transport Type */}
-                <div className="col-md-3 mb-3">
-                  <label className="form-label">Transport Type</label>
-                  <input
-                    type="text"
-                    className="form-control shadow-none px-1 py-2"
-                    value={transport.vehicle_type}
-                    onChange={(e) =>
-                      handleTransportChange(
-                        index,
-                        "transportType",
-                        e.target.value
-                      )
-                    }
-                  />
-                </div>
-
-                {/* Transport Sector */}
-                <div className="col-md-3 mb-3">
-                  <label className="form-label">Transport Sector</label>
-                  <input
-                    type="text"
-                    className="form-control shadow-none px-1 py-2"
-                    value={transport.transport_sector}
-                    onChange={(e) =>
-                      handleTransportChange(
-                        index,
-                        "transportSector",
-                        e.target.value
-                      )
-                    }
-                  />
-                </div>
-
-                {/* Voucher Number */}
-                <div className="col-md-2 mb-3">
-                  <label className="form-label">Voucher Number</label>
-                  <input
-                    type="text"
-                    className="form-control shadow-none px-1 py-2"
-                    value={transportList[index]?.voucherNumber || ""}
-                    onChange={(e) =>
-                      handleTransportChange(
-                        index,
-                        "voucherNumber",
-                        e.target.value
-                      )
-                    }
-                  />
-                </div>
-
-                {/* Self Transport */}
-                <div className="col-md-3 mb-3">
-                  <div className="form-check mt-4 ms-2 ps-2 pt-1">
-                    <input
-                      className="form-check-input border border-black"
-                      type="checkbox"
-                      checked={transportList[index]?.selfTransport || false}
-                      onChange={(e) =>
-                        handleTransportChange(
-                          index,
-                          "selfTransport",
-                          e.target.checked
-                        )
-                      }
-                    />
-                    <label className="form-check-label ms-2">
-                      Enable Self Transport
-                    </label>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <button className="btn btn-primary" onClick={addTransport}>
-              Add Route
-            </button>
-          </div>
-        </div>
-
-        {/* Flight Details */}
-        <div className="">
-          <div className="row">
-            <h4 className="fw-bold mb-3">Flight Details (Departure Flight)</h4>
-            <div className="col-12 d-flex flex-wrap gap-4">
-              {/* Airline */}
-              <div className="mb-3">
-                <label className="form-label">Airline Name or Code</label>
-                <select
-                  className="form-select shadow-none"
-                  value={departureFlight.airline}
-                  onChange={(e) =>
-                    setDepartureFlight({ ...departureFlight, airline: e.target.value })
-                  }
-                >
-                  <option value="">Select Airline</option>
-                  <option value="Saudia(sv)">Saudia (SV)</option>
-                </select>
-              </div>
-
-              {/* From Sector */}
-              <div className="mb-3">
-                <label className="form-label">From Sector</label>
-                <select
-                  className="form-select shadow-none"
-                  value={departureFlight.from}
-                  onChange={(e) =>
-                    setDepartureFlight({ ...departureFlight, from: e.target.value })
-                  }
-                >
-                  <option value="">Select Sector</option>
-                  <option value="LHE">LHE</option>
-                </select>
-              </div>
-
-              {/* Flight Number */}
-              <div className="mb-3">
-                <label className="form-label">Flight Number</label>
-                <select
-                  className="form-select shadow-none"
-                  value={departureFlight.flightNumber}
-                  onChange={(e) =>
-                    setDepartureFlight({ ...departureFlight, flightNumber: e.target.value })
-                  }
-                >
-                  <option value="">Select Flight</option>
-                  <option value="SV722">SV722</option>
-                </select>
-              </div>
-
-              {/* To Sector */}
-              <div className="mb-3">
-                <label className="form-label">To Sector</label>
-                <select
-                  className="form-select shadow-none"
-                  value={departureFlight.to}
-                  onChange={(e) =>
-                    setDepartureFlight({ ...departureFlight, to: e.target.value })
-                  }
-                >
-                  <option value="">Select Sector</option>
-                  <option value="JED">JED</option>
-                </select>
-              </div>
-
-              {/* Travel Date & Time */}
-              <div className="mb-3">
-                <label className="form-label">Travel Date and Time</label>
-                <input
-                  type="datetime-local"
-                  className="form-control rounded shadow-none px-1 py-2"
-                  value={departureFlight.departure}
-                  onChange={(e) =>
-                    setDepartureFlight({ ...departureFlight, departure: e.target.value })
-                  }
-                />
-              </div>
-
-              {/* Return Date & Time */}
-              <div className="mb-3">
-                <label className="form-label">Return Date and Time</label>
-                <input
-                  type="datetime-local"
-                  className="form-control rounded shadow-none px-1 py-2"
-                  value={departureFlight.arrival}
-                  onChange={(e) =>
-                    setDepartureFlight({ ...departureFlight, arrival: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="">
-          <div className="row">
-            <h4 className="fw-bold mb-3">Flight Details (Return Flight)</h4>
-            <div className="col-12 d-flex flex-wrap gap-5">
-              <div className="mb-3">
-                <label className="form-label">Airline Name or Code</label>
-                <select
-                  className="form-select"
-                  value={returnFlight.airline}
-                  onChange={(e) =>
-                    setReturnFlight({ ...returnFlight, airline: e.target.value })
-                  }
-                >
-                  <option value="Saudia(sv)">Saudia(sv)</option>
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">From Sector</label>
-                <select
-                  className="form-select"
-                  value={returnFlight.from}
-                  onChange={(e) =>
-                    setReturnFlight({ ...returnFlight, from: e.target.value })
-                  }
-                >
-                  <option value="Lhe">Lhe</option>
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">Flight Number</label>
-                <select
-                  className="form-select"
-                  value={returnFlight.flightNumber}
-                  onChange={(e) =>
-                    setReturnFlight({ ...returnFlight, flightNumber: e.target.value })
-                  }
-                >
-                  <option value="Saudia(sv)">Saudia(sv)</option>
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">To Sector</label>
-                <select
-                  className="form-select"
-                  value={returnFlight.to}
-                  onChange={(e) =>
-                    setReturnFlight({ ...returnFlight, to: e.target.value })
-                  }
-                >
-                  <option value="Jed">Jed</option>
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">Travel Date And Time</label>
-                <input
-                  type="datetime-local"
-                  className="form-control rounded shadow-none px-1 py-2"
-                  required
-                  value={returnFlight.departure}
-                  onChange={(e) =>
-                    setReturnFlight({ ...returnFlight, departure: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">Return Date And Time</label>
-                <input
-                  type="datetime-local"
-                  className="form-control rounded shadow-none px-1 py-2"
-                  required
-                  value={returnFlight.arrival}
-                  onChange={(e) =>
-                    setReturnFlight({ ...returnFlight, arrival: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div className="row">
-              <div className="col-12 d-flex mt-3 flex-wrap align-items-center gap-3 mb-3">
-                <p className="mb-0">or</p>
-                <button className="btn btn-primary px-3 py-2">
-                  Select Flight
-                </button>
-                <p className="mb-0">or</p>
-                <div className="form-check d-flex align-items-center">
-                  <input
-                    className="form-check-input border border-black me-2"
-                    type="checkbox"
-                    id="Without Flight"
-                    checked={withoutFlight}
-                    onChange={(e) => setWithoutFlight(e.target.checked)}
-                    style={{ width: "1.3rem", height: "1.3rem" }}
-                  />
-                  <label className="form-check-label" htmlFor="Without Flight">
-                    Without Flight
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="d-flex flex-wrap gap-5 bg-white">
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="addVisaPrice"
-            checked={addVisaPrice}
-            onChange={(e) => setAddVisaPrice(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="addVisaPrice">
-            Add visa price
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="longTermVisa"
-            checked={longTermVisa}
-            onChange={(e) => setLongTermVisa(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="longTermVisa">
-            Long term Visa
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="oneSideTransport"
-            checked={oneSideTransport}
-            onChange={(e) => setOneSideTransport(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="oneSideTransport">
-            with one side transport
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="fullTransport"
-            checked={fullTransport}
-            onChange={(e) => setFullTransport(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="fullTransport">
-            with full transport
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="onlyVisa"
-            checked={onlyVisa}
-            onChange={(e) => setOnlyVisa(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="onlyVisa">
-            Only Visa
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="food"
-            checked={food}
-            onChange={(e) => setFood(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="food">
-            FOOD
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="meccaZiarat"
-            checked={meccaZiarat}
-            onChange={(e) => setMeccaZiarat(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="meccaZiarat">
-            Mecca Ziarat
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="medinaZiarat"
-            checked={medinaZiarat}
-            onChange={(e) => setMedinaZiarat(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="medinaZiarat">
-            Medina Ziarat
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="approve"
-            checked={approve}
-            onChange={(e) => setApprove(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="approve">
-            APPROVE
-          </label>
-        </div>
-
-        <div className="form-check d-flex align-items-center">
-          <input
-            className="form-check-input border border-black me-2"
-            type="checkbox"
-            id="draft"
-            checked={draft}
-            onChange={(e) => setDraft(e.target.checked)}
-            style={{ width: "1.3rem", height: "1.3rem" }}
-          />
-          <label className="form-check-label" htmlFor="draft">
-            DRAFT
-          </label>
-        </div>
-      </div>
-
-      {/* Notes Section */}
-      <div className="mb-4 mt-5 bg-white">
-        <h5 className="mb-0 fw-bold">Notes</h5>
-        <div className="row">
-          <div className="col-md-3 mb-3">
-            <label className="form-label">Notes</label>
-            <textarea
-              className="form-control"
-              rows={1}
-              placeholder="Enter Notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            ></textarea>
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Shirka</label>
-            <select
-              className="form-select"
-              name="shirka"
-              value={selectedShirka}
-              onChange={(e) => setSelectedShirka(e.target.value)}
-            >
-              <option value="Rushd al Majd">Rushd al Majd</option>
-              <option value="Other Option">Other Option</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="d-flex flex-wrap gap-2 bg-white">
-        <button className="btn btn-primary">Save</button>
-        <button className="btn btn-primary">Save & Close</button>
-        <button className="btn btn-outline-secondary">Close Only</button>
-      </div>
-    </div>
-  );
-};
 
 const TicketsInterface = ({ orderNo }) => {
   const [showRejectNote, setShowRejectNote] = useState(false);
@@ -2218,13 +1398,17 @@ const TicketsInterface = ({ orderNo }) => {
   );
 };
 
+
 const VisaApplicationInterface = ({ onClose }) => {
   const { orderNo } = useParams();
   const [activeTab, setActiveTab] = useState("visa");
-  const [selectedShirka, setSelectedShirka] = useState("Rushd al Majd");
+  const [selectedShirka, setSelectedShirka] = useState("");
   const [selectedPassengers, setSelectedPassengers] = useState([]);
   const [bookingData, setBookingData] = useState(null);
   const [agencyData, setAgencyData] = useState(null);
+  const [shirkaList, setShirkaList] = useState([]);
+  const [shirkaLoading, setShirkaLoading] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -2241,8 +1425,8 @@ const VisaApplicationInterface = ({ onClose }) => {
           `http://127.0.0.1:8000/api/bookings/`,
           {
             params: {
-              booking_number: organizationId,
-              organization: orderNo,
+              booking_number: orderNo,
+              organization: organizationId,
             },
             headers: {
               Authorization: `Bearer ${token}`,
@@ -2251,9 +1435,17 @@ const VisaApplicationInterface = ({ onClose }) => {
           }
         );
         console.log(orderNo)
+        console.log("API Response:", bookingResponse.data);
 
-        // API already filter karega, so first result pick kar lo
-        const booking = bookingResponse.data;
+        // API might return an array or a single object
+        let booking;
+        if (Array.isArray(bookingResponse.data)) {
+          booking = bookingResponse.data[0]; // Get first item if array
+        } else if (bookingResponse.data.results) {
+          booking = bookingResponse.data.results[0]; // Get first item from results
+        } else {
+          booking = bookingResponse.data; // Use as is if single object
+        }
 
         console.log("Matched Booking:", booking);
 
@@ -2265,6 +1457,43 @@ const VisaApplicationInterface = ({ onClose }) => {
 
 
         setSelectedPassengers(new Array(booking.person_details?.length || 0).fill(false));
+
+        // Fetch shirka data
+        try {
+          setShirkaLoading(true);
+          const shirkaResponse = await axios.get(
+            `http://127.0.0.1:8000/api/shirkas/`,
+            {
+              params: {
+                organization: organizationId,
+              },
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          // Handle different response formats
+          let shirkas = [];
+          if (Array.isArray(shirkaResponse.data)) {
+            shirkas = shirkaResponse.data;
+          } else if (shirkaResponse.data.results) {
+            shirkas = shirkaResponse.data.results;
+          }
+
+          setShirkaList(shirkas);
+
+          // Set first shirka as default if available
+          if (shirkas.length > 0) {
+            setSelectedShirka(shirkas[0].id.toString());
+          }
+        } catch (shirkaError) {
+          console.error('Error fetching shirka data:', shirkaError);
+          setShirkaList([]);
+        } finally {
+          setShirkaLoading(false);
+        }
 
         // Fetch agency data
         if (booking.agency) {
@@ -2382,18 +1611,18 @@ const VisaApplicationInterface = ({ onClose }) => {
                   className="text-white rounded-5 px-2 py-1"
                   style={{ background: "#43ABFF", minWidth: "100px" }}
                 >
-                  {bookingData.total_visa_amount > 0 ? "Included" : "N/A"}
+                  {(bookingData.total_visa_amount > 0 || bookingData.total_visa_amount_pkr > 0) ? "Included" : "N/A"}
                 </div>
               </div>
 
-              {/* Hotel Voucher */}
+              {/* Accommodation */}
               <div className="d-flex justify-content-end align-items-center">
-                <span className="small fw-bold">Hotel Voucher:</span>
+                <span className="small fw-bold">Accommodation:</span>
                 <div
                   className="text-white rounded-5 px-2 py-1"
                   style={{ background: "#43ABFF", minWidth: "100px" }}
                 >
-                  {bookingData.total_hotel_amount > 0 ? "Included" : "N/A"}
+                  {(bookingData.total_hotel_amount > 0 || bookingData.total_hotel_amount_pkr > 0) ? "Included" : "N/A"}
                 </div>
               </div>
 
@@ -2404,7 +1633,7 @@ const VisaApplicationInterface = ({ onClose }) => {
                   className="text-white rounded-5 px-2 py-1"
                   style={{ background: "#43ABFF", minWidth: "100px" }}
                 >
-                  {bookingData.total_transport_amount > 0 ? "Included" : "N/A"}
+                  {(bookingData.total_transport_amount > 0 || bookingData.total_transport_amount_pkr > 0) ? "Included" : "N/A"}
                 </div>
               </div>
 
@@ -2415,7 +1644,29 @@ const VisaApplicationInterface = ({ onClose }) => {
                   className="text-white rounded-5 px-2 py-1"
                   style={{ background: "#43ABFF", minWidth: "100px" }}
                 >
-                  {bookingData.total_ticket_amount > 0 ? "Included" : "N/A"}
+                  {(bookingData.total_ticket_amount > 0 || bookingData.total_ticket_amount_pkr > 0) ? "Included" : "N/A"}
+                </div>
+              </div>
+
+              {/* Food */}
+              <div className="d-flex justify-content-end align-items-center">
+                <span className="small fw-bold">Food:</span>
+                <div
+                  className="text-white rounded-5 px-2 py-1"
+                  style={{ background: "#43ABFF", minWidth: "100px" }}
+                >
+                  {(bookingData.is_food_included || bookingData.total_food_amount_pkr > 0) ? "Included" : "N/A"}
+                </div>
+              </div>
+
+              {/* Ziarat */}
+              <div className="d-flex justify-content-end align-items-center">
+                <span className="small fw-bold">Ziarat:</span>
+                <div
+                  className="text-white rounded-5 px-2 py-1"
+                  style={{ background: "#43ABFF", minWidth: "100px" }}
+                >
+                  {(bookingData.is_ziyarat_included || bookingData.total_ziyarat_amount_pkr > 0) ? "Included" : "N/A"}
                 </div>
               </div>
             </div>
@@ -2448,7 +1699,12 @@ const VisaApplicationInterface = ({ onClose }) => {
             <div className="col-auto">
               <button className="btn btn-primary me-2">Print</button>
               <button className="btn btn-outline-primary me-2">Download</button>
-              <button className="btn btn-info text-white">See Invoice</button>
+              <button
+                className="btn btn-info text-white"
+                onClick={() => setShowInvoiceModal(true)}
+              >
+                See Invoice
+              </button>
             </div>
           </div>
         </div>
@@ -2472,7 +1728,7 @@ const VisaApplicationInterface = ({ onClose }) => {
                 <tbody>
                   <tr>
                     <td>{orderNo}</td>
-                    <td>{bookingData?.agency || "N/A"}</td>
+                    <td>{bookingData?.agency?.agency_code || bookingData?.agency_id || "N/A"}</td>
                     <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
                     <td>{bookingData.id}</td>
                     <td>{bookingData.total_pax}</td>
@@ -2486,96 +1742,142 @@ const VisaApplicationInterface = ({ onClose }) => {
             </div>
 
             {/* Select Umrah Visa Shirka */}
-            <div className="row mb-4">
+            <div className="mb-4">
               <h5 className="fw-bold mb-3">Select Umrah Visa Shirka</h5>
-              {bookingData.person_details?.map((passenger, index) => (
-                <div className="col-md-3" key={index}>
-                  <label htmlFor="" className="form-label">Shirka</label>
-                  <select
-                    className="form-select shadow-none"
-                    name="shirka"
-                    value={selectedShirka}
-                    onChange={(e) => setSelectedShirka(e.target.value)}
-                  >
-                    <option value={passenger.shirka}>{passenger.shirka}</option>
-                  </select>
+              <div className="row">
+                <div className="col-md-4">
+                  <label htmlFor="shirka-select" className="form-label">Shirka</label>
+                  {shirkaLoading ? (
+                    <div className="form-control">
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Loading shirkas...
+                    </div>
+                  ) : (
+                    <select
+                      id="shirka-select"
+                      className="form-select shadow-none"
+                      name="shirka"
+                      value={selectedShirka}
+                      onChange={(e) => setSelectedShirka(e.target.value)}
+                      disabled={shirkaList.length === 0}
+                    >
+                      {shirkaList.length === 0 ? (
+                        <option value="">No Shirka Available</option>
+                      ) : (
+                        <>
+                          <option value="">Select a Shirka</option>
+                          {shirkaList.map((shirka) => (
+                            <option key={shirka.id} value={shirka.id}>
+                              {shirka.name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  )}
                 </div>
-              ))}
+              </div>
             </div>
 
             {/* Passengers Details */}
             <div className="mb-4">
               <h5 className="fw-bold mb-3">Passengers Details For Umrah Package</h5>
 
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <tbody>
-                    {bookingData.person_details?.map((passenger, index) => (
-                      <tr key={passenger.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            className="form-check-input"
-                            checked={selectedPassengers[index]}
-                            onChange={() => handlePassengerSelection(index)}
-                          />
-                        </td>
-                        <td>
-                          <span className="fw-bold">Pax No. {index + 1}</span>
-                        </td>
-                        <td>
-                          <div>
-                            <div className="small text-muted">Type</div>
+              <div className="d-flex flex-column gap-2">
+                {bookingData.person_details?.map((passenger, index) => (
+                  <div key={passenger.id} className="border rounded p-3 bg-white" style={{ borderColor: "#e0e0e0" }}>
+                    <div className="d-flex align-items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        style={{ width: "18px", height: "18px" }}
+                        checked={selectedPassengers[index]}
+                        onChange={() => handlePassengerSelection(index)}
+                      />
+
+                      <div style={{ minWidth: "70px" }}>
+                        <span className="text-muted small">Pax No. <strong>{index + 1}</strong></span>
+                      </div>
+
+                      <div className="flex-grow-1">
+                        <div className="row g-2 align-items-center">
+                          <div className="col-auto">
+                            <div className="text-muted small">Type</div>
                             <div className="fw-bold">{passenger.age_group || "Adult"}</div>
                           </div>
-                        </td>
-                        <td>
-                          <div>
-                            <div className="small text-muted">Bed</div>
+                          <div className="col-auto">
+                            <div className="text-muted small">Bed</div>
                             <div className="fw-bold">Yes</div>
                           </div>
-                        </td>
-                        <td>
-                          <div>
-                            <div className="small text-muted">Passenger Name</div>
+                          <div className="col">
+                            <div className="text-muted small">Passenger Name</div>
                             <div className="fw-bold">{passenger.first_name} {passenger.last_name}</div>
                           </div>
-                        </td>
-                        <td>
-                          <div>
-                            <div className="small text-muted">Passport Number</div>
+                          <div className="col-auto">
+                            <div className="text-muted small">Passport Number</div>
                             <div className="fw-bold">{passenger.passport_number || "N/A"}</div>
                           </div>
-                        </td>
-                        <td>
-                          <div>
-                            <div className="small text-muted">Passport Expiry</div>
+                          <div className="col-auto">
+                            <div className="text-muted small">Passport Expiry</div>
                             <div className="fw-bold">{passenger.passport_expiry_date || "N/A"}</div>
                           </div>
-                        </td>
-                        <td>
-                          <div>
-                            <div className="small text-muted">Status</div>
-                            <div className={`fw-bold ${passenger.visa_status === "Approved" ? "text-success" : passenger.visa_status === "Rejected" ? "text-danger" : "text-info"}`}>
-                              {passenger.visa_status || "Pending"}
-                            </div>
+                          <div className="col-auto">
+                            <div className="text-muted small">Status</div>
+                            <select
+                              className={`form-select form-select-sm fw-bold ${passenger.visa_status === "Approved" ? "text-success" : passenger.visa_status === "Rejected" ? "text-danger" : "text-muted"}`}
+                              style={{ border: 'none', background: 'transparent', padding: '0', width: 'auto' }}
+                              value={passenger.visa_status || "Pending"}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value;
+                                try {
+                                  const token = localStorage.getItem("accessToken");
+                                  const response = await axios.patch(
+                                    `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                                    {
+                                      person_details: bookingData.person_details.map((p, idx) =>
+                                        idx === index ? { ...p, visa_status: newStatus } : p
+                                      )
+                                    },
+                                    {
+                                      headers: {
+                                        Authorization: `Bearer ${token}`,
+                                        'Content-Type': 'application/json',
+                                      },
+                                    }
+                                  );
+
+                                  if (response.status === 200) {
+                                    // Update local state
+                                    setBookingData({
+                                      ...bookingData,
+                                      person_details: bookingData.person_details.map((p, idx) =>
+                                        idx === index ? { ...p, visa_status: newStatus } : p
+                                      )
+                                    });
+                                    alert(`Visa status updated to ${newStatus} successfully!`);
+                                  }
+                                } catch (error) {
+                                  console.error('Error updating visa status:', error);
+                                  alert('Error updating visa status. Please try again.');
+                                }
+                              }}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Approved">Approved</option>
+                              <option value="Rejected">Rejected</option>
+                            </select>
                           </div>
-                        </td>
-                        <td>
-                          {passenger.visa_status === "Approved" ? (
-                            <button className="btn btn-primary btn-sm">
-                              Download Passport
-                            </button>
-                          ) : passenger.visa_status === "Rejected" ? (
-                            <span className="text-danger fw-bold">
-                              Not Included
-                            </span>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+
+                      <div className="text-end" style={{ minWidth: "150px" }}>
+                        <a href="#" className="text-primary text-decoration-none fw-normal">
+                          Download Passport
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -2583,7 +1885,51 @@ const VisaApplicationInterface = ({ onClose }) => {
             <div className="d-flex gap-2 mt-4">
               <button className="btn btn-primary">Visa Applied</button>
               <button className="btn btn-primary">Send to Embassy</button>
-              <button className="btn btn-primary">Visa approved</button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  const checkedPassengers = bookingData.person_details.filter((_, idx) => selectedPassengers[idx]);
+                  if (checkedPassengers.length === 0) {
+                    alert('Please select at least one passenger');
+                    return;
+                  }
+
+                  try {
+                    const token = localStorage.getItem("accessToken");
+                    const response = await axios.patch(
+                      `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                      {
+                        person_details: bookingData.person_details.map((p, idx) =>
+                          selectedPassengers[idx] ? { ...p, visa_status: 'Approved' } : p
+                        )
+                      },
+                      {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                      }
+                    );
+
+                    if (response.status === 200) {
+                      setBookingData({
+                        ...bookingData,
+                        person_details: bookingData.person_details.map((p, idx) =>
+                          selectedPassengers[idx] ? { ...p, visa_status: 'Approved' } : p
+                        )
+                      });
+                      alert(`Visa approved for ${checkedPassengers.length} passenger(s)!`);
+                      // Clear selections
+                      setSelectedPassengers(new Array(bookingData.person_details.length).fill(false));
+                    }
+                  } catch (error) {
+                    console.error('Error approving visa:', error);
+                    alert('Error approving visa. Please try again.');
+                  }
+                }}
+              >
+                Visa approved
+              </button>
               <button className="btn btn-outline-secondary">
                 Application Reject
               </button>
@@ -2591,11 +1937,40 @@ const VisaApplicationInterface = ({ onClose }) => {
           </>
         )}
         {activeTab === "hotel" && (
-          <HotelVoucherInterface onClose={onClose} orderNo={orderNo} />
+          <HotelVoucherInterfaceNew onClose={onClose} orderNo={orderNo} />
         )}
 
         {activeTab === "tickets" && <TicketsInterface orderNo={orderNo} />}
       </div>
+
+      {/* Invoice Modal */}
+      {showInvoiceModal && (
+        <div
+          className="modal fade show"
+          style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowInvoiceModal(false)}
+        >
+          <div
+            className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"
+            style={{ maxWidth: '90%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title fw-bold">Booking Invoice - {orderNo}</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowInvoiceModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body p-0" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+                <TravelBookingInvoice isModal={true} orderNoProp={orderNo} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2606,7 +1981,7 @@ const OrderList = () => {
   const currentPath = location.pathname;
 
   const [statusFilter, setStatusFilter] = useState("all");
-  const [paymentFilter, setPaymentFilter] = useState("paid");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("Umrah Package");
   const [orders, setOrders] = useState([]);
@@ -2614,7 +1989,7 @@ const OrderList = () => {
   const [error, setError] = useState(null);
 
   // Status options for dropdown
-  const statusOptions = ["all", "un-approve", "under-process", "delivered", "confirm", "cancelled"];
+  const statusOptions = ["all", "Un-approved", "under-process", "Delivered", "Confirmed", "Canceled"];
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -2658,39 +2033,74 @@ const OrderList = () => {
     setActiveTab(tab);
   };
 
-  // For order link navigation based on activeTab and payment status
+  // For order link navigation based on activeTab and status
   const handleOrderClick = (order) => {
-    // Don't navigate if order is unpaid
-    if (!order.is_paid) {
-      return;
-    }
-
-    if (order.status === "under-process") {
+    // Navigate based on status and booking_type
+    if (order.status === "Approved") {
+      // Approved orders go to visa management page
       navigate(`/order-delivery/visa/${order.booking_number}`);
-    } else if (activeTab === "Umrah Package" && order.category === "Package") {
+    } else if (order.status === "under-process") {
+      navigate(`/order-delivery/visa/${order.booking_number}`);
+    } else if (activeTab === "Umrah Package" && (order.booking_type === "Umrah Package" || order.booking_type === "Custom Package")) {
       navigate(`/order-delivery/${order.booking_number}`);
-    } else if (activeTab === "Ticketing" && order.category === "Ticket_Booking") {
+    } else if (activeTab === "Ticketing" && order.booking_type === "Group Ticket") {
       navigate(`/order-delivery/ticketing/${order.booking_number}`);
+    } else {
+      // Default: navigate to general booking details page
+      navigate(`/order-delivery/${order.booking_number}`);
     }
   };
 
+  // Handle confirming a booking (change status from Approved to Confirmed)
+  const handleConfirmBooking = async (order) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      const response = await axios.patch(
+        `http://127.0.0.1:8000/api/bookings/${order.id}/`,
+        {
+          status: 'Confirmed',
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        // Update local state to reflect the change
+        setOrders(orders.map(o =>
+          o.id === order.id ? { ...o, status: 'Confirmed' } : o
+        ));
+        alert('Booking confirmed successfully!');
+      }
+    } catch (err) {
+      console.error('Error confirming booking:', err);
+      alert('Error confirming booking. Please try again.');
+    }
+  };
+
+
   // Filter orders based on active tab, payment status, and other filters
   const filteredOrders = orders.filter((order) => {
-    // Filter by tab (category)
+    // Filter by tab (booking_type) - accept both Umrah Package and Custom Package
     const matchesTab =
-      (activeTab === "Umrah Package" && order.category === "Package") ||
-      (activeTab === "Ticketing" && order.category === "Ticket_Booking");
+      (activeTab === "Umrah Package" && (order.booking_type === "Umrah Package" || order.booking_type === "Custom Package")) ||
+      (activeTab === "Ticketing" && order.booking_type === "Group Ticket");
 
-    // Filter by payment status
+    // Filter by payment status (now based on booking status)
     const matchesPayment =
       paymentFilter === "all" ||
-      (paymentFilter === "paid" && order.is_paid) ||
-      (paymentFilter === "unpaid" && !order.is_paid);
+      (paymentFilter === "paid" && order.status === "Confirmed") ||
+      (paymentFilter === "unpaid" && order.status === "Un-approved");
 
     // Filter by status
     const matchesStatus =
       statusFilter === "all" ||
-      (order.status && order.status.toLowerCase().includes(statusFilter.toLowerCase()));
+      (statusFilter === "un-approve" && (order.status === "Un-approved" || order.status === "Confirmed")) ||
+      (statusFilter !== "un-approve" && order.status && order.status.toLowerCase().includes(statusFilter.toLowerCase()));
 
     // Filter by search term (booking number)
     const matchesSearch =
@@ -2740,13 +2150,13 @@ const OrderList = () => {
             className={`text-decoration-none ${paymentFilter === "paid" ? "text-primary" : "text-secondary"}`}
             onClick={() => setPaymentFilter("paid")}
           >
-            Paid Orders
+            Confirmed Orders
           </Link>
           <Link
             className={`text-decoration-none ${paymentFilter === "unpaid" ? "text-primary" : "text-secondary"}`}
             onClick={() => setPaymentFilter("unpaid")}
           >
-            Un-paid Orders
+            Un-Confirmed Orders
           </Link>
         </div>
         <div className="bg-white rounded shadow-sm p-4">
@@ -2876,7 +2286,6 @@ const OrderList = () => {
                   <th>Passport</th>
                   <th>Total Pax</th>
                   <th>Status</th>
-                  <th>Payment</th>
                   {/* Add Action column for unpaid orders */}
                   {paymentFilter === "unpaid" && <th>Action</th>}
                 </tr>
@@ -2887,27 +2296,24 @@ const OrderList = () => {
                     <tr key={index}>
                       <td>
                         <button
-                          className={`btn btn-link p-0 text-decoration-underline ${order.is_paid ? 'text-primary' : 'text-muted'}`}
+                          className="btn btn-link p-0 text-decoration-underline text-primary"
                           onClick={() => handleOrderClick(order)}
-                          disabled={!order.is_paid}
-                          title={!order.is_paid ? "Cannot open unpaid orders" : ""}
                         >
                           {order.booking_number}
                         </button>
                       </td>
-                      <td>{order.agency || 'N/A'}</td>
+                      <td>{order.agency?.agency_code || order.agency_id || 'N/A'}</td>
                       <td>{order.agreement || 'N/A'}</td>
-                      <td>{order.packageNo || 'N/A'}</td>
+                      <td>{order.packageNo || order.id || 'N/A'}</td>
                       <td>
                         <span className="text-decoration-none">
                           Download
                         </span>
                       </td>
                       <td>{order.total_pax}</td>
-                      <td>{order.status || 'N/A'}</td>
                       <td>
-                        <span className={`badge ${order.is_paid ? 'bg-success' : 'bg-warning'}`}>
-                          {order.is_paid ? 'paid' : 'unpaid'}
+                        <span className={`badge bg-${order.status === 'Approved' ? 'success' : order.status === 'Confirmed' ? 'primary' : 'secondary'}`}>
+                          {order.status || 'N/A'}
                         </span>
                       </td>
                       {/* Add Action column with dropdown for unpaid orders */}
@@ -2921,10 +2327,16 @@ const OrderList = () => {
                               <Gear size={18} />
                             </Dropdown.Toggle>
                             <Dropdown.Menu>
+                              <Dropdown.Item
+                                className="text-success fw-bold"
+                                onClick={() => handleConfirmBooking(order)}
+                              >
+                                Confirm Booking
+                              </Dropdown.Item>
                               <Dropdown.Item className="text-primary">
                                 Edit
                               </Dropdown.Item>
-                              <Dropdown.Item className="text-success">
+                              <Dropdown.Item className="text-info">
                                 Add Notes
                               </Dropdown.Item>
                               <Dropdown.Item className="text-danger">
@@ -2939,7 +2351,7 @@ const OrderList = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={paymentFilter === "unpaid" ? 9 : 8} className="text-center py-4">
+                    <td colSpan={paymentFilter === "unpaid" ? 8 : 7} className="text-center py-4">
                       No orders found matching your filters.
                     </td>
                   </tr>
@@ -3021,7 +2433,7 @@ const OrderDeliverySystem = () => {
             <Routes>
               <Route index element={<OrderList />} />
               <Route path=":orderNo" element={<TravelBookingInvoice />} />
-              <Route path="ticketing/:orderNo" element={<TravelBookingInvoice />} />
+              <Route path="ticketing/:orderNo" element={<TicketTravelBookingInvoice />} />
               <Route path="visa/:orderNo" element={<VisaApplicationInterface onClose={() => navigate("/order-delivery")} />} />
             </Routes>
           </div>
@@ -3032,3 +2444,4 @@ const OrderDeliverySystem = () => {
 };
 
 export default OrderDeliverySystem;
+

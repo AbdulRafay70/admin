@@ -421,14 +421,14 @@ const InnerHrDashboard = () => {
                     <ApprovalsPage embedded />
                   </div>
                 </Tab>
-                <Tab eventKey="payments" title="💰 Payments">
-                  <div style={{ padding: 8 }}>
-                    <PaymentsPage embedded />
-                  </div>
-                </Tab>
                 <Tab eventKey="punctuality" title="Punctuality">
                   <div style={{ padding: 8 }}>
                     <PunctualityPage embedded />
+                  </div>
+                </Tab>
+                <Tab eventKey="payments" title="💰 Payments">
+                  <div style={{ padding: 8 }}>
+                    <PaymentsPage embedded />
                   </div>
                 </Tab>
 

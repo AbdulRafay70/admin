@@ -506,8 +506,9 @@ const Visa = () => {
   const [editingSectorId, setEditingSectorId] = useState(null);
 
   const getCityNameBig = (id) => {
-    const city = cities.find((c) => c.id === id);
-    return city ? city.name : `City#${id}`;
+    // The API returns city codes directly as strings (e.g., "mak", "JED"), not IDs
+    // So just return the value directly
+    return id || "";
   };
 
   const getSectorLabel = (sectorId) => {
@@ -530,7 +531,7 @@ const Visa = () => {
     }
 
     try {
-        await axios.put(
+      await axios.put(
         `http://127.0.0.1:8000/api/small-sectors/${editingSectorId}/?organization=${orgId}`,
         {
           contact_name: contactName,
@@ -630,8 +631,9 @@ const Visa = () => {
   // Helper function to get city name by ID
   const getCityName = (cityId) => {
     if (cityId === null || cityId === undefined) return "";
-    const city = citiesSector.find((c) => String(c.id) === String(cityId));
-    return city ? `${city.name} (${city.code})` : `City ${cityId}`;
+    // The API returns city codes directly as strings (e.g., "mak", "JED"), not IDs
+    // So just return the value directly
+    return cityId;
   };
 
   // big sector 
@@ -1795,7 +1797,7 @@ const Visa = () => {
   const [selectedHotels, setSelectedHotels] = useState([]);
 
   const [selectedVehicleTypeIds, setSelectedVehicleTypeIds] = useState([]);
-  
+
   // Separate state for Only Visa Rates section
   const [withTransportOnlyVisa, setWithTransportOnlyVisa] = useState(false);
   const [selectedVehicleTypeIdsOnlyVisa, setSelectedVehicleTypeIdsOnlyVisa] = useState([]);
@@ -2003,7 +2005,7 @@ const Visa = () => {
 
   // Function to handle vehicle type modal
   const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
-  
+
   // Separate modal for Only Visa section
   const [showVehicleTypeModalOnlyVisa, setShowVehicleTypeModalOnlyVisa] = useState(false);
 
@@ -2013,13 +2015,13 @@ const Visa = () => {
   };
 
   const handleCloseVehicleTypes = () => setShowVehicleTypeModal(false);
-  
+
   // Separate handlers for Only Visa section
   const handleShowVehicleTypesOnlyVisa = async () => {
     await fetchVehicleTypesForVisa();
     setShowVehicleTypeModalOnlyVisa(true);
   };
-  
+
   const handleCloseVehicleTypesOnlyVisa = () => setShowVehicleTypeModalOnlyVisa(false);
 
   const handleSaveVehicleTypes = () => {
@@ -2045,7 +2047,7 @@ const Visa = () => {
 
     handleCloseVehicleTypes();
   };
-  
+
   // Separate save handler for Only Visa section
   const handleSaveVehicleTypesOnlyVisa = () => {
     try {
@@ -2065,7 +2067,7 @@ const Visa = () => {
 
     handleCloseVehicleTypesOnlyVisa();
   };
-  
+
   // Toggle function for Only Visa modal
   const toggleVehicleTypeSelectionOnlyVisa = (vehicleTypeId) => {
     setSelectedVehicleTypeIdsOnlyVisa((prev) =>
@@ -2362,7 +2364,7 @@ const Visa = () => {
   const [onlyVisaOption, setOnlyVisaOption] = useState('only');
   // Title for the Only Visa price record
   const [onlyVisaTitle, setOnlyVisaTitle] = useState("");
-  
+
   // Date range for visa validity
   const [onlyVisaStartDate, setOnlyVisaStartDate] = useState("");
   const [onlyVisaEndDate, setOnlyVisaEndDate] = useState("");
@@ -2555,7 +2557,7 @@ const Visa = () => {
   // Load existing data for the selected visa option
   const loadOnlyVisaData = (visaPrices, option) => {
     const existingPrice = visaPrices.find(p => p.visa_option === option);
-    
+
     if (existingPrice) {
       setSelectedVisaPrice(existingPrice);
       setOnlyAdultSellingPrice(existingPrice.adult_selling_price || "");
@@ -2571,7 +2573,7 @@ const Visa = () => {
       setWithTransportOnlyVisa(existingPrice.is_transport || false);
       setAirportId(existingPrice.city?.id || "");
       setAirport(existingPrice.city?.name || "");
-      
+
       // Load sectors if transport is enabled
       if (existingPrice.is_transport && existingPrice.sectors) {
         setSelectedVisaSectors(existingPrice.sectors.map(s => String(s.id)));
@@ -2636,8 +2638,9 @@ const Visa = () => {
 
   // Helper function to get city name by ID with code
   const getCityNameWithCode = (cityId) => {
-    const city = cities.find(c => c.id === cityId);
-    return city ? ` (${city.code})` : `City ${cityId}`;
+    // The API returns city codes directly as strings (e.g., "mak", "JED"), not IDs
+    // So just return the value directly
+    return cityId || "";
   };
 
   // Helper function to display small sector with city codes
@@ -2659,11 +2662,9 @@ const Visa = () => {
     const cityCodes = [];
 
     sortedSectors.forEach((sector, index) => {
-      const departureCity = getCityNameWithCode(sector.departure_city);
-      const arrivalCity = getCityNameWithCode(sector.arrival_city);
-
-      const departureCode = departureCity.split('(')[1]?.replace(')', '') || 'UNK';
-      const arrivalCode = arrivalCity.split('(')[1]?.replace(')', '') || 'UNK';
+      // getCityNameWithCode now returns the city code directly
+      const departureCode = sector.departure_city || 'UNK';
+      const arrivalCode = sector.arrival_city || 'UNK';
 
       if (index === 0) {
         cityCodes.push(departureCode);
@@ -3063,7 +3064,7 @@ const Visa = () => {
 
     try {
       setLoading(true);
-        // Build payload using explicit per-person fields (no legacy generic keys)
+      // Build payload using explicit per-person fields (no legacy generic keys)
       const dataToSend = {
         ...foodFormData,
         organization: parseInt(orgId),
@@ -4360,7 +4361,7 @@ const Visa = () => {
                             </label>
                             <div style={{ minWidth: 240 }}>
                               <SearchableSelect
-                                options={toOptions(cities, c => `${c.name} (${c.code})`, c => c.id)}
+                                options={toOptions(cities, c => c.code, c => c.id)}
                                 value={departureCity}
                                 onChange={(val) => setDepartureCity(val)}
                                 placeholder="Select Departure City"
@@ -4372,7 +4373,7 @@ const Visa = () => {
                             <label className="Control-label" htmlFor="">Arrival City</label>
                             <div style={{ minWidth: 240 }}>
                               <SearchableSelect
-                                options={toOptions(cities, c => `${c.name} (${c.code})`, c => c.id)}
+                                options={toOptions(cities, c => c.code, c => c.id)}
                                 value={arrivalCity}
                                 onChange={(val) => setArrivalCity(val)}
                                 placeholder="Select Arrival City"
@@ -5225,7 +5226,7 @@ const Visa = () => {
                               {/* Vehicle Type */}
                               <div>
                                 <label htmlFor="" className="Control-label">
-                                 Transport Prices
+                                  Transport Prices
                                 </label>
                                 <input
                                   type="text"
@@ -5640,11 +5641,13 @@ const Visa = () => {
                                                   <strong>{vehicleType.vehicle_name}</strong> ({vehicleType.vehicle_type})
                                                   <br />
                                                   <small className="text-muted">
-                                                    Price: {vehicleType.price} -
-                                                    {vehicleType.small_sector ? ` Small Sector` : ''}
-                                                    {vehicleType.big_sector ? ` Big Sector` : ''}
-                                                    {vehicleType.small_sector_id ? ` Small Sector` : ''}
-                                                    {vehicleType.big_sector_id ? ` Big Sector` : ''}
+                                                    Adult: {vehicleType.adult_selling_price || 0} |
+                                                    Child: {vehicleType.child_selling_price || 0} |
+                                                    Infant: {vehicleType.infant_selling_price || 0}
+                                                    {vehicleType.small_sector ? ` - Small Sector` : ''}
+                                                    {vehicleType.big_sector ? ` - Big Sector` : ''}
+                                                    {vehicleType.small_sector_id ? ` - Small Sector` : ''}
+                                                    {vehicleType.big_sector_id ? ` - Big Sector` : ''}
                                                   </small>
                                                 </div>
                                                 {selectedVehicleTypeIds.includes(vehicleType.id) && (
@@ -5724,12 +5727,12 @@ const Visa = () => {
                               <div className="row g-3 align-items-end">
                                 {/* Visa Option Buttons: Only Visa / Long Term Visa */}
                                 <div className="col-md-3 d-flex align-items-center">
-                                  <div className="btn-group d-flex" role="group" aria-label="Visa Option" style={{whiteSpace: 'nowrap'}}>
+                                  <div className="btn-group d-flex" role="group" aria-label="Visa Option" style={{ whiteSpace: 'nowrap' }}>
                                     <button
                                       type="button"
                                       className={`btn ${onlyVisaOption === 'only' ? 'btn-primary' : 'btn-outline-primary'} btn-sm me-1`}
                                       onClick={() => setOnlyVisaOption('only')}
-                                      style={{height: '38px', whiteSpace: 'nowrap'}}
+                                      style={{ height: '38px', whiteSpace: 'nowrap' }}
                                     >
                                       Only Visa
                                     </button>
@@ -5737,7 +5740,7 @@ const Visa = () => {
                                       type="button"
                                       className={`btn ${onlyVisaOption === 'long_term' ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
                                       onClick={() => setOnlyVisaOption('long_term')}
-                                      style={{height: '38px', whiteSpace: 'nowrap'}}
+                                      style={{ height: '38px', whiteSpace: 'nowrap' }}
                                     >
                                       Long Term Visa
                                     </button>
@@ -5843,7 +5846,7 @@ const Visa = () => {
 
                                 {/* Infant fields moved to next row to make space for buttons */}
 
-                                
+
 
                                 {/* Second row: Infant fields (moved here to free space in first row) */}
                                 <div className="w-100" />
@@ -6011,8 +6014,8 @@ const Visa = () => {
                             <Button variant="secondary" onClick={handleCloseVehicleTypesOnlyVisa}>
                               Cancel
                             </Button>
-                            <Button 
-                              variant="primary" 
+                            <Button
+                              variant="primary"
                               onClick={handleSaveVehicleTypesOnlyVisa}
                               disabled={selectedVehicleTypeIdsOnlyVisa.length === 0}
                             >
@@ -6200,7 +6203,7 @@ const Visa = () => {
                                 <label htmlFor="" className="control-label">Manage Vehicle Types</label>
                                 <div style={{ minWidth: 300 }}>
                                   <SearchableSelect
-                                    options={toOptions(vehicleTypes, v => `${v.vehicle_name} (${v.vehicle_type})${v.small_sector? ' - Small Sector':''}${v.big_sector ? ' - Big Sector' : ''}`, v => v.id)}
+                                    options={toOptions(vehicleTypes, v => `${v.vehicle_name} (${v.vehicle_type})${v.small_sector ? ' - Small Sector' : ''}${v.big_sector ? ' - Big Sector' : ''}`, v => v.id)}
                                     value={selectedVehicleTypeId}
                                     onChange={handleVehicleTypeSelect}
                                     isDisabled={vehicleTypes.length === 0}

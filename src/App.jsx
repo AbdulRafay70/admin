@@ -87,6 +87,8 @@ import AttendancePage from "./pages/hr/AttendancePage";
 import MovementsPage from "./pages/hr/MovementsPage";
 import CommissionsPage from "./pages/hr/CommissionsPage";
 import PunctualityPage from "./pages/hr/PunctualityPage";
+import ApprovalsPage from "./pages/hr/ApprovalsPage";
+import PaymentsPage from "./pages/hr/PaymentsPage";
 
 function App() {
   return (
@@ -507,6 +509,22 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/hr/approvals"
+            element={
+              <PrivateRoute>
+                <ApprovalsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hr/payments"
+            element={
+              <PrivateRoute>
+                <PaymentsPage />
+              </PrivateRoute>
+            }
+          />
           {/* Portal page removed from partners navigation */}
           {/* top-level /portal route removed — portal is now accessed under /partners/portal */}
           <Route
@@ -658,6 +676,14 @@ function App() {
           <Route
             path="/commission-management"
             element={<Navigate to="/partners/commission-rules" replace />}
+          />
+          <Route
+            path="/commission-management/assign-values"
+            element={
+              <PrivateRoute>
+                <CommissionAssignValues />
+              </PrivateRoute>
+            }
           />
 
           {/* Hotel Outsourcing Routes */}

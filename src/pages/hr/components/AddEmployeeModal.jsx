@@ -7,28 +7,78 @@ const AddEmployeeModal = ({ show, onHide, onAdded }) => {
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '', whatsapp: '',
     address: '', other_contact_number: '', contact_name: '',
-    role: '', branch: '', commission_group: '',
+    role: '', commission_group: '',
     check_in_time: '', check_out_time: '', grace_minutes: 0,
     salary: '', currency: 'PKR',
     salary_account_number: '', salary_account_title: '', salary_bank_name: '',
     salary_payment_date: '', joining_date: '', is_active: true
   });
   const [saving, setSaving] = useState(false);
-  const [branches, setBranches] = useState([]);
   const [commissionGroups, setCommissionGroups] = useState([]);
+  const [userBranchId, setUserBranchId] = useState(null);
   const { show: toast } = useToast();
 
   useEffect(() => {
     if (show) {
-      // Fetch branches and commission groups
+      // Fetch user profile and commission groups
       const fetchData = async () => {
         try {
-          const [branchResp, groupResp] = await Promise.all([
-            api.get('/organization/branches/').catch(() => ({ data: [] })),
-            api.get('/hr/commission-groups/').catch(() => ({ data: [] }))
-          ]);
-          setBranches(Array.isArray(branchResp.data) ? branchResp.data : branchResp.data.results || []);
-          setCommissionGroups(Array.isArray(groupResp.data) ? groupResp.data : groupResp.data.results || []);
+          // Get user's branch ID and organization ID from multiple sources
+          let branchId = null;
+          let organizationId = null;
+          
+          // First, try JWT token (most reliable source)
+          try {
+            const token = localStorage.getItem('accessToken');
+            if (token) {
+              const base64Url = token.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+              const decoded = JSON.parse(jsonPayload);
+              console.log('FULL JWT TOKEN DATA:', decoded);
+              branchId = decoded?.branch_id || decoded?.branch || null;
+              organizationId = decoded?.organization_id || decoded?.org_id || decoded?.organization || null;
+              console.log('From JWT token - branchId:', branchId, 'orgId:', organizationId);
+            }
+          } catch (e) {
+            console.warn('Could not decode token', e);
+          }
+          
+          // Fallback to localStorage for selectedOrganization
+          if (!branchId || !organizationId) {
+            try {
+              const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null');
+              console.log('FULL SELECTED ORGANIZATION DATA:', so);
+              if (!branchId) branchId = so?.branch_id || so?.branch || null;
+              if (!organizationId) organizationId = so?.id || so?.organization_id || so?.org || null;
+              console.log('From selectedOrganization - branchId:', branchId, 'orgId:', organizationId);
+            } catch (e) {
+              console.warn('Could not get organization from localStorage', e);
+            }
+          }
+          
+          setUserBranchId(branchId);
+          console.log('Final retrieved branch ID:', branchId);
+          console.log('Final retrieved organization ID:', organizationId);
+          
+          // Fetch commission groups from CommissionRule API
+          const groupResp = await api.get('/commissions/rules').catch(() => ({ data: [] }));
+          
+          // Filter commission groups by organization and receiver_type
+          let groups = Array.isArray(groupResp.data) ? groupResp.data : groupResp.data.results || [];
+          if (organizationId) {
+            groups = groups.filter(g => {
+              const groupOrgId = g.organization_id || g.organization || g.org;
+              return String(groupOrgId) === String(organizationId);
+            });
+          }
+          
+          // Only show employee commission groups (filter by receiver_type = 'employee')
+          groups = groups.filter(g => g.receiver_type === 'employee');
+          
+          setCommissionGroups(groups);
         } catch (err) {
           console.warn('Failed to fetch options', err);
         }
@@ -40,21 +90,106 @@ const AddEmployeeModal = ({ show, onHide, onAdded }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    
+    // Ensure branch ID is set before submission
+    let branchToUse = userBranchId;
+    console.log('Initial branchToUse from state:', branchToUse);
+    
+    // If not in state, try to get user ID from JWT token and fetch user details
+    if (!branchToUse) {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const decoded = JSON.parse(jsonPayload);
+          console.log('SUBMIT - JWT decoded:', decoded);
+          
+          // Get user ID from token
+          const userId = decoded?.user_id || decoded?.id || decoded?.sub;
+          console.log('SUBMIT - User ID from JWT:', userId);
+          
+          if (userId) {
+            // Fetch user details to get branch ID
+            try {
+              console.log('SUBMIT - Fetching user details for user ID:', userId);
+              const userResp = await api.get(`/users/${userId}/`);
+              console.log('SUBMIT - User details response:', userResp.data);
+              console.log('SUBMIT - All keys in user data:', Object.keys(userResp.data));
+              
+              // Try multiple possible field names
+              if (userResp.data?.branch_details && Array.isArray(userResp.data.branch_details) && userResp.data.branch_details.length > 0) {
+                branchToUse = userResp.data.branch_details[0].id;
+              } else {
+                branchToUse = userResp.data?.branch || 
+                             userResp.data?.branch_id || 
+                             userResp.data?.branchId ||
+                             userResp.data?.employee?.branch ||
+                             userResp.data?.employee?.branch_id ||
+                             null;
+              }
+              console.log('SUBMIT - Branch from user API:', branchToUse);
+            } catch (apiErr) {
+              console.error('SUBMIT - Could not fetch user details:', apiErr);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('SUBMIT - Could not decode token', e);
+      }
+    }
+    
+    // If still not found, try localStorage
+    if (!branchToUse) {
+      try {
+        const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null');
+        console.log('SUBMIT - selectedOrganization:', so);
+        branchToUse = so?.branch_id || so?.branch || so?.branchId || null;
+        console.log('SUBMIT - branch from localStorage:', branchToUse);
+      } catch (e) {
+        console.error('SUBMIT - Could not get from localStorage', e);
+      }
+    }
+    
+    console.log('===== FINAL BRANCH TO USE:', branchToUse, '=====');
+    
+    // Validate that we have a branch ID
+    if (!branchToUse) {
+      toast('danger', 'Error', 'Cannot determine branch ID. Please select an organization first.');
+      setSaving(false);
+      return;
+    }
+    
     try {
       const payload = { ...form };
+      
+      // Add user's branch ID to payload
+      payload.branch = branchToUse;
+      console.log('Submitting employee with branch ID:', branchToUse);
+      
+      // Handle commission_group - convert to integer or set to null
+      if (payload.commission_group && payload.commission_group !== "") {
+        const parsedCommissionGroup = parseInt(payload.commission_group, 10);
+        payload.commission_group = !isNaN(parsedCommissionGroup) ? parsedCommissionGroup : null;
+      } else {
+        payload.commission_group = null;
+      }
+      
       // Convert empty strings to null for optional FK fields
-      if (!payload.branch) payload.branch = null;
-      if (!payload.commission_group) payload.commission_group = null;
       if (!payload.salary_payment_date) payload.salary_payment_date = null;
       if (!payload.grace_minutes) payload.grace_minutes = 0;
       
+      console.log('Final payload:', payload);
       const resp = await api.post('/hr/employees/', payload);
       toast('success', 'Saved', 'Employee added successfully');
       onAdded && onAdded(resp.data);
       setForm({
         first_name: '', last_name: '', email: '', phone: '', whatsapp: '',
         address: '', other_contact_number: '', contact_name: '',
-        role: '', branch: '', commission_group: '',
+        role: '', commission_group: '',
         check_in_time: '', check_out_time: '', grace_minutes: 0,
         salary: '', currency: 'PKR',
         salary_account_number: '', salary_account_title: '', salary_bank_name: '',
@@ -62,7 +197,12 @@ const AddEmployeeModal = ({ show, onHide, onAdded }) => {
       });
     } catch (err) {
       console.error('Failed to add employee', err);
-      toast('danger', 'Failed', err?.response?.data?.detail || err?.message || 'Failed to add employee');
+      console.error('Error response:', err?.response?.data);
+      const errorMsg = err?.response?.data?.commission_group?.[0] || 
+                       err?.response?.data?.detail || 
+                       err?.message || 
+                       'Failed to add employee';
+      toast('danger', 'Failed', errorMsg);
     } finally {
       setSaving(false);
     }
@@ -133,20 +273,10 @@ const AddEmployeeModal = ({ show, onHide, onAdded }) => {
 
           <h6 className="text-muted mb-3 mt-4">Role & Organization</h6>
           <Row>
-            <Col md={6}>
+            <Col md={12}>
               <Form.Group className="mb-2">
                 <Form.Label>Role *</Form.Label>
                 <Form.Control required placeholder="Enter role (e.g. Manager, Agent)" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-2">
-                <Form.Label>Branch *</Form.Label>
-                <Form.Select required value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })}>
-                  <option value="">Select Branch</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </Form.Select>
-                <Form.Text className="text-muted">Employees must belong to a branch</Form.Text>
               </Form.Group>
             </Col>
           </Row>
@@ -246,5 +376,6 @@ const AddEmployeeModal = ({ show, onHide, onAdded }) => {
     </Modal>
   );
 };
+
 
 export default AddEmployeeModal;

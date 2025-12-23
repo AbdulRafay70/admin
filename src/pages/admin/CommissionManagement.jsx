@@ -26,7 +26,7 @@ const CommissionManagement = () => {
   const token = localStorage.getItem('accessToken');
   let organizationId = 0;
   let branchId = 0;
-  
+
   try {
     const parsed = orgDataRaw ? JSON.parse(orgDataRaw) : null;
     organizationId = parsed?.id ?? 0;
@@ -214,7 +214,7 @@ const CommissionManagement = () => {
                   <Button size="sm" variant="primary" onClick={openAdd}>
                     <Plus size={16} className="me-1" /> Add Group
                   </Button>
-                  <Link to="/partners/commission-rules/assign-values" className="btn btn-outline-secondary btn-sm">
+                  <Link to="/commission-management/assign-values" className="btn btn-outline-secondary btn-sm">
                     <Edit2 size={16} className="me-1" /> Assign Values
                   </Link>
                 </div>
@@ -283,7 +283,7 @@ const CommissionManagement = () => {
                               <Trash2 size={16} />
                             </Button>
                             <Link
-                              to={`/partners/commission-rules/assign-values?group=${g.id}`}
+                              to={`/commission-management/assign-values?group=${g.id}`}
                               className="btn btn-sm btn-outline-success"
                               title="Assign Commission Values"
                             >

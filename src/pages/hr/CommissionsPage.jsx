@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Container, Row, Col, Card, Table, Button, Tabs, Tab, Form, InputGroup, Badge } from 'react-bootstrap';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
+import HRTabs from '../../components/HRTabs';
 import api from './api';
 import './styles/hr.css';
 import { EmployeeProvider, useEmployees } from './components/EmployeeContext';
@@ -192,33 +193,10 @@ const CommissionsInner = ({ embedded = false }) => {
       <Sidebar />
       <div className="flex-grow-1">
         <Header />
-        <Tabs
-          activeKey={localKey}
-          onSelect={(k) => {
-            setLocalKey(k);
-            switch (k) {
-              case 'employees': navigate('/hr/employees'); break;
-              case 'attendance': navigate('/hr/attendance'); break;
-              case 'movements': navigate('/hr/movements'); break;
-              case 'commissions': navigate('/hr/commissions'); break;
-              case 'punctuality': navigate('/hr/punctuality'); break;
-              case 'approvals': navigate('/hr/approvals'); break;
-              case 'payments': navigate('/hr/payments'); break;
-              default: navigate('/hr');
-            }
-          }}
-          className="mb-3"
-        >
-          <Tab eventKey="dashboard" title="Dashboard" />
-          <Tab eventKey="employees" title="Employees" />
-          <Tab eventKey="attendance" title="Attendance" />
-          <Tab eventKey="movements" title="Movements" />
-          <Tab eventKey="commissions" title="Commissions" />
-          <Tab eventKey="approvals" title="Approvals" />
-          <Tab eventKey="payments" title="Payments" />
-          <Tab eventKey="punctuality" title="Punctuality" />
-        </Tabs>
-        {content}
+        <Container fluid className="py-4">
+          <HRTabs activeName="Commissions" />
+          {content}
+        </Container>
       </div>
     </div>
   );

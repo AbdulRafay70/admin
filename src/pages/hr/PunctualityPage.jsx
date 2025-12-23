@@ -3,6 +3,7 @@ import { Container, Row, Col, Table, Tabs, Tab, ProgressBar, Spinner } from 'rea
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
+import HRTabs from '../../components/HRTabs';
 import api from './api';
 import { ToastProvider, useToast } from './components/ToastProvider';
 
@@ -490,37 +491,14 @@ const InnerPunctuality = ({ embedded = false }) => {
   if (embedded) return <div className="hr-embedded">{content}</div>;
 
   return (
-    <div className="d-flex hr-root">
+    <div className="d-flex hr-dashboard-root">
       <Sidebar />
-      <div className="flex-grow-1">
+      <div className="flex-grow-1 d-flex flex-column">
         <Header />
-        <Tabs
-          activeKey={localKey}
-          onSelect={(k) => {
-            setLocalKey(k);
-            switch (k) {
-              case 'employees': navigate('/hr/employees'); break;
-              case 'attendance': navigate('/hr/attendance'); break;
-              case 'movements': navigate('/hr/movements'); break;
-              case 'commissions': navigate('/hr/commissions'); break;
-              case 'punctuality': navigate('/hr/punctuality'); break;
-              case 'approvals': navigate('/hr/approvals'); break;
-              case 'payments': navigate('/hr/payments'); break;
-              default: navigate('/hr');
-            }
-          }}
-          className="mb-3"
-        >
-          <Tab eventKey="dashboard" title="Dashboard" />
-          <Tab eventKey="employees" title="Employees" />
-          <Tab eventKey="attendance" title="Attendance" />
-          <Tab eventKey="movements" title="Movements" />
-          <Tab eventKey="commissions" title="Commissions" />
-          <Tab eventKey="approvals" title="Approvals" />
-          <Tab eventKey="payments" title="Payments" />
-          <Tab eventKey="punctuality" title="Punctuality" />
-        </Tabs>
-        {content}
+        <Container fluid className="py-4 px-4">
+          <HRTabs activeName="Punctuality" />
+          {content}
+        </Container>
       </div>
     </div>
   );

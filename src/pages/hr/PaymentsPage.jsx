@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Button, Tabs, Tab, Table, Form, InputGroup, Badge, Modal, Alert } from 'react-bootstrap';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
+import HRTabs from '../../components/HRTabs';
 import api from './api';
 import { ToastProvider, useToast } from './components/ToastProvider';
 import './styles/hr.css';
@@ -21,6 +22,7 @@ const InnerPaymentsPage = ({ embedded = false }) => {
   const [salaryEmployeeFilter, setSalaryEmployeeFilter] = useState('');
   const [salaryStatusFilter, setSalaryStatusFilter] = useState('');
   const [salaryMonthFilter, setSalaryMonthFilter] = useState('');
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   
   const [commEmployeeFilter, setCommEmployeeFilter] = useState('');
   const [commStatusFilter, setCommStatusFilter] = useState('');
@@ -44,7 +46,6 @@ const InnerPaymentsPage = ({ embedded = false }) => {
     if (pathname.startsWith('/hr/commissions')) return 'commissions';
     if (pathname.startsWith('/hr/punctuality')) return 'punctuality';
     if (pathname.startsWith('/hr/approvals')) return 'approvals';
-    if (pathname.startsWith('/hr/payments')) return 'payments';
     return 'dashboard';
   };
   const [localKey, setLocalKey] = React.useState(routeToKey(location.pathname));
@@ -131,13 +132,25 @@ const InnerPaymentsPage = ({ embedded = false }) => {
   };
 
   const filteredSalaryPayments = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     return salaryPayments.filter(sp => {
       if (salaryEmployeeFilter && sp.employee !== Number(salaryEmployeeFilter)) return false;
       if (salaryStatusFilter && sp.status !== salaryStatusFilter) return false;
       if (salaryMonthFilter && sp.month !== Number(salaryMonthFilter)) return false;
+      
+      // Overdue filter
+      if (showOverdueOnly) {
+        if (sp.status !== 'pending' || !sp.expected_payment_date) return false;
+        const expected = new Date(sp.expected_payment_date);
+        expected.setHours(0, 0, 0, 0);
+        if (today <= expected) return false;
+      }
+      
       return true;
     });
-  }, [salaryPayments, salaryEmployeeFilter, salaryStatusFilter, salaryMonthFilter]);
+  }, [salaryPayments, salaryEmployeeFilter, salaryStatusFilter, salaryMonthFilter, showOverdueOnly]);
 
   const filteredCommissions = React.useMemo(() => {
     return commissions.filter(c => {
@@ -216,6 +229,7 @@ const InnerPaymentsPage = ({ embedded = false }) => {
     setSalaryEmployeeFilter('');
     setSalaryStatusFilter('');
     setSalaryMonthFilter('');
+    setShowOverdueOnly(false);
   };
 
   const resetCommFilters = () => {
@@ -230,15 +244,6 @@ const InnerPaymentsPage = ({ embedded = false }) => {
           <div className="title">Payments</div>
           <div className="subtitle">Manage salary payments and commission tracking</div>
         </div>
-        {/* <div>
-          <Button 
-            variant="success" 
-            onClick={() => setShowGenerateModal(true)}
-            className="d-flex align-items-center gap-2"
-          >
-            <span>➕</span> Generate Monthly Salaries
-          </Button>
-        </div> */}
       </div>
 
       <Tabs defaultActiveKey="salaries" className="mb-3">
@@ -298,6 +303,15 @@ const InnerPaymentsPage = ({ embedded = false }) => {
                   <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
                 ))}
               </Form.Select>
+
+              <Form.Check
+                type="checkbox"
+                label="Overdue Only"
+                checked={showOverdueOnly}
+                onChange={e => setShowOverdueOnly(e.target.checked)}
+                className="d-flex align-items-center"
+                style={{ minWidth: 120 }}
+              />
 
               <Button variant="outline-secondary" onClick={resetSalaryFilters}>Reset</Button>
             </div>
@@ -763,33 +777,10 @@ const InnerPaymentsPage = ({ embedded = false }) => {
       <Sidebar />
       <div className="flex-grow-1">
         <Header />
-        <Tabs
-          activeKey={localKey}
-          onSelect={(k) => {
-            setLocalKey(k);
-            switch (k) {
-              case 'employees': navigate('/hr/employees'); break;
-              case 'attendance': navigate('/hr/attendance'); break;
-              case 'movements': navigate('/hr/movements'); break;
-              case 'commissions': navigate('/hr/commissions'); break;
-              case 'punctuality': navigate('/hr/punctuality'); break;
-              case 'approvals': navigate('/hr/approvals'); break;
-              case 'payments': navigate('/hr/payments'); break;
-              default: navigate('/hr');
-            }
-          }}
-          className="mb-3"
-        >
-          <Tab eventKey="dashboard" title="Dashboard" />
-          <Tab eventKey="employees" title="Employees" />
-          <Tab eventKey="attendance" title="Attendance" />
-          <Tab eventKey="movements" title="Movements" />
-          <Tab eventKey="commissions" title="Commissions" />
-          <Tab eventKey="approvals" title="Approvals" />
-          <Tab eventKey="payments" title="Payments" />
-          <Tab eventKey="punctuality" title="Punctuality" />
-        </Tabs>
-        {content}
+        <Container fluid className="py-4">
+          <HRTabs activeName="Payments" />
+          {content}
+        </Container>
       </div>
     </div>
   );

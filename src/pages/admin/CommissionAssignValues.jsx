@@ -108,16 +108,16 @@ const CommissionAssignValues = () => {
           data.hotel_night_commission && data.hotel_night_commission.length > 0
             ? data.hotel_night_commission
             : [
-                {
-                  quint_per_night_commission: '',
-                  quad_per_night_commission: '',
-                  triple_per_night_commission: '',
-                  double_per_night_commission: '',
-                  sharing_per_night_commission: '',
-                  other_per_night_commission: '',
-                  commission_hotels: [],
-                },
-              ],
+              {
+                quint_per_night_commission: '',
+                quad_per_night_commission: '',
+                triple_per_night_commission: '',
+                double_per_night_commission: '',
+                sharing_per_night_commission: '',
+                other_per_night_commission: '',
+                commission_hotels: [],
+              },
+            ],
       });
     } catch (e) {
       console.error('Failed to load group details', e);
@@ -194,7 +194,6 @@ const CommissionAssignValues = () => {
               <PartnersTabs activeName="Commission Rules" />
             </Col>
           </Row>
-
           <Row className="mb-4">
             <Col>
               <div className="d-flex justify-content-between align-items-center">
@@ -202,7 +201,7 @@ const CommissionAssignValues = () => {
                   <h2 className="mb-1">Assign Commission Values</h2>
                   <p className="text-muted mb-0">Set commission amounts for groups and hotels</p>
                 </div>
-                <Button variant="outline-secondary" size="sm" onClick={() => navigate('/partners/commission-rules')}>
+                <Button variant="outline-secondary" size="sm" onClick={() => navigate('/commission-management')}>
                   <ArrowLeft size={16} className="me-1" /> Back to Groups
                 </Button>
               </div>
@@ -275,9 +274,9 @@ const CommissionAssignValues = () => {
               <Card className="shadow-sm mb-4">
                 <Card.Header className="bg-light d-flex justify-content-between align-items-center">
                   <h5 className="mb-0">Hotel Night Commission</h5>
-                  {/* <Button variant="primary" size="sm" onClick={addHotelNightCommission}>
+                  <Button variant="primary" size="sm" onClick={addHotelNightCommission}>
                     <Plus size={16} className="me-1" /> Add Hotel Group
-                  </Button> */}
+                  </Button>
                 </Card.Header>
                 <Card.Body>
                   {formData.hotel_night_commission.map((hnc, index) => (

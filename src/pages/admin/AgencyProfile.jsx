@@ -104,10 +104,14 @@ const AgencyProfile = () => {
     branch: "", // branch will be taken from logged-in user if available
     agreement_status: true,
     logo: null,
-    agency_type: "Area Agency"
+    agency_type: "Area Agency",
+    commission_group: "",
+    discount_group: ""
   });
 
-
+  const [agencyTypeFilter, setAgencyTypeFilter] = useState("");
+  const [commissionGroups, setCommissionGroups] = useState([]);
+  const [discountGroups, setDiscountGroups] = useState([]);
 
   const [branches, setBranches] = useState([]);
 
@@ -135,18 +139,141 @@ const AgencyProfile = () => {
       setLoading(true);
       setError(null);
       try {
+        // Get logged-in user's branch IDs from user API
+        let userBranchIds = [];
+        let userOrgId = null;
+        
+        try {
+          // First try to get user ID from token or localStorage
+          const token = localStorage.getItem('accessToken');
+          const decoded = decodeJwt(token || "");
+          const userId = decoded?.user_id || decoded?.id;
+          
+          if (userId) {
+            // Fetch user details from API to get branch_details
+            const userResp = await api.get(`/users/${userId}/`);
+            const userData = userResp.data;
+            
+            console.log('User API response:', userData);
+            
+            // Extract branch IDs from branch_details array
+            if (userData.branch_details && Array.isArray(userData.branch_details)) {
+              userBranchIds = userData.branch_details.map(b => b.id);
+              console.log('User branch IDs from API:', userBranchIds);
+            }
+            
+            // Extract organization IDs from organization_details array
+            if (userData.organization_details && Array.isArray(userData.organization_details)) {
+              // For now, we'll use the first organization
+              userOrgId = userData.organization_details[0]?.id || null;
+              console.log('User organization ID from API:', userOrgId);
+            }
+          }
+          
+          // Fallback to localStorage if API call failed
+          if (userBranchIds.length === 0) {
+            const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null');
+            const branchId = so?.branch_id || so?.branch || null;
+            if (branchId) {
+              userBranchIds = [branchId];
+            }
+            userOrgId = so?.id || so?.organization_id || so?.org || null;
+          }
+        } catch (e) {
+          console.warn('Could not determine user branch/organization from API, trying fallback', e);
+          // Fallback to localStorage and token
+          try {
+            const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null');
+            const branchId = so?.branch_id || so?.branch || null;
+            if (branchId) {
+              userBranchIds = [branchId];
+            }
+            userOrgId = so?.id || so?.organization_id || so?.org || null;
+          } catch (e2) {
+            console.warn('Fallback also failed', e2);
+          }
+        }
+
         // Fetch agencies
         const agencyData = await getAgencies();
         if (!mounted) return;
         // Debug: log the raw agencies payload so we can inspect shape during development
         // eslint-disable-next-line no-console
         console.debug("getAgencies response:", agencyData);
-        setAgencies(Array.isArray(agencyData) ? agencyData : agencyData.results || []);
+        let agenciesList = Array.isArray(agencyData) ? agencyData : agencyData.results || [];
+        
+        console.log('Before filtering - Total agencies:', agenciesList.length);
+        console.log('User organization ID:', userOrgId);
+        console.log('User branch IDs:', userBranchIds);
+        
+        // Filter agencies by logged-in user's branch(es) only
+        if (userBranchIds.length > 0) {
+          agenciesList = agenciesList.filter(agency => {
+            const agencyBranchId = agency.branch || agency.branch_id;
+            const matches = userBranchIds.some(branchId => String(agencyBranchId) === String(branchId));
+            
+            if (!matches) {
+              console.log('Agency filtered out (branch mismatch):', {
+                agencyId: agency.id,
+                agencyName: agency.name,
+                agencyBranchId,
+                userBranchIds
+              });
+            }
+            
+            return matches;
+          });
+          
+          console.log('After branch filter - Remaining agencies:', agenciesList.length);
+        } else {
+          console.warn('No branch IDs found for user - showing all agencies');
+        }
+        
+        console.log('Final filtered agencies:', agenciesList.length);
+        setAgencies(agenciesList);
         
         // Fetch branches for dropdown
         const branchesData = await api.get("/branches/").then(r => r.data);
         if (!mounted) return;
         setBranches(Array.isArray(branchesData) ? branchesData : branchesData.results || []);
+        
+        // Fetch commission groups and filter by organization
+        try {
+          const commResp = await api.get("/commissions/rules");
+          let commData = Array.isArray(commResp.data) ? commResp.data : commResp.data.results || [];
+          
+          // Filter by organization if available
+          if (userOrgId) {
+            commData = commData.filter(group => {
+              const groupOrgId = group.organization || group.organization_id || group.org;
+              return String(groupOrgId) === String(userOrgId);
+            });
+          }
+          
+          setCommissionGroups(commData);
+        } catch (err) {
+          console.warn('Failed to load commission groups', err);
+          setCommissionGroups([]);
+        }
+        
+        // Fetch discount groups and filter by organization
+        try {
+          const discResp = await api.get("/discount-groups/");
+          let discData = Array.isArray(discResp.data) ? discResp.data : discResp.data.results || [];
+          
+          // Filter by organization if available
+          if (userOrgId) {
+            discData = discData.filter(group => {
+              const groupOrgId = group.organization || group.organization_id || group.org;
+              return String(groupOrgId) === String(userOrgId);
+            });
+          }
+          
+          setDiscountGroups(discData);
+        } catch (err) {
+          console.warn('Failed to load discount groups', err);
+          setDiscountGroups([]);
+        }
       } catch (err) {
         if (!mounted) return;
         console.error("Failed to load data:", err);
@@ -709,6 +836,14 @@ const AgencyProfile = () => {
         formData.append("agency_type", newAgencyForm.agency_type);
       }
       
+      // commission_group for Area Agency or discount_group for Full Agency
+      if (newAgencyForm.agency_type === "Area Agency" && newAgencyForm.commission_group) {
+        formData.append("commission_group", newAgencyForm.commission_group);
+      }
+      if (newAgencyForm.agency_type === "Full Agency" && newAgencyForm.discount_group) {
+        formData.append("discount_group", newAgencyForm.discount_group);
+      }
+      
       // File upload - append logo if selected
       if (newAgencyForm.logo) {
         formData.append("logo", newAgencyForm.logo);
@@ -741,7 +876,9 @@ const AgencyProfile = () => {
         branch: "",
         agreement_status: true,
         logo: null,
-        agency_type: "Area Agency"
+        agency_type: "Area Agency",
+        commission_group: "",
+        discount_group: ""
       });
       setShowAddModal(false);
     } catch (error) {
@@ -892,12 +1029,17 @@ const AgencyProfile = () => {
 
   const filteredAgencies = agencies.filter(agency => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       (agency.ageny_name && agency.ageny_name.toLowerCase().includes(searchLower)) ||
       (agency.name && agency.name.toLowerCase().includes(searchLower)) ||
       (agency.email && agency.email.toLowerCase().includes(searchLower)) ||
       (agency.phone_number && agency.phone_number.toLowerCase().includes(searchLower))
     );
+    
+    // Filter by agency type if filter is set
+    const matchesType = !agencyTypeFilter || agency.agency_type === agencyTypeFilter;
+    
+    return matchesSearch && matchesType;
   });
 
   return (
@@ -956,6 +1098,17 @@ const AgencyProfile = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{ borderRadius: "8px" }}
                       />
+                      <Form.Select
+                        size="sm"
+                        value={agencyTypeFilter}
+                        onChange={(e) => setAgencyTypeFilter(e.target.value)}
+                        className="mt-2"
+                        style={{ borderRadius: "8px" }}
+                      >
+                        <option value="">All Agency Types</option>
+                        <option value="Full Agency">Full Agency</option>
+                        <option value="Area Agency">Area Agency</option>
+                      </Form.Select>
                     </div>
 
                     <div style={{ overflowY: "auto", height: "calc(100% - 140px)" }}>
@@ -1679,6 +1832,48 @@ const AgencyProfile = () => {
                 </Form.Group>
               </Col>
             </Row>
+
+            {/* Conditional Commission Group selector for Area Agency */}
+            {newAgencyForm.agency_type === "Area Agency" && (
+              <Row>
+                <Col md={12}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Commission Group</Form.Label>
+                    <Form.Select
+                      value={newAgencyForm.commission_group}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, commission_group: e.target.value })}
+                    >
+                      <option value="">Select Commission Group</option>
+                      {commissionGroups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
+                      ))}
+                    </Form.Select>
+                    <Form.Text className="text-muted">Select a commission group for this Area Agency</Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
+            )}
+
+            {/* Conditional Discount Group selector for Full Agency */}
+            {newAgencyForm.agency_type === "Full Agency" && (
+              <Row>
+                <Col md={12}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Discount Group</Form.Label>
+                    <Form.Select
+                      value={newAgencyForm.discount_group}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, discount_group: e.target.value })}
+                    >
+                      <option value="">Select Discount Group</option>
+                      {discountGroups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
+                      ))}
+                    </Form.Select>
+                    <Form.Text className="text-muted">Select a discount group for this Full Agency</Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
+            )}
 
             <Form.Group className="mb-3">
               <Form.Label>Logo</Form.Label>
