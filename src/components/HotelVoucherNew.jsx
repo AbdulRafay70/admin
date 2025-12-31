@@ -57,28 +57,70 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                 const organizationId = orgData?.id;
                 const token = localStorage.getItem("accessToken");
 
-                // Fetch booking data
-                const bookingResponse = await axios.get(
-                    `http://127.0.0.1:8000/api/bookings/`,
-                    {
-                        params: {
-                            booking_number: orderNo,
-                            organization: organizationId,
-                        },
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                            "Content-Type": "application/json",
-                        },
-                    }
-                );
+                let booking = null;
 
-                let booking;
-                if (Array.isArray(bookingResponse.data)) {
-                    booking = bookingResponse.data[0];
-                } else if (bookingResponse.data.results) {
-                    booking = bookingResponse.data.results[0];
-                } else {
-                    booking = bookingResponse.data;
+                // Try fetching from agent bookings API first
+                try {
+                    console.log('🔍 Hotel Voucher: Trying agent bookings API...');
+                    const bookingResponse = await axios.get(
+                        `http://127.0.0.1:8000/api/bookings/`,
+                        {
+                            params: {
+                                booking_number: orderNo,
+                                organization: organizationId,
+                            },
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                            },
+                        }
+                    );
+
+                    if (Array.isArray(bookingResponse.data)) {
+                        booking = bookingResponse.data[0];
+                    } else if (bookingResponse.data.results) {
+                        booking = bookingResponse.data.results[0];
+                    } else {
+                        booking = bookingResponse.data;
+                    }
+
+                    if (booking) {
+                        console.log('✅ Hotel Voucher: Found in agent bookings!');
+                    }
+                } catch (err) {
+                    console.log('❌ Hotel Voucher: Not found in agent bookings, trying public bookings...');
+                }
+
+                // If not found in agent bookings, try public bookings API
+                if (!booking) {
+                    try {
+                        console.log('🔍 Hotel Voucher: Trying public bookings API...');
+                        const publicResponse = await axios.get(
+                            `http://127.0.0.1:8000/api/admin/public-bookings/`,
+                            {
+                                params: {
+                                    booking_number: orderNo,
+                                    organization: organizationId,
+                                },
+                                headers: {
+                                    Authorization: `Bearer ${token}`,
+                                    "Content-Type": "application/json",
+                                },
+                            }
+                        );
+
+                        const publicData = Array.isArray(publicResponse.data)
+                            ? publicResponse.data
+                            : (publicResponse.data?.results || []);
+
+                        booking = publicData[0];
+
+                        if (booking) {
+                            console.log('✅ Hotel Voucher: Found in public bookings!');
+                        }
+                    } catch (err) {
+                        console.log('❌ Hotel Voucher: Not found in public bookings either');
+                    }
                 }
 
                 if (!booking) {
@@ -101,16 +143,16 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                     hotels: booking.hotel_details || [],
                     flights: {
                         departure: {
-                            airline: firstTicket.airline || "",
-                            flight_number: firstTicket.flight_number || "",
+                            airline: departureTrip.airline || "",
+                            flight_number: departureTrip.flight_number || "",
                             from_sector: departureTrip.departure_city_name || "",
                             to_sector: departureTrip.arrival_city_name || "",
                             travel_date: departureTrip.departure_date_time || "",
                             return_date: departureTrip.arrival_date_time || ""
                         },
                         return: {
-                            airline: firstTicket.airline || "",
-                            flight_number: firstTicket.flight_number || "",
+                            airline: returnTrip.airline || "",
+                            flight_number: returnTrip.flight_number || "",
                             from_sector: returnTrip.departure_city_name || "",
                             to_sector: returnTrip.arrival_city_name || "",
                             travel_date: returnTrip.departure_date_time || "",
@@ -943,8 +985,8 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                                                     </thead>
                                                     <tbody>
                                                         <tr style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                            <td>{firstTicket.airline || editableData.flights.departure?.airline || "N/A"}</td>
-                                                            <td>{firstTicket.flight_number || editableData.flights.departure?.flight_number || "N/A"}</td>
+                                                            <td>{departureTrip.airline || editableData.flights.departure?.airline || "N/A"}</td>
+                                                            <td>{departureTrip.flight_number || editableData.flights.departure?.flight_number || "N/A"}</td>
                                                             <td>{departureTrip.departure_city_name || editableData.flights.departure?.from_sector || "N/A"}</td>
                                                             <td>{departureTrip.arrival_city_name || editableData.flights.departure?.to_sector || "N/A"}</td>
                                                             <td>{departureTrip.departure_date_time ? new Date(departureTrip.departure_date_time).toLocaleString() : editableData.flights.departure?.travel_date || "N/A"}</td>
@@ -970,8 +1012,8 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                                                     </thead>
                                                     <tbody>
                                                         <tr style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                            <td>{firstTicket.airline || editableData.flights.return?.airline || "N/A"}</td>
-                                                            <td>{firstTicket.flight_number || editableData.flights.return?.flight_number || "N/A"}</td>
+                                                            <td>{returnTrip.airline || editableData.flights.return?.airline || "N/A"}</td>
+                                                            <td>{returnTrip.flight_number || editableData.flights.return?.flight_number || "N/A"}</td>
                                                             <td>{returnTrip.departure_city_name || editableData.flights.return?.from_sector || "N/A"}</td>
                                                             <td>{returnTrip.arrival_city_name || editableData.flights.return?.to_sector || "N/A"}</td>
                                                             <td>{returnTrip.departure_date_time ? new Date(returnTrip.departure_date_time).toLocaleString() : editableData.flights.return?.travel_date || "N/A"}</td>

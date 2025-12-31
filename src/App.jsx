@@ -46,6 +46,8 @@ import MarkupManagement from "./pages/admin/MarkupManagement";
 import MarkupAssignValues from "./pages/admin/MarkupAssignValues";
 import HotelOutsourcing from "./pages/admin/HotelOutsourcing";
 import BlogManagement from "./pages/admin/BlogManagement";
+import BlogBuilder from "./pages/admin/BlogBuilder";
+import BlogView from "./pages/admin/BlogView";
 import CustomerLead from "./pages/admin/CustomerLead";
 import LeadManagement from "./pages/admin/LeadManagement";
 import PassportLeads from "./pages/admin/PassportLeads";
@@ -68,13 +70,19 @@ import UnifiedSystemManagement from "./pages/admin/UnifiedSystemManagement";
 import UnifiedUserManagement from "./pages/admin/UnifiedUserManagement";
 import UniversalList from "./pages/admin/UniversalList";
 import HotelAvailabilityManager from "./pages/admin/HotelAvailabilityManager";
+import HotelAvailability from "./pages/admin/HotelAvailability";
+import AddHotelPage from "./pages/admin/AddHotelPage";
 import AgencyProfile from "./pages/admin/AgencyProfile";
+import HotelFloorManagement from "./pages/admin/HotelFloorManagement";
+import AssignRoom from "./pages/admin/AssignRoom";
 
 import PrivateRoute from "./components/PrivateRoute";
 
 import EditHotelDetail from "./pages/admin/EditHotelDetail";
 import EditHotelPrice from "./pages/admin/EditHotelPrice";
 import EditHotelAv from "./pages/admin/EditHotelAv";
+import EditHotelDetails from "./pages/admin/EditHotelDetails";
+import EditHotelPricing from "./pages/admin/EditHotelPricing";
 // Agencies page removed from global partners tabs
 
 import AgentProtectedRoute from "./components/AgentProtectedRoute";
@@ -178,10 +186,26 @@ function App() {
             }
           />
           <Route
+            path="/hotels/edit-details/:id"
+            element={
+              <PrivateRoute>
+                <EditHotelDetails />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/hotels/EditPrices/:id"
             element={
               <PrivateRoute>
                 <EditHotelPrice />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hotels/edit-pricing/:id"
+            element={
+              <PrivateRoute>
+                <EditHotelPricing />
               </PrivateRoute>
             }
           />
@@ -198,6 +222,22 @@ function App() {
             element={
               <PrivateRoute>
                 <AddHotels />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/hotel-floor-management"
+            element={
+              <PrivateRoute>
+                <HotelFloorManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/assign-room"
+            element={
+              <PrivateRoute>
+                <AssignRoom />
               </PrivateRoute>
             }
           />
@@ -616,14 +656,6 @@ function App() {
             }
           />
           <Route
-            path="/order-delivery"
-            element={
-              <PrivateRoute>
-                <OrderDeliverySystem />
-              </PrivateRoute>
-            }
-          />
-          <Route
             path="/order-delivery/*"
             element={
               <PrivateRoute>
@@ -640,7 +672,7 @@ function App() {
             }
           /> */}
           <Route
-            path="/order-delivery/ticketing/*"
+            path="/order-delivery/ticketing/:orderNo"
             element={
               <PrivateRoute>
                 <TicketOrderList />
@@ -676,14 +708,6 @@ function App() {
           <Route
             path="/commission-management"
             element={<Navigate to="/partners/commission-rules" replace />}
-          />
-          <Route
-            path="/commission-management/assign-values"
-            element={
-              <PrivateRoute>
-                <CommissionAssignValues />
-              </PrivateRoute>
-            }
           />
 
           {/* Hotel Outsourcing Routes */}
@@ -907,6 +931,22 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/hotel-availability"
+            element={
+              <PrivateRoute>
+                <HotelAvailability />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/add-hotel"
+            element={
+              <PrivateRoute>
+                <AddHotelPage />
+              </PrivateRoute>
+            }
+          />
 
           {/* Agency Profile Routes */}
           <Route
@@ -925,6 +965,48 @@ function App() {
               </PrivateRoute>
             }
           />
+          {/* Blog System Routes */}
+          <Route
+            path="/blogs"
+            element={
+              <PrivateRoute>
+                <BlogManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/blogs/builder/:id"
+            element={
+              <PrivateRoute>
+                <BlogBuilder />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/blog-builder/:id"
+            element={
+              <PrivateRoute>
+                <BlogBuilder />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/blogs/view/:slug"
+            element={
+              <PrivateRoute>
+                <BlogView />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/blog-view/:slug"
+            element={
+              <PrivateRoute>
+                <BlogView />
+              </PrivateRoute>
+            }
+          />
+
         </Routes>
       </Container>
     </div>

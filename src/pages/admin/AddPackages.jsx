@@ -233,13 +233,13 @@ const AddPackages = ({ mode = "add" }) => {
   useEffect(() => {
     try {
       console.debug("foodOptions count:", Array.isArray(foodOptions) ? foodOptions.length : 0, "sample:", foodOptions[0]);
-    } catch (e) {}
+    } catch (e) { }
   }, [foodOptions]);
 
   useEffect(() => {
     try {
       console.debug("ziaratOptions count:", Array.isArray(ziaratOptions) ? ziaratOptions.length : 0, "sample:", ziaratOptions[0]);
-    } catch (e) {}
+    } catch (e) { }
   }, [ziaratOptions]);
   const [selectedFoodId, setSelectedFoodId] = useState("");
   const [selectedMeccaZiyaratId, setSelectedMeccaZiyaratId] = useState("");
@@ -287,7 +287,7 @@ const AddPackages = ({ mode = "add" }) => {
       try {
         localStorage.setItem("selectedOrganization", JSON.stringify({ id: 11, name: "Org 11" }));
         setSelectedOrganization({ id: 11, name: "Org 11" });
-      } catch (e) {}
+      } catch (e) { }
 
       const baseUrl = "http://127.0.0.1:8000/api/umrah-packages/";
       const requestUrl = `${baseUrl}?organization=11`;
@@ -501,7 +501,7 @@ const AddPackages = ({ mode = "add" }) => {
           );
           try {
             console.debug("fetchPackageData: transport_details from server:", response.data.transport_details);
-          } catch (e) {}
+          } catch (e) { }
           setOriginalPackageData(response.data);
           populateFormData(response.data);
           setIsLoading(false);
@@ -534,93 +534,157 @@ const AddPackages = ({ mode = "add" }) => {
     setPackageTitle(pkgData.title);
     setRules(pkgData.rules);
     setTotalSeats(pkgData.total_seats);
-  // Visa prices: prefer explicit selling/purchase fields if present
-  setAdultVisaSellingPrice(pkgData.adault_visa_selling_price ?? pkgData.adault_visa_price ?? 0);
-  setAdultVisaPurchasePrice(pkgData.adault_visa_purchase_price ?? 0);
-  setChildVisaSellingPrice(pkgData.child_visa_selling_price ?? pkgData.child_visa_price ?? 0);
-  setChildVisaPurchasePrice(pkgData.child_visa_purchase_price ?? 0);
-  setInfantVisaSellingPrice(pkgData.infant_visa_selling_price ?? pkgData.infant_visa_price ?? 0);
-  setInfantVisaPurchasePrice(pkgData.infant_visa_purchase_price ?? 0);
+    // Visa prices: prefer explicit selling/purchase fields if present
+    setAdultVisaSellingPrice(pkgData.adault_visa_selling_price ?? pkgData.adault_visa_price ?? 0);
+    setAdultVisaPurchasePrice(pkgData.adault_visa_purchase_price ?? 0);
+    setChildVisaSellingPrice(pkgData.child_visa_selling_price ?? pkgData.child_visa_price ?? 0);
+    setChildVisaPurchasePrice(pkgData.child_visa_purchase_price ?? 0);
+    setInfantVisaSellingPrice(pkgData.infant_visa_selling_price ?? pkgData.infant_visa_price ?? 0);
+    setInfantVisaPurchasePrice(pkgData.infant_visa_purchase_price ?? 0);
 
-  // Extras (food, ziyaarat, transport)
-  setFoodSellingPrice(pkgData.food_selling_price ?? pkgData.food_price ?? 0);
-  setFoodPurchasePrice(pkgData.food_purchase_price ?? 0);
-  // Selected option ids (if backend provides them)
-  setSelectedFoodId(pkgData.food_price_id ?? "");
-  setMeccaZiyaaratSellingPrice(pkgData.makkah_ziyarat_selling_price ?? pkgData.makkah_ziyarat_price ?? 0);
-  setMeccaZiyaaratPurchasePrice(pkgData.makkah_ziyarat_purchase_price ?? 0);
-  setSelectedMeccaZiyaratId(pkgData.makkah_ziyarat_id ?? "");
-  setMadinaZiyaaratSellingPrice(pkgData.madinah_ziyarat_selling_price ?? pkgData.madinah_ziyarat_price ?? 0);
-  setMadinaZiyaaratPurchasePrice(pkgData.madinah_ziyarat_purchase_price ?? 0);
-  setSelectedMadinaZiyaratId(pkgData.madinah_ziyarat_id ?? "");
-  setTransportSellingPrice(pkgData.transport_selling_price ?? pkgData.transport_price ?? 0);
-  setTransportPurchasePrice(pkgData.transport_purchase_price ?? 0);
-  // Tax rate field removed from form - backend will use default or existing value
+    // Extras (food, ziyaarat, transport)
+    setFoodSellingPrice(pkgData.food_selling_price ?? pkgData.food_price ?? 0);
+    setFoodPurchasePrice(pkgData.food_purchase_price ?? 0);
+    // Selected option ids (if backend provides them)
+    setSelectedFoodId(pkgData.food_price_id ?? "");
+    setMeccaZiyaaratSellingPrice(pkgData.makkah_ziyarat_selling_price ?? pkgData.makkah_ziyarat_price ?? 0);
+    setMeccaZiyaaratPurchasePrice(pkgData.makkah_ziyarat_purchase_price ?? 0);
+    setSelectedMeccaZiyaratId(pkgData.makkah_ziyarat_id ?? "");
+    setMadinaZiyaaratSellingPrice(pkgData.madinah_ziyarat_selling_price ?? pkgData.madinah_ziyarat_price ?? 0);
+    setMadinaZiyaaratPurchasePrice(pkgData.madinah_ziyarat_purchase_price ?? 0);
+    setSelectedMadinaZiyaratId(pkgData.madinah_ziyarat_id ?? "");
+    setTransportSellingPrice(pkgData.transport_selling_price ?? pkgData.transport_price ?? 0);
+    setTransportPurchasePrice(pkgData.transport_purchase_price ?? 0);
+    // Tax rate field removed from form - backend will use default or existing value
 
     // Populate hotel details
-    const hotelDetails = pkgData.hotel_details.map((hotel) => ({
-      hotelName: hotel.hotel_info?.name || "",
-      hotelId: hotel.hotel,
-      checkIn: (() => {
-        const d = hotel.check_in_date ?? hotel.check_in_time ?? hotel.check_in ?? hotel.checkIn ?? null;
-        return d ? formatDateForInput(new Date(d)) : "";
-      })(),
-      nights: (() => {
-        const n = hotel.number_of_nights ?? hotel.number_of_nights_count ?? hotel.nights ?? hotel.numberOfNights ?? "";
-        return n !== null && n !== undefined ? (String(n) === "" ? "" : Number(n)) : "";
-      })(),
-      checkOut: (() => {
-        const d = hotel.check_out_date ?? hotel.check_out_time ?? hotel.check_out ?? hotel.checkOut ?? null;
-        return d ? formatDateForInput(new Date(d)) : "";
-      })(),
-      // try to populate new selling/purchase fields if backend provides them,
-      // fall back to existing single price fields for compatibility
-      // Treat a selling price of 0 as "not provided" and fall back to legacy price
-      sharingSellingPrice:
-        (hotel.sharing_bed_selling_price && Number(hotel.sharing_bed_selling_price) > 0)
-          ? hotel.sharing_bed_selling_price
-          : hotel.sharing_bed_price || "",
-      sharingPurchasePrice:
-        (hotel.sharing_bed_purchase_price && Number(hotel.sharing_bed_purchase_price) > 0)
-          ? hotel.sharing_bed_purchase_price
-          : "",
-      quintSellingPrice:
-        (hotel.quaint_bed_selling_price && Number(hotel.quaint_bed_selling_price) > 0)
-          ? hotel.quaint_bed_selling_price
-          : hotel.quaint_bed_price || "",
-      quintPurchasePrice:
-        (hotel.quaint_bed_purchase_price && Number(hotel.quaint_bed_purchase_price) > 0)
-          ? hotel.quaint_bed_purchase_price
-          : "",
-      quadSellingPrice:
-        (hotel.quad_bed_selling_price && Number(hotel.quad_bed_selling_price) > 0)
-          ? hotel.quad_bed_selling_price
-          : hotel.quad_bed_price || "",
-      quadPurchasePrice:
-        (hotel.quad_bed_purchase_price && Number(hotel.quad_bed_purchase_price) > 0)
-          ? hotel.quad_bed_purchase_price
-          : "",
-      tripleSellingPrice:
-        (hotel.triple_bed_selling_price && Number(hotel.triple_bed_selling_price) > 0)
-          ? hotel.triple_bed_selling_price
-          : hotel.triple_bed_price || "",
-      triplePurchasePrice:
-        (hotel.triple_bed_purchase_price && Number(hotel.triple_bed_purchase_price) > 0)
-          ? hotel.triple_bed_purchase_price
-          : "",
-      doubleSellingPrice:
-        (hotel.double_bed_selling_price && Number(hotel.double_bed_selling_price) > 0)
-          ? hotel.double_bed_selling_price
-          : hotel.double_bed_price || "",
-      doublePurchasePrice:
-        (hotel.double_bed_purchase_price && Number(hotel.double_bed_purchase_price) > 0)
-          ? hotel.double_bed_purchase_price
-          : "",
-    }));
+    let hotelDetails = [];
+
+    // Check if hotel_details array exists and has data
+    if (pkgData.hotel_details && pkgData.hotel_details.length > 0) {
+      hotelDetails = pkgData.hotel_details.map((hotel) => ({
+        hotelName: hotel.hotel_info?.name || "",
+        hotelId: hotel.hotel,
+        checkIn: (() => {
+          const d = hotel.check_in_date ?? hotel.check_in_time ?? hotel.check_in ?? hotel.checkIn ?? null;
+          return d ? formatDateForInput(new Date(d)) : "";
+        })(),
+        nights: (() => {
+          const n = hotel.number_of_nights ?? hotel.number_of_nights_count ?? hotel.nights ?? hotel.numberOfNights ?? "";
+          return n !== null && n !== undefined ? (String(n) === "" ? "" : Number(n)) : "";
+        })(),
+        checkOut: (() => {
+          const d = hotel.check_out_date ?? hotel.check_out_time ?? hotel.check_out ?? hotel.checkOut ?? null;
+          return d ? formatDateForInput(new Date(d)) : "";
+        })(),
+        sharingSellingPrice:
+          (hotel.sharing_bed_selling_price && Number(hotel.sharing_bed_selling_price) > 0)
+            ? hotel.sharing_bed_selling_price
+            : hotel.sharing_bed_price || "",
+        sharingPurchasePrice:
+          (hotel.sharing_bed_purchase_price && Number(hotel.sharing_bed_purchase_price) > 0)
+            ? hotel.sharing_bed_purchase_price
+            : "",
+        quintSellingPrice:
+          (hotel.quaint_bed_selling_price && Number(hotel.quaint_bed_selling_price) > 0)
+            ? hotel.quaint_bed_selling_price
+            : hotel.quaint_bed_price || "",
+        quintPurchasePrice:
+          (hotel.quaint_bed_purchase_price && Number(hotel.quaint_bed_purchase_price) > 0)
+            ? hotel.quaint_bed_purchase_price
+            : "",
+        quadSellingPrice:
+          (hotel.quad_bed_selling_price && Number(hotel.quad_bed_selling_price) > 0)
+            ? hotel.quad_bed_selling_price
+            : hotel.quad_bed_price || "",
+        quadPurchasePrice:
+          (hotel.quad_bed_purchase_price && Number(hotel.quad_bed_purchase_price) > 0)
+            ? hotel.quad_bed_purchase_price
+            : "",
+        tripleSellingPrice:
+          (hotel.triple_bed_selling_price && Number(hotel.triple_bed_selling_price) > 0)
+            ? hotel.triple_bed_selling_price
+            : hotel.triple_bed_price || "",
+        triplePurchasePrice:
+          (hotel.triple_bed_purchase_price && Number(hotel.triple_bed_purchase_price) > 0)
+            ? hotel.triple_bed_purchase_price
+            : "",
+        doubleSellingPrice:
+          (hotel.double_bed_selling_price && Number(hotel.double_bed_selling_price) > 0)
+            ? hotel.double_bed_selling_price
+            : hotel.double_bed_price || "",
+        doublePurchasePrice:
+          (hotel.double_bed_purchase_price && Number(hotel.double_bed_purchase_price) > 0)
+            ? hotel.double_bed_purchase_price
+            : "",
+      }));
+    } else {
+      // If no hotel_details array, check for direct makkah_hotel and madina_hotel fields
+      const directHotels = [];
+
+      if (pkgData.makkah_hotel) {
+        directHotels.push({
+          hotelName: pkgData.makkah_hotel_info?.name || "Makkah Hotel",
+          hotelId: pkgData.makkah_hotel,
+          checkIn: "",
+          nights: pkgData.makkah_nights || "",
+          checkOut: "",
+          sharingSellingPrice: "",
+          sharingPurchasePrice: "",
+          quintSellingPrice: "",
+          quintPurchasePrice: "",
+          quadSellingPrice: "",
+          quadPurchasePrice: "",
+          tripleSellingPrice: "",
+          triplePurchasePrice: "",
+          doubleSellingPrice: "",
+          doublePurchasePrice: "",
+        });
+      }
+
+      if (pkgData.madina_hotel) {
+        directHotels.push({
+          hotelName: pkgData.madina_hotel_info?.name || "Madinah Hotel",
+          hotelId: pkgData.madina_hotel,
+          checkIn: "",
+          nights: pkgData.madina_nights || "",
+          checkOut: "",
+          sharingSellingPrice: "",
+          sharingPurchasePrice: "",
+          quintSellingPrice: "",
+          quintPurchasePrice: "",
+          quadSellingPrice: "",
+          quadPurchasePrice: "",
+          tripleSellingPrice: "",
+          triplePurchasePrice: "",
+          doubleSellingPrice: "",
+          doublePurchasePrice: "",
+        });
+      }
+
+      hotelDetails = directHotels.length > 0 ? directHotels : [{
+        hotelName: "",
+        hotelId: 0,
+        checkIn: "",
+        nights: "",
+        checkOut: "",
+        sharingSellingPrice: "",
+        sharingPurchasePrice: "",
+        quintSellingPrice: "",
+        quintPurchasePrice: "",
+        quadSellingPrice: "",
+        quadPurchasePrice: "",
+        tripleSellingPrice: "",
+        triplePurchasePrice: "",
+        doubleSellingPrice: "",
+        doublePurchasePrice: "",
+      }];
+    }
+
     setHotels(hotelDetails);
     try {
       console.debug("populateFormData set hotels:", hotelDetails);
-    } catch (e) {}
+    } catch (e) { }
 
     // Populate transport details (guard against undefined and log for debugging)
     const transportDetails = (pkgData.transport_details || []).map((transport) => ({
@@ -641,24 +705,26 @@ const AddPackages = ({ mode = "add" }) => {
     }));
     try {
       console.debug("populateFormData transport_details raw:", pkgData.transport_details, "computed:", transportDetails);
-    } catch (e) {}
+    } catch (e) { }
     // Ensure the transport UI still renders on edit even when there are no
     // transport_details returned by the server. We keep a single empty route
     // so the user can add transport info.
     const finalTransportDetails = transportDetails.length > 0
       ? transportDetails
       : [
-          {
-            transportType: "",
-            transportSector: "",
-            transportSellingPrice: "",
-            transportPurchasePrice: "",
-          },
-        ];
+        {
+          transportType: "",
+          transportSector: "",
+          transportSellingPrice: "",
+          transportPurchasePrice: "",
+        },
+      ];
     setRoutes(finalTransportDetails);
     setSelfTransport(transportDetails.length === 0);
 
     // Populate ticket details
+    let ticketLoaded = false;
+
     if (pkgData.ticket_details?.length > 0) {
       const ticket = pkgData.ticket_details[0].ticket_info;
       setSelectedFlight(ticket);
@@ -686,7 +752,44 @@ const AddPackages = ({ mode = "add" }) => {
             : ""
         );
       }
-    } else {
+      ticketLoaded = true;
+    } else if (pkgData.ticket) {
+      // Check for direct ticket field
+      const ticketId = pkgData.ticket;
+      const ticketInfo = pkgData.ticket_info;
+
+      if (ticketInfo) {
+        setSelectedFlight(ticketInfo);
+        setTicketId(ticketId);
+        setPnr(ticketInfo.pnr || ticketInfo.ticket_pnr || "");
+        setFlightOptions("select");
+
+        // Set flight details
+        const departureTrip = ticketInfo.trip_details?.find(
+          (t) => (t.trip_type || "").toLowerCase() === "departure"
+        ) || (ticketInfo.trip_details && ticketInfo.trip_details.length > 0 ? ticketInfo.trip_details[0] : null);
+
+        if (departureTrip) {
+          setAirlineName(airlinesMap[ticketInfo.airline]?.name || "");
+          setFlightNumber(departureTrip.flight_number || "");
+          setFromSector(citiesMap[departureTrip.departure_city]?.code || "");
+          setToSector(citiesMap[departureTrip.arrival_city]?.code || "");
+          setDepartureDate(
+            departureTrip.departure_date_time
+              ? formatDateTimeForInput(departureTrip.departure_date_time)
+              : ""
+          );
+          setReturnDate(
+            departureTrip.arrival_date_time
+              ? formatDateTimeForInput(departureTrip.arrival_date_time)
+              : ""
+          );
+        }
+        ticketLoaded = true;
+      }
+    }
+
+    if (!ticketLoaded) {
       setWithoutFlight(true);
       setFlightOptions("none");
     }
@@ -784,7 +887,7 @@ const AddPackages = ({ mode = "add" }) => {
       // Debug: show what organizationId we will send
       try {
         console.debug("fetchTickets: organizationId ->", organizationId);
-      } catch (e) {}
+      } catch (e) { }
 
       // Build URL explicitly including the organization query param to avoid
       // any serializer/interceptor removing params unexpectedly.
@@ -819,7 +922,7 @@ const AddPackages = ({ mode = "add" }) => {
         try {
           const raw = localStorage.getItem("selectedOrganization");
           console.debug("fetchTickets: selectedOrganization (raw):", raw);
-        } catch (e) {}
+        } catch (e) { }
         // Optionally clear token to force re-auth
         // localStorage.removeItem('accessToken');
       } else if (error?.code === "ECONNREFUSED" || error?.message?.includes("Network Error") || error?.message?.includes("ECONNRESET")) {
@@ -877,7 +980,7 @@ const AddPackages = ({ mode = "add" }) => {
         : response.data?.results ?? [];
       if (Array.isArray(data) && data.length > 0) {
         setFoodOptions(data);
-        try { console.debug("fetchFoodOptions: loaded from /api/food-prices/ count:", data.length); } catch(e){}
+        try { console.debug("fetchFoodOptions: loaded from /api/food-prices/ count:", data.length); } catch (e) { }
       } else {
         // Fallback: some deployments expose daily food endpoint with names at /api/daily/food/
         try {
@@ -912,7 +1015,7 @@ const AddPackages = ({ mode = "add" }) => {
             };
           });
           setFoodOptions(fbData);
-          try { console.debug("fetchFoodOptions: loaded from /api/daily/food/ count:", fbData.length); } catch(e){}
+          try { console.debug("fetchFoodOptions: loaded from /api/daily/food/ count:", fbData.length); } catch (e) { }
         } catch (fbErr) {
           console.error("fetchFoodOptions fallback error:", fbErr);
           setFoodOptions([]);
@@ -936,7 +1039,7 @@ const AddPackages = ({ mode = "add" }) => {
         ? response.data
         : response.data?.results ?? [];
       setZiyaratOptions(data);
-      try { console.debug("fetchZiaratOptions: loaded", Array.isArray(data) ? data.slice(0,3) : data); } catch(e) {}
+      try { console.debug("fetchZiaratOptions: loaded", Array.isArray(data) ? data.slice(0, 3) : data); } catch (e) { }
     } catch (error) {
       console.error("Error fetching ziarat options:", error);
     }
@@ -1298,20 +1401,20 @@ const AddPackages = ({ mode = "add" }) => {
     setPackageTitle("");
     setRules("");
     setTotalSeats(0);
-  setAdultVisaSellingPrice(0);
-  setAdultVisaPurchasePrice(0);
-  setChildVisaSellingPrice(0);
-  setChildVisaPurchasePrice(0);
-  setInfantVisaSellingPrice(0);
-  setInfantVisaPurchasePrice(0);
-  setFoodSellingPrice(0);
-  setFoodPurchasePrice(0);
-  setMeccaZiyaaratSellingPrice(0);
-  setMeccaZiyaaratPurchasePrice(0);
-  setMadinaZiyaaratSellingPrice(0);
-  setMadinaZiyaaratPurchasePrice(0);
-  setTransportSellingPrice(0);
-  setTransportPurchasePrice(0);
+    setAdultVisaSellingPrice(0);
+    setAdultVisaPurchasePrice(0);
+    setChildVisaSellingPrice(0);
+    setChildVisaPurchasePrice(0);
+    setInfantVisaSellingPrice(0);
+    setInfantVisaPurchasePrice(0);
+    setFoodSellingPrice(0);
+    setFoodPurchasePrice(0);
+    setMeccaZiyaaratSellingPrice(0);
+    setMeccaZiyaaratPurchasePrice(0);
+    setMadinaZiyaaratSellingPrice(0);
+    setMadinaZiyaaratPurchasePrice(0);
+    setTransportSellingPrice(0);
+    setTransportPurchasePrice(0);
 
     setHotels([
       {
@@ -1493,37 +1596,37 @@ const AddPackages = ({ mode = "add" }) => {
         total_seats: parseInt(totalSeats) || 0,
         booked_seats: 0,
         confirmed_seats: 0,
-  price_per_person: parseFloat(0) || 0,
+        price_per_person: parseFloat(0) || 0,
         rules: rules,
-  // Legacy single-value fields (for backward compatibility) set to selling prices
-  child_visa_price: parseFloat(childVisaSellingPrice) || 0,
-  infant_visa_price: parseFloat(infantVisaSellingPrice) || 0,
-  adault_visa_price: parseFloat(adultVisaSellingPrice) || 0,
-  food_price: parseFloat(foodSellingPrice) || 0,
-  makkah_ziyarat_price: parseFloat(meccaZiyaaratSellingPrice) || 0,
-  madinah_ziyarat_price: parseFloat(madinaZiyaaratSellingPrice) || 0,
-  transport_price: parseFloat(transportSellingPrice) || 0,
+        // Legacy single-value fields (for backward compatibility) set to selling prices
+        child_visa_price: parseFloat(childVisaSellingPrice) || 0,
+        infant_visa_price: parseFloat(infantVisaSellingPrice) || 0,
+        adault_visa_price: parseFloat(adultVisaSellingPrice) || 0,
+        food_price: parseFloat(foodSellingPrice) || 0,
+        makkah_ziyarat_price: parseFloat(meccaZiyaaratSellingPrice) || 0,
+        madinah_ziyarat_price: parseFloat(madinaZiyaaratSellingPrice) || 0,
+        transport_price: parseFloat(transportSellingPrice) || 0,
 
-  // Explicit selling / purchase fields
-  adault_visa_selling_price: parseFloat(adultVisaSellingPrice) || 0,
-  adault_visa_purchase_price: parseFloat(adultVisaPurchasePrice) || 0,
-  child_visa_selling_price: parseFloat(childVisaSellingPrice) || 0,
-  child_visa_purchase_price: parseFloat(childVisaPurchasePrice) || 0,
-  infant_visa_selling_price: parseFloat(infantVisaSellingPrice) || 0,
-  infant_visa_purchase_price: parseFloat(infantVisaPurchasePrice) || 0,
+        // Explicit selling / purchase fields
+        adault_visa_selling_price: parseFloat(adultVisaSellingPrice) || 0,
+        adault_visa_purchase_price: parseFloat(adultVisaPurchasePrice) || 0,
+        child_visa_selling_price: parseFloat(childVisaSellingPrice) || 0,
+        child_visa_purchase_price: parseFloat(childVisaPurchasePrice) || 0,
+        infant_visa_selling_price: parseFloat(infantVisaSellingPrice) || 0,
+        infant_visa_purchase_price: parseFloat(infantVisaPurchasePrice) || 0,
 
-  food_selling_price: parseFloat(foodSellingPrice) || 0,
-  food_purchase_price: parseFloat(foodPurchasePrice) || 0,
-  makkah_ziyarat_selling_price: parseFloat(meccaZiyaaratSellingPrice) || 0,
-  makkah_ziyarat_purchase_price: parseFloat(meccaZiyaaratPurchasePrice) || 0,
-  madinah_ziyarat_selling_price: parseFloat(madinaZiyaaratSellingPrice) || 0,
-  madinah_ziyarat_purchase_price: parseFloat(madinaZiyaaratPurchasePrice) || 0,
-  transport_selling_price: parseFloat(transportSellingPrice) || 0,
-  transport_purchase_price: parseFloat(transportPurchasePrice) || 0,
-  // IDs for selected extras from backend
-  food_price_id: selectedFoodId ? parseInt(selectedFoodId) : null,
-  makkah_ziyarat_id: selectedMeccaZiyaratId ? parseInt(selectedMeccaZiyaratId) : null,
-  madinah_ziyarat_id: selectedMadinaZiyaratId ? parseInt(selectedMadinaZiyaratId) : null,
+        food_selling_price: parseFloat(foodSellingPrice) || 0,
+        food_purchase_price: parseFloat(foodPurchasePrice) || 0,
+        makkah_ziyarat_selling_price: parseFloat(meccaZiyaaratSellingPrice) || 0,
+        makkah_ziyarat_purchase_price: parseFloat(meccaZiyaaratPurchasePrice) || 0,
+        madinah_ziyarat_selling_price: parseFloat(madinaZiyaaratSellingPrice) || 0,
+        madinah_ziyarat_purchase_price: parseFloat(madinaZiyaaratPurchasePrice) || 0,
+        transport_selling_price: parseFloat(transportSellingPrice) || 0,
+        transport_purchase_price: parseFloat(transportPurchasePrice) || 0,
+        // IDs for selected extras from backend
+        food_price_id: selectedFoodId ? parseInt(selectedFoodId) : null,
+        makkah_ziyarat_id: selectedMeccaZiyaratId ? parseInt(selectedMeccaZiyaratId) : null,
+        madinah_ziyarat_id: selectedMadinaZiyaratId ? parseInt(selectedMadinaZiyaratId) : null,
         is_active: packageStatus,
         is_quaint_active: isQuaintActive,
         is_sharing_active: isSharingActive,
@@ -1558,7 +1661,7 @@ const AddPackages = ({ mode = "add" }) => {
         branch_commission_infant: 0,
         markup_percent: "0",
         organization: organizationId,
-        
+
       };
 
       const token = localStorage.getItem("accessToken");
@@ -1581,10 +1684,10 @@ const AddPackages = ({ mode = "add" }) => {
         try {
           // copy purchase price under alternate keys
           packageData.makkah_ziarat_purchase_price = packageData.makkah_ziyarat_purchase_price;
-        } catch (e) {}
+        } catch (e) { }
         try {
           packageData.madinah_ziarat_purchase_price = packageData.madinah_ziyarat_purchase_price;
-        } catch (e) {}
+        } catch (e) { }
 
         console.debug("packageData JSON:", JSON.stringify(packageData));
         // Extra debug: explicitly log food/ziyarat fields we recently added
@@ -1599,7 +1702,7 @@ const AddPackages = ({ mode = "add" }) => {
           madinah_ziyarat_selling_price: packageData.madinah_ziyarat_selling_price,
           madinah_ziyarat_purchase_price: packageData.madinah_ziyarat_purchase_price,
         });
-      } catch (e) {}
+      } catch (e) { }
 
       if (mode === "edit") {
         // Update existing package
@@ -1644,7 +1747,7 @@ const AddPackages = ({ mode = "add" }) => {
       if (status === 401) {
         toast.error("Unauthorized (401) — your session may have expired. Please log in again.");
         // Clear possibly expired token and redirect to login
-        try { localStorage.removeItem("accessToken"); } catch (e) {}
+        try { localStorage.removeItem("accessToken"); } catch (e) { }
         navigate("/login");
       } else {
         toast.error(serverMsg || `Failed to save package (${status || "error"})`);
@@ -2447,1182 +2550,1182 @@ const AddPackages = ({ mode = "add" }) => {
 
   return (
     <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
-          <div className="row g-0">
-            {/* Sidebar */}
-            <div className="col-12 col-lg-2">
-              <Sidebar />
-            </div>
-            {/* Main Content */}
-            <div className="col-12 col-lg-10">
-              <div className="container">
-                <Header />
-                {/* Toasts */}
-                <ToastContainer />
-                <div className="px-3 mt-3 px-lg-4">
+      <div className="row g-0">
+        {/* Sidebar */}
+        <div className="col-12 col-lg-2">
+          <Sidebar />
+        </div>
+        {/* Main Content */}
+        <div className="col-12 col-lg-10">
+          <div className="container">
+            <Header />
+            {/* Toasts */}
+            <ToastContainer />
+            <div className="px-3 mt-3 px-lg-4">
+              {/* Navigation Tabs */}
+              <div className="row ">
+                <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
                   {/* Navigation Tabs */}
-                  <div className="row ">
-              <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-                {/* Navigation Tabs */}
-                <nav className="nav flex-wrap gap-2">
-                  {tabs.map((tab, index) => (
-                    <NavLink
-                      key={index}
-                      to={tab.path}
-                      className={`nav-link btn btn-link text-decoration-none px-0 me-3  ${tab.name === "Umrah Package"
-                        ? "text-primary fw-semibold"
-                        : "text-muted"
-                        }`}
-                      style={{ backgroundColor: "transparent" }}
-                    >
-                      {tab.name}
-                    </NavLink>
-                  ))}
-                </nav>
+                  <nav className="nav flex-wrap gap-2">
+                    {tabs.map((tab, index) => (
+                      <NavLink
+                        key={index}
+                        to={tab.path}
+                        className={`nav-link btn btn-link text-decoration-none px-0 me-3  ${tab.name === "Umrah Package"
+                          ? "text-primary fw-semibold"
+                          : "text-muted"
+                          }`}
+                        style={{ backgroundColor: "transparent" }}
+                      >
+                        {tab.name}
+                      </NavLink>
+                    ))}
+                  </nav>
 
-                {/* Action Buttons */}
-                <div className="d-flex gap-2 mb-3">
-                  <div className="d-flex gap-2 mt-2 mt-md-0">
-                    <Link
-                      to="/packages"
-                      className="btn text-white"
-                      style={{ background: "#1B78CE" }}
-                    >
-                      Back to Packages
-                    </Link>
-                  </div>
-                  <div className="d-flex gap-2 mt-2 mt-md-0">
-                    <Link
-                      to=""
-                      className="btn text-white"
-                      style={{ background: "#1B78CE" }}
-                    >
-                      Export Package
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            
-
-            <div className="border rounded-4 mb-3">
-              {/* Package Detail Section */}
-              <div className="p-4">
-                <div className="row">
-                  <h4 className="fw-bold mb-3">
-                    {mode === "edit" ? "Edit Package" : "Add New Package"}
-                  </h4>
-                  <div className="col-12 d-flex flex-wrap gap-5">
-                    <div>
-                      <label htmlFor="" className="Control-label">Package Title</label>
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="4 Star Umrah package"
-                        value={packageTitle}
-                        onChange={(e) => setPackageTitle(e.target.value)}
-                      />
+                  {/* Action Buttons */}
+                  <div className="d-flex gap-2 mb-3">
+                    <div className="d-flex gap-2 mt-2 mt-md-0">
+                      <Link
+                        to="/packages"
+                        className="btn text-white"
+                        style={{ background: "#1B78CE" }}
+                      >
+                        Back to Packages
+                      </Link>
                     </div>
-
-                    <div><label htmlFor="" className="Control-label">Rules</label>
-
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="N/A"
-                        value={rules}
-                        onChange={(e) => setRules(e.target.value)}
-                      /></div>
+                    <div className="d-flex gap-2 mt-2 mt-md-0">
+                      <Link
+                        to=""
+                        className="btn text-white"
+                        style={{ background: "#1B78CE" }}
+                      >
+                        Export Package
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Custom Umrah Package Section */}
-              <div className="p-4">
-                <div className="row">
-                  <h4 className="fw-bold mb-3">Custom Umrah Package</h4>
-                  <div className="col-12">
-                    <div className="d-flex flex-wrap gap-4 align-items-start">
-                      <div>
-                        <label htmlFor="" className="Control-label">Total Seats</label>
 
-                        <input
-                          type="number"
-                          className="form-control rounded shadow-none "
-                          required
-                          placeholder="0"
-                          value={totalSeats}
-                          onChange={(e) =>
-                            setTotalSeats(parseInt(e.target.value) || 0)
-                          }
-                        />
+                <div className="border rounded-4 mb-3">
+                  {/* Package Detail Section */}
+                  <div className="p-4">
+                    <div className="row">
+                      <h4 className="fw-bold mb-3">
+                        {mode === "edit" ? "Edit Package" : "Add New Package"}
+                      </h4>
+                      <div className="col-12 d-flex flex-wrap gap-5">
+                        <div>
+                          <label htmlFor="" className="Control-label">Package Title</label>
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="4 Star Umrah package"
+                            value={packageTitle}
+                            onChange={(e) => setPackageTitle(e.target.value)}
+                          />
+                        </div>
+
+                        <div><label htmlFor="" className="Control-label">Rules</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="N/A"
+                            value={rules}
+                            onChange={(e) => setRules(e.target.value)}
+                          /></div>
                       </div>
+                    </div>
+                  </div>
 
+                  {/* Custom Umrah Package Section */}
+                  <div className="p-4">
+                    <div className="row">
+                      <h4 className="fw-bold mb-3">Custom Umrah Package</h4>
+                      <div className="col-12">
+                        <div className="d-flex flex-wrap gap-4 align-items-start">
+                          <div>
+                            <label htmlFor="" className="Control-label">Total Seats</label>
 
-                      {/* Extras & Visa Pricing - improved layout */}
-                      <div className="card w-100 mb-3 shadow-sm">
-                        <div className="card-body p-3">
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <h6 className="mb-0">Extras & Visa Pricing</h6>
-                            <small className="text-muted">Define selling price (what customer pays) and purchase cost (your cost)</small>
+                            <input
+                              type="number"
+                              className="form-control rounded shadow-none "
+                              required
+                              placeholder="0"
+                              value={totalSeats}
+                              onChange={(e) =>
+                                setTotalSeats(parseInt(e.target.value) || 0)
+                              }
+                            />
                           </div>
 
-                          <div className="row gy-3">
-                            {/* Food option select + prices */}
-                            <div className="col-12 col-md-6">
-                              <label className="form-label fw-semibold">Food</label>
-                              <select
-                                className="form-select mb-2"
-                                required
-                                value={selectedFoodId}
-                                onChange={(e) => {
-                                  const id = e.target.value;
-                                  setSelectedFoodId(id);
-                                  const opt = foodOptions.find((o) => String(o.id) === String(id));
-                                  if (opt) {
-                                    // Backend sometimes returns a single `price` which is the purchase/cost price.
-                                    // Ensure we put that backend price into the Purchase field and only use
-                                    // explicit `selling_price` for Selling when available.
-                                    const purchasePrice =
-                                      opt.purchase_price ?? opt.price ?? opt.cost ?? opt.food_purchase_price ?? opt.purchase_price ?? 0;
-                                    const sellingPrice = opt.selling_price ?? 0;
-                                    setFoodPurchasePrice(purchasePrice);
-                                    setFoodSellingPrice(sellingPrice);
-                                  } else {
-                                    setFoodSellingPrice(0);
-                                    setFoodPurchasePrice(0);
-                                  }
-                                }}
-                              >
-                                <option value="">Select Food Option</option>
-                                {foodOptions.map((opt) => (
+
+                          {/* Extras & Visa Pricing - improved layout */}
+                          <div className="card w-100 mb-3 shadow-sm">
+                            <div className="card-body p-3">
+                              <div className="d-flex justify-content-between align-items-center mb-2">
+                                <h6 className="mb-0">Extras & Visa Pricing</h6>
+                                <small className="text-muted">Define selling price (what customer pays) and purchase cost (your cost)</small>
+                              </div>
+
+                              <div className="row gy-3">
+                                {/* Food option select + prices */}
+                                <div className="col-12 col-md-6">
+                                  <label className="form-label fw-semibold">Food</label>
+                                  <select
+                                    className="form-select mb-2"
+                                    required
+                                    value={selectedFoodId}
+                                    onChange={(e) => {
+                                      const id = e.target.value;
+                                      setSelectedFoodId(id);
+                                      const opt = foodOptions.find((o) => String(o.id) === String(id));
+                                      if (opt) {
+                                        // Backend sometimes returns a single `price` which is the purchase/cost price.
+                                        // Ensure we put that backend price into the Purchase field and only use
+                                        // explicit `selling_price` for Selling when available.
+                                        const purchasePrice =
+                                          opt.purchase_price ?? opt.price ?? opt.cost ?? opt.food_purchase_price ?? opt.purchase_price ?? 0;
+                                        const sellingPrice = opt.selling_price ?? 0;
+                                        setFoodPurchasePrice(purchasePrice);
+                                        setFoodSellingPrice(sellingPrice);
+                                      } else {
+                                        setFoodSellingPrice(0);
+                                        setFoodPurchasePrice(0);
+                                      }
+                                    }}
+                                  >
+                                    <option value="">Select Food Option</option>
+                                    {foodOptions.map((opt) => (
                                       <option key={opt.id} value={opt.id}>
                                         {getOptionLabel(opt)}
                                       </option>
-                                ))}
-                              </select>
+                                    ))}
+                                  </select>
 
-                              <div className="input-group">
-                                <span className="input-group-text">Selling</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Selling Price (Rs)"
-                                  value={displayIfNonZero(foodSellingPrice)}
-                                  onChange={(e) => setFoodSellingPrice(e.target.value)}
-                                />
-                                <span className="input-group-text">Purchase</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Purchase Cost (Rs)"
-                                  value={displayIfNonZero(foodPurchasePrice)}
-                                  onChange={(e) => setFoodPurchasePrice(e.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Mecca Ziyarat select + prices */}
-                            <div className="col-12 col-md-6">
-                              <label className="form-label fw-semibold">Mecca Ziyaarat</label>
-                              <select
-                                className="form-select mb-2"
-                                required
-                                value={selectedMeccaZiyaratId}
-                                onChange={(e) => {
-                                  const id = e.target.value;
-                                  setSelectedMeccaZiyaratId(id);
-                                  const opt = ziaratOptions.find((o) => String(o.id) === String(id));
-                                  if (opt) {
-                                    setMeccaZiyaaratSellingPrice(opt.selling_price ?? opt.price ?? opt.ziyarat_price ?? 0);
-                                    setMeccaZiyaaratPurchasePrice(opt.purchase_price ?? opt.cost ?? opt.ziyarat_purchase_price ?? 0);
-                                  } else {
-                                    setMeccaZiyaaratSellingPrice(0);
-                                    setMeccaZiyaaratPurchasePrice(0);
-                                  }
-                                }}
-                              >
-                                <option value="">Select Mecca Ziyaarat</option>
-                                {ziaratOptions.map((opt) => (
-                                  <option key={opt.id} value={opt.id}>
-                                    {getOptionLabel(opt)}
-                                  </option>
-                                ))}
-                              </select>
-
-                              <div className="input-group">
-                                <span className="input-group-text">Selling</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Selling Price (Rs)"
-                                  value={displayIfNonZero(meccaZiyaaratSellingPrice)}
-                                  onChange={(e) => setMeccaZiyaaratSellingPrice(e.target.value)}
-                                />
-                                <span className="input-group-text">Purchase</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Purchase Cost (Rs)"
-                                  value={displayIfNonZero(meccaZiyaaratPurchasePrice)}
-                                  onChange={(e) => setMeccaZiyaaratPurchasePrice(e.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Madina Ziyarat select + prices */}
-                            <div className="col-12 col-md-6 mt-3">
-                              <label className="form-label fw-semibold">Madina Ziyaarat</label>
-                              <select
-                                className="form-select mb-2"
-                                required
-                                value={selectedMadinaZiyaratId}
-                                onChange={(e) => {
-                                  const id = e.target.value;
-                                  setSelectedMadinaZiyaratId(id);
-                                  const opt = ziaratOptions.find((o) => String(o.id) === String(id));
-                                  if (opt) {
-                                    setMadinaZiyaaratSellingPrice(opt.selling_price ?? opt.price ?? opt.ziyarat_price ?? 0);
-                                    setMadinaZiyaaratPurchasePrice(opt.purchase_price ?? opt.cost ?? opt.ziyarat_purchase_price ?? 0);
-                                  } else {
-                                    setMadinaZiyaaratSellingPrice(0);
-                                    setMadinaZiyaaratPurchasePrice(0);
-                                  }
-                                }}
-                              >
-                                <option value="">Select Madina Ziyaarat</option>
-                                {ziaratOptions.map((opt) => (
-                                  <option key={opt.id} value={opt.id}>
-                                    {getOptionLabel(opt)}
-                                  </option>
-                                ))}
-                              </select>
-
-                              <div className="input-group">
-                                <span className="input-group-text">Selling</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Selling Price (Rs)"
-                                  value={displayIfNonZero(madinaZiyaaratSellingPrice)}
-                                  onChange={(e) => setMadinaZiyaaratSellingPrice(e.target.value)}
-                                />
-                                <span className="input-group-text">Purchase</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Purchase Cost (Rs)"
-                                  value={displayIfNonZero(madinaZiyaaratPurchasePrice)}
-                                  onChange={(e) => setMadinaZiyaaratPurchasePrice(e.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            {[
-                              ["adultVisa", "Adult Visa"],
-                              ["childVisa", "Child Visa"],
-                              ["infantVisa", "Infant Visa"],
-                            ].map(([key, label]) => (
-                              <div key={key} className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">{label}</label>
-                                <div className="input-group">
-                                  <span className="input-group-text">Selling</span>
-                                  <input
-                                    type="number"
-                                    className="form-control"
-                                    placeholder="Selling Price (Rs)"
-                                    value={displayIfNonZero(
-                                      key === "adultVisa"
-                                        ? adultVisaSellingPrice
-                                        : key === "childVisa"
-                                        ? childVisaSellingPrice
-                                        : infantVisaSellingPrice
-                                    )}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      if (key === "adultVisa") setAdultVisaSellingPrice(v);
-                                      else if (key === "childVisa") setChildVisaSellingPrice(v);
-                                      else setInfantVisaSellingPrice(v);
-                                    }}
-                                  />
-                                  <span className="input-group-text">Purchase</span>
-                                  <input
-                                    type="number"
-                                    className="form-control"
-                                    placeholder="Purchase Cost (Rs)"
-                                    value={displayIfNonZero(
-                                      key === "adultVisa"
-                                        ? adultVisaPurchasePrice
-                                        : key === "childVisa"
-                                        ? childVisaPurchasePrice
-                                        : infantVisaPurchasePrice
-                                    )}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      if (key === "adultVisa") setAdultVisaPurchasePrice(v);
-                                      else if (key === "childVisa") setChildVisaPurchasePrice(v);
-                                      else setInfantVisaPurchasePrice(v);
-                                    }}
-                                  />
-                                </div>
-                                
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Hotel Details Sections */}
-              {hotels.map((hotel, index) => (
-                <React.Fragment key={index}>
-                  <div className="p-4">
-                    <div className="row">
-                      <div className="d-flex align-items-center justify-content-between mb-3">
-                        <h4 className="fw-bold mb-3">
-                          Hotel Details {index + 1}
-                        </h4>
-                        <div className="d-flex gap-2">
-                          {index === 0 && (
-                            <button
-                              onClick={addHotel}
-                              className="btn btn-primary px-3 py-2"
-                            >
-                              Add Hotel
-                            </button>
-                          )}
-                          {hotels.length > 1 && (
-                            <button
-                              onClick={() => removeHotel(index)}
-                              className="btn btn-danger px-3 py-2"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="col-12 d-flex flex-wrap gap-5">
-                        <div>
-                          <label htmlFor="" className="Control-label">Hotel Name</label>
-
-                          <select
-                            className="form-select"
-                            value={hotel.hotelName}
-                            onChange={(e) => {
-                              const selectedHotel = hotelsList.find(
-                                (h) => h.name === e.target.value
-                              );
-                              handleHotelChange(
-                                index,
-                                "hotelName",
-                                e.target.value
-                              );
-                              handleHotelChange(
-                                index,
-                                "hotelId",
-                                selectedHotel?.id || 0
-                              );
-                            }}
-                          >
-                            <option value="">Select Hotel</option>
-                            {hotelsList.map((hotel) => (
-                              <option key={hotel.id} value={hotel.name}>
-                                {hotel.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label htmlFor="" className="Control-label">Check In</label>
-
-                          <input
-                            type="date"
-                            className="form-control  px-1 py-2"
-                            value={hotel.checkIn}
-                            onChange={(e) =>
-                              handleCheckInChange(index, e.target.value)
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <label htmlFor="" className="Control-label">No. of Nights</label>
-
-                          <input
-                            type="number"
-                            className="form-control  px-1 py-2"
-                            value={hotel.nights}
-                            onChange={(e) =>
-                              handleNightsChange(index, e.target.value)
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <label htmlFor="" className="Control-label">Check Out</label>
-
-                          <input
-                            type="date"
-                            className="form-control  px-1 py-2"
-                            value={hotel.checkOut}
-                            onChange={(e) =>
-                              handleCheckOutChange(index, e.target.value)
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4">
-                    <div className="row">
-                      <h4 className="fw-bold mb-3">Hotel {index + 1} Pricing</h4>
-                      {/* Column headings for Selling / Purchasing */}
-                      <div className="d-flex align-items-center mb-2" style={{ gap: "0.5rem" }}>
-                        <div style={{ minWidth: "180px" }} />
-                        <div style={{ minWidth: "180px", fontWeight: 600 }}>Selling Price (Rs)</div>
-                        <div style={{ minWidth: "180px", fontWeight: 600 }}>Purchase Cost (Rs)</div>
-                      </div>
-
-                      <div className="col-12 d-flex flex-wrap gap-4 align-items-start">
-                        {[
-                          ["sharing", "Sharing"],
-                          ["quint", "Quint Bed"],
-                          ["quad", "Quad Bed"],
-                          ["triple", "Triple Bed"],
-                          ["double", "Double Bed"],
-                        ].map(([base, label]) => (
-                          <div key={base} className="d-flex flex-column align-items-start">
-                            <label className="Control-label">{label}</label>
-                            <div className="d-flex gap-2">
-                              <div className="input-group" style={{ minWidth: "180px" }}>
-                                <span className="input-group-text">Selling</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Selling Price (Rs)"
-                                  value={displayIfNonZero(hotel[`${base}SellingPrice`])}
-                                  onChange={(e) =>
-                                    handleHotelChange(index, `${base}SellingPrice`, e.target.value)
-                                  }
-                                />
-                              </div>
-                              <div className="input-group" style={{ minWidth: "180px" }}>
-                                <span className="input-group-text">Purchase</span>
-                                <input
-                                  type="number"
-                                  className="form-control"
-                                  placeholder="Purchase Cost (Rs)"
-                                  value={displayIfNonZero(hotel[`${base}PurchasePrice`])}
-                                  onChange={(e) =>
-                                    handleHotelChange(index, `${base}PurchasePrice`, e.target.value)
-                                  }
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </React.Fragment>
-              ))}
-
-              {/* Transport Details Sections */}
-              {routes.map((route, index) => (
-                <div className="p-4" key={index}>
-                  <div className="row">
-                    <div className="d-flex align-items-center justify-content-between mb-3">
-                      <h4 className="fw-bold mb-3">
-                        Transport Details {index + 1}
-                      </h4>
-                      <div className="d-flex gap-2">
-                        {index === 0 && (
-                          <button
-                            onClick={addRoute}
-                            className="btn btn-primary px-3 py-2"
-                          >
-                            Add Route
-                          </button>
-                        )}
-                        {routes.length > 1 && (
-                          <button
-                            onClick={() => removeRoute(index)}
-                            className="btn btn-danger px-3 py-2"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-12">
-                      <div className="card mb-3 p-3">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h6 className="mb-0">Transport Details {index + 1}</h6>
-                          <small className="text-muted">Vehicle type, sector and pricing</small>
-                        </div>
-
-                        <div className="d-flex flex-wrap gap-3 align-items-start">
-                          <div style={{ minWidth: 200 }}>
-                            <label htmlFor={`vehicle_type_${index}`} className="Control-label">Vehicle Type</label>
-                            <select
-                              id={`vehicle_type_${index}`}
-                              className="form-select rounded shadow-none px-1 py-2"
-                              value={route.transportType}
-                              onChange={(e) => handleRouteChange(index, "transportType", e.target.value)}
-                              required
-                              disabled={selfTransport}
-                            >
-                              <option value="">Select vehicle</option>
-                              <option value="sedan">Sedan</option>
-                              <option value="suv">SUV</option>
-                              <option value="van">Van</option>
-                              <option value="minibus">Minibus</option>
-                              <option value="coaster">Coaster</option>
-                              <option value="bus">Bus</option>
-                              <option value="luxury_bus">Luxury Bus</option>
-                              <option value="hiace">Hiace</option>
-                            </select>
-                          </div>
-
-                          <div style={{ minWidth: 240 }}>
-                            <label htmlFor="" className="Control-label">Transport Sector</label>
-                            <select
-                              className="form-select rounded shadow-none"
-                              value={route.transportSector}
-                              onChange={(e) =>
-                                handleRouteChange(
-                                  index,
-                                  "transportSector",
-                                  e.target.value
-                                )
-                              }
-                              disabled={selfTransport}
-                              required
-                            >
-                              <option value="">Select Transport Sector</option>
-                              {transportSectors.map((sector) => (
-                                <option key={sector.id} value={sector.id}>
-                                  {sector.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {index === 0 && (
-                            <div className="form-check d-flex align-items-center">
-                              <input
-                                className="form-check-input border border-black me-2"
-                                type="checkbox"
-                                id="self"
-                                checked={selfTransport}
-                                onChange={(e) => {
-                                  setSelfTransport(e.target.checked);
-                                  if (e.target.checked) {
-                                    setRoutes([
-                                      { transportType: "", transportSector: "" },
-                                    ]);
-                                  }
-                                }}
-                                style={{ width: "1.3rem", height: "1.3rem" }}
-                              />
-                              <label className="form-check-label" htmlFor="self">
-                                Self
-                              </label>
-                            </div>
-                          )}
-
-                        </div>
-
-                        <div className="mt-3" style={{ width: "100%" }}>
-                          <label className="form-label fw-semibold">Transport Pricing</label>
-                          <div className="input-group">
-                            <span className="input-group-text">Selling</span>
-                            <input
-                              type="number"
-                              className="form-control"
-                              placeholder="Selling Price (Rs)"
-                                value={displayIfNonZero(route.transportSellingPrice)}
-                                onChange={(e) => handleRouteChange(index, 'transportSellingPrice', e.target.value)}
-                                required
-                                min="0"
-                            />
-                            <span className="input-group-text">Purchase</span>
-                            <input
-                              type="number"
-                              className="form-control"
-                              placeholder="Purchase Cost (Rs)"
-                                value={displayIfNonZero(route.transportPurchasePrice)}
-                                onChange={(e) => handleRouteChange(index, 'transportPurchasePrice', e.target.value)}
-                                required
-                                min="0"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Flight Details Section */}
-              <div className="p-4">
-                <div className="row">
-                  {/* Flight Selection Buttons */}
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h4 className="fw-bold">Flight Details</h4>
-                    <div className="d-flex gap-3 align-items-center justify-content-between">
-                      <button
-                        className="btn btn-primary px-3 py-2 w-100"
-                        onClick={() => setShowFlightModal(true)}
-                      >
-                        Select Flight
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Selected Flight Alert */}
-                  {selectedFlight && !withoutFlight && (
-                    <div className="alert alert-info mb-4">
-                      <div className="d-flex justify-content-between align-items-start">
-                        <div style={{ minWidth: 0 }}>
-                          <strong>Selected Flight</strong>
-                          <div className="mt-2">
-                            <div><strong>Airline:</strong> {airlinesMap[selectedFlight.airline]?.name || 'N/A'}</div>
-                            <div><strong>PNR:</strong> {selectedFlight.pnr || 'N/A'}</div>
-                            <div><strong>Seats:</strong> {selectedFlight.seats ?? 'N/A'}</div>
-                            <div className="mt-2"><strong>Prices:</strong></div>
-                            <div className="ms-3">Adult: Rs. {selectedFlight.adult_price?.toLocaleString() ?? '0'}</div>
-                            <div className="ms-3">Child: Rs. {selectedFlight.child_price?.toLocaleString() ?? '0'}</div>
-                            <div className="ms-3">Infant: Rs. {selectedFlight.infant_price?.toLocaleString() ?? '0'}</div>
-
-                            <div className="mt-2"><strong>Trip Segments:</strong></div>
-                            <div className="ms-3">
-                              {selectedFlight.trip_details && selectedFlight.trip_details.length > 0 ? (
-                                selectedFlight.trip_details.map((seg, i) => (
-                                  <div key={i} className="mb-2">
-                                    <div><strong>Type:</strong> {seg.trip_type || 'N/A'}</div>
-                                    <div><strong>Flight #:</strong> {seg.flight_number || 'N/A'}</div>
-                                    <div>
-                                      <strong>Departure:</strong>{' '}
-                                      {seg.departure_date_time ? new Date(seg.departure_date_time).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </div>
-                                    <div>
-                                      <strong>Arrival:</strong>{' '}
-                                      {seg.arrival_date_time ? new Date(seg.arrival_date_time).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                    </div>
-                                    <div>
-                                      <strong>From:</strong>{' '}{seg.departure_city ? (citiesMap[seg.departure_city]?.code || citiesMap[seg.departure_city]?.name || 'N/A') : 'N/A'}
-                                      {'  '}
-                                      <strong>To:</strong>{' '}{seg.arrival_city ? (citiesMap[seg.arrival_city]?.code || citiesMap[seg.arrival_city]?.name || 'N/A') : 'N/A'}
-                                    </div>
+                                  <div className="input-group">
+                                    <span className="input-group-text">Selling</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Selling Price (Rs)"
+                                      value={displayIfNonZero(foodSellingPrice)}
+                                      onChange={(e) => setFoodSellingPrice(e.target.value)}
+                                    />
+                                    <span className="input-group-text">Purchase</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Purchase Cost (Rs)"
+                                      value={displayIfNonZero(foodPurchasePrice)}
+                                      onChange={(e) => setFoodPurchasePrice(e.target.value)}
+                                    />
                                   </div>
-                                ))
-                              ) : (
-                                <div>N/A</div>
+                                </div>
+
+                                {/* Mecca Ziyarat select + prices */}
+                                <div className="col-12 col-md-6">
+                                  <label className="form-label fw-semibold">Mecca Ziyaarat</label>
+                                  <select
+                                    className="form-select mb-2"
+                                    required
+                                    value={selectedMeccaZiyaratId}
+                                    onChange={(e) => {
+                                      const id = e.target.value;
+                                      setSelectedMeccaZiyaratId(id);
+                                      const opt = ziaratOptions.find((o) => String(o.id) === String(id));
+                                      if (opt) {
+                                        setMeccaZiyaaratSellingPrice(opt.selling_price ?? opt.price ?? opt.ziyarat_price ?? 0);
+                                        setMeccaZiyaaratPurchasePrice(opt.purchase_price ?? opt.cost ?? opt.ziyarat_purchase_price ?? 0);
+                                      } else {
+                                        setMeccaZiyaaratSellingPrice(0);
+                                        setMeccaZiyaaratPurchasePrice(0);
+                                      }
+                                    }}
+                                  >
+                                    <option value="">Select Mecca Ziyaarat</option>
+                                    {ziaratOptions.map((opt) => (
+                                      <option key={opt.id} value={opt.id}>
+                                        {getOptionLabel(opt)}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  <div className="input-group">
+                                    <span className="input-group-text">Selling</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Selling Price (Rs)"
+                                      value={displayIfNonZero(meccaZiyaaratSellingPrice)}
+                                      onChange={(e) => setMeccaZiyaaratSellingPrice(e.target.value)}
+                                    />
+                                    <span className="input-group-text">Purchase</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Purchase Cost (Rs)"
+                                      value={displayIfNonZero(meccaZiyaaratPurchasePrice)}
+                                      onChange={(e) => setMeccaZiyaaratPurchasePrice(e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Madina Ziyarat select + prices */}
+                                <div className="col-12 col-md-6 mt-3">
+                                  <label className="form-label fw-semibold">Madina Ziyaarat</label>
+                                  <select
+                                    className="form-select mb-2"
+                                    required
+                                    value={selectedMadinaZiyaratId}
+                                    onChange={(e) => {
+                                      const id = e.target.value;
+                                      setSelectedMadinaZiyaratId(id);
+                                      const opt = ziaratOptions.find((o) => String(o.id) === String(id));
+                                      if (opt) {
+                                        setMadinaZiyaaratSellingPrice(opt.selling_price ?? opt.price ?? opt.ziyarat_price ?? 0);
+                                        setMadinaZiyaaratPurchasePrice(opt.purchase_price ?? opt.cost ?? opt.ziyarat_purchase_price ?? 0);
+                                      } else {
+                                        setMadinaZiyaaratSellingPrice(0);
+                                        setMadinaZiyaaratPurchasePrice(0);
+                                      }
+                                    }}
+                                  >
+                                    <option value="">Select Madina Ziyaarat</option>
+                                    {ziaratOptions.map((opt) => (
+                                      <option key={opt.id} value={opt.id}>
+                                        {getOptionLabel(opt)}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  <div className="input-group">
+                                    <span className="input-group-text">Selling</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Selling Price (Rs)"
+                                      value={displayIfNonZero(madinaZiyaaratSellingPrice)}
+                                      onChange={(e) => setMadinaZiyaaratSellingPrice(e.target.value)}
+                                    />
+                                    <span className="input-group-text">Purchase</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Purchase Cost (Rs)"
+                                      value={displayIfNonZero(madinaZiyaaratPurchasePrice)}
+                                      onChange={(e) => setMadinaZiyaaratPurchasePrice(e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+
+                                {[
+                                  ["adultVisa", "Adult Visa"],
+                                  ["childVisa", "Child Visa"],
+                                  ["infantVisa", "Infant Visa"],
+                                ].map(([key, label]) => (
+                                  <div key={key} className="col-12 col-md-6">
+                                    <label className="form-label fw-semibold">{label}</label>
+                                    <div className="input-group">
+                                      <span className="input-group-text">Selling</span>
+                                      <input
+                                        type="number"
+                                        className="form-control"
+                                        placeholder="Selling Price (Rs)"
+                                        value={displayIfNonZero(
+                                          key === "adultVisa"
+                                            ? adultVisaSellingPrice
+                                            : key === "childVisa"
+                                              ? childVisaSellingPrice
+                                              : infantVisaSellingPrice
+                                        )}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          if (key === "adultVisa") setAdultVisaSellingPrice(v);
+                                          else if (key === "childVisa") setChildVisaSellingPrice(v);
+                                          else setInfantVisaSellingPrice(v);
+                                        }}
+                                      />
+                                      <span className="input-group-text">Purchase</span>
+                                      <input
+                                        type="number"
+                                        className="form-control"
+                                        placeholder="Purchase Cost (Rs)"
+                                        value={displayIfNonZero(
+                                          key === "adultVisa"
+                                            ? adultVisaPurchasePrice
+                                            : key === "childVisa"
+                                              ? childVisaPurchasePrice
+                                              : infantVisaPurchasePrice
+                                        )}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          if (key === "adultVisa") setAdultVisaPurchasePrice(v);
+                                          else if (key === "childVisa") setChildVisaPurchasePrice(v);
+                                          else setInfantVisaPurchasePrice(v);
+                                        }}
+                                      />
+                                    </div>
+
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hotel Details Sections */}
+                  {hotels.map((hotel, index) => (
+                    <React.Fragment key={index}>
+                      <div className="p-4">
+                        <div className="row">
+                          <div className="d-flex align-items-center justify-content-between mb-3">
+                            <h4 className="fw-bold mb-3">
+                              Hotel Details {index + 1}
+                            </h4>
+                            <div className="d-flex gap-2">
+                              {index === 0 && (
+                                <button
+                                  onClick={addHotel}
+                                  className="btn btn-primary px-3 py-2"
+                                >
+                                  Add Hotel
+                                </button>
+                              )}
+                              {hotels.length > 1 && (
+                                <button
+                                  onClick={() => removeHotel(index)}
+                                  className="btn btn-danger px-3 py-2"
+                                >
+                                  Remove
+                                </button>
                               )}
                             </div>
                           </div>
+                          <div className="col-12 d-flex flex-wrap gap-5">
+                            <div>
+                              <label htmlFor="" className="Control-label">Hotel Name</label>
+
+                              <select
+                                className="form-select"
+                                value={hotel.hotelName}
+                                onChange={(e) => {
+                                  const selectedHotel = hotelsList.find(
+                                    (h) => h.name === e.target.value
+                                  );
+                                  handleHotelChange(
+                                    index,
+                                    "hotelName",
+                                    e.target.value
+                                  );
+                                  handleHotelChange(
+                                    index,
+                                    "hotelId",
+                                    selectedHotel?.id || 0
+                                  );
+                                }}
+                              >
+                                <option value="">Select Hotel</option>
+                                {hotelsList.map((hotel) => (
+                                  <option key={hotel.id} value={hotel.name}>
+                                    {hotel.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label htmlFor="" className="Control-label">Check In</label>
+
+                              <input
+                                type="date"
+                                className="form-control  px-1 py-2"
+                                value={hotel.checkIn}
+                                onChange={(e) =>
+                                  handleCheckInChange(index, e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <label htmlFor="" className="Control-label">No. of Nights</label>
+
+                              <input
+                                type="number"
+                                className="form-control  px-1 py-2"
+                                value={hotel.nights}
+                                onChange={(e) =>
+                                  handleNightsChange(index, e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <label htmlFor="" className="Control-label">Check Out</label>
+
+                              <input
+                                type="date"
+                                className="form-control  px-1 py-2"
+                                value={hotel.checkOut}
+                                onChange={(e) =>
+                                  handleCheckOutChange(index, e.target.value)
+                                }
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div className="ms-3">
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => {
-                              setSelectedFlight(null);
-                              resetFlightFields();
-                            }}
-                          >
-                            Change Flight
-                          </button>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="row">
+                          <h4 className="fw-bold mb-3">Hotel {index + 1} Pricing</h4>
+                          {/* Column headings for Selling / Purchasing */}
+                          <div className="d-flex align-items-center mb-2" style={{ gap: "0.5rem" }}>
+                            <div style={{ minWidth: "180px" }} />
+                            <div style={{ minWidth: "180px", fontWeight: 600 }}>Selling Price (Rs)</div>
+                            <div style={{ minWidth: "180px", fontWeight: 600 }}>Purchase Cost (Rs)</div>
+                          </div>
+
+                          <div className="col-12 d-flex flex-wrap gap-4 align-items-start">
+                            {[
+                              ["sharing", "Sharing"],
+                              ["quint", "Quint Bed"],
+                              ["quad", "Quad Bed"],
+                              ["triple", "Triple Bed"],
+                              ["double", "Double Bed"],
+                            ].map(([base, label]) => (
+                              <div key={base} className="d-flex flex-column align-items-start">
+                                <label className="Control-label">{label}</label>
+                                <div className="d-flex gap-2">
+                                  <div className="input-group" style={{ minWidth: "180px" }}>
+                                    <span className="input-group-text">Selling</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Selling Price (Rs)"
+                                      value={displayIfNonZero(hotel[`${base}SellingPrice`])}
+                                      onChange={(e) =>
+                                        handleHotelChange(index, `${base}SellingPrice`, e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                  <div className="input-group" style={{ minWidth: "180px" }}>
+                                    <span className="input-group-text">Purchase</span>
+                                    <input
+                                      type="number"
+                                      className="form-control"
+                                      placeholder="Purchase Cost (Rs)"
+                                      value={displayIfNonZero(hotel[`${base}PurchasePrice`])}
+                                      onChange={(e) =>
+                                        handleHotelChange(index, `${base}PurchasePrice`, e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  ))}
+
+                  {/* Transport Details Sections */}
+                  {routes.map((route, index) => (
+                    <div className="p-4" key={index}>
+                      <div className="row">
+                        <div className="d-flex align-items-center justify-content-between mb-3">
+                          <h4 className="fw-bold mb-3">
+                            Transport Details {index + 1}
+                          </h4>
+                          <div className="d-flex gap-2">
+                            {index === 0 && (
+                              <button
+                                onClick={addRoute}
+                                className="btn btn-primary px-3 py-2"
+                              >
+                                Add Route
+                              </button>
+                            )}
+                            {routes.length > 1 && (
+                              <button
+                                onClick={() => removeRoute(index)}
+                                className="btn btn-danger px-3 py-2"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="col-12">
+                          <div className="card mb-3 p-3">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <h6 className="mb-0">Transport Details {index + 1}</h6>
+                              <small className="text-muted">Vehicle type, sector and pricing</small>
+                            </div>
+
+                            <div className="d-flex flex-wrap gap-3 align-items-start">
+                              <div style={{ minWidth: 200 }}>
+                                <label htmlFor={`vehicle_type_${index}`} className="Control-label">Vehicle Type</label>
+                                <select
+                                  id={`vehicle_type_${index}`}
+                                  className="form-select rounded shadow-none px-1 py-2"
+                                  value={route.transportType}
+                                  onChange={(e) => handleRouteChange(index, "transportType", e.target.value)}
+                                  required
+                                  disabled={selfTransport}
+                                >
+                                  <option value="">Select vehicle</option>
+                                  <option value="sedan">Sedan</option>
+                                  <option value="suv">SUV</option>
+                                  <option value="van">Van</option>
+                                  <option value="minibus">Minibus</option>
+                                  <option value="coaster">Coaster</option>
+                                  <option value="bus">Bus</option>
+                                  <option value="luxury_bus">Luxury Bus</option>
+                                  <option value="hiace">Hiace</option>
+                                </select>
+                              </div>
+
+                              <div style={{ minWidth: 240 }}>
+                                <label htmlFor="" className="Control-label">Transport Sector</label>
+                                <select
+                                  className="form-select rounded shadow-none"
+                                  value={route.transportSector}
+                                  onChange={(e) =>
+                                    handleRouteChange(
+                                      index,
+                                      "transportSector",
+                                      e.target.value
+                                    )
+                                  }
+                                  disabled={selfTransport}
+                                  required
+                                >
+                                  <option value="">Select Transport Sector</option>
+                                  {transportSectors.map((sector) => (
+                                    <option key={sector.id} value={sector.id}>
+                                      {sector.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {index === 0 && (
+                                <div className="form-check d-flex align-items-center">
+                                  <input
+                                    className="form-check-input border border-black me-2"
+                                    type="checkbox"
+                                    id="self"
+                                    checked={selfTransport}
+                                    onChange={(e) => {
+                                      setSelfTransport(e.target.checked);
+                                      if (e.target.checked) {
+                                        setRoutes([
+                                          { transportType: "", transportSector: "" },
+                                        ]);
+                                      }
+                                    }}
+                                    style={{ width: "1.3rem", height: "1.3rem" }}
+                                  />
+                                  <label className="form-check-label" htmlFor="self">
+                                    Self
+                                  </label>
+                                </div>
+                              )}
+
+                            </div>
+
+                            <div className="mt-3" style={{ width: "100%" }}>
+                              <label className="form-label fw-semibold">Transport Pricing</label>
+                              <div className="input-group">
+                                <span className="input-group-text">Selling</span>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  placeholder="Selling Price (Rs)"
+                                  value={displayIfNonZero(route.transportSellingPrice)}
+                                  onChange={(e) => handleRouteChange(index, 'transportSellingPrice', e.target.value)}
+                                  required
+                                  min="0"
+                                />
+                                <span className="input-group-text">Purchase</span>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  placeholder="Purchase Cost (Rs)"
+                                  value={displayIfNonZero(route.transportPurchasePrice)}
+                                  onChange={(e) => handleRouteChange(index, 'transportPurchasePrice', e.target.value)}
+                                  required
+                                  min="0"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                  ))}
 
-              {/* Flight Modal */}
-              <FlightModal
-                show={showFlightModal}
-                onClose={() => setShowFlightModal(false)}
-                flights={ticketsList}
-                onSelect={handleFlightSelect}
-                airlinesMap={airlinesMap}
-                citiesMap={citiesMap}
-              />
-              <CustomTicketModal
-                show={showCustomTicketModal}
-                onClose={() => setShowCustomTicketModal(false)}
-                onSubmit={(ticket) => {
-                  setTicketId(ticket.id);
-                  setSelectedFlight(ticket);
-                  setFlightOptions("custom");
-                  setShowCustomTicketModal(false);
-                  toast.success("Custom ticket created successfully!");
-                }}
-              />
-
-              {/* Which Room Types Allowed */}
-              <div className="p-4">
-                <h4 className="fw-bold mb-3">Which Room Types Allowed</h4>
-                <div className="flex-wrap d-flex gap-5 px-4">
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="quaint-active"
-                      checked={isQuaintActive}
-                      onChange={(e) => setIsQuaintActive(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="quaint-active">
-                      Quaint Active
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="sharing-active"
-                      checked={isSharingActive}
-                      onChange={(e) => setIsSharingActive(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="sharing-active">
-                      Sharing Active
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="quad-active"
-                      checked={isQuadActive}
-                      onChange={(e) => setIsQuadActive(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="quad-active">
-                      Quad Active
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="triple-active"
-                      checked={isTripleActive}
-                      onChange={(e) => setIsTripleActive(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="triple-active">
-                      Triple Active
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="double-active"
-                      checked={isDoubleActive}
-                      onChange={(e) => setIsDoubleActive(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="double-active">
-                      Double Active
-                    </label>
-                  </div>
-                </div>
-                </div>
-              </div>
-
-              {/* Partial Payments Section */}
-              <div className="row p-4">
-                <h4 className="mb-3 fw-bold">Partial Payments</h4>
-                <div className="col-12 d-flex flex-wrap gap-5">
-                  <div className=" mb-3">
-                    <div className="form-group">
-                      <label htmlFor="" className="Control-label">Adult Payment</label>
-
-                      <input
-                        type="number"
-                        className="form-control  shadow-none"
-                        id="adult-partial"
-                        value={adaultPartialPayment}
-                        onChange={(e) => setAdultPartialPayment(e.target.value)}
-                        min="0"
-                        step="1"
-                        placeholder="Enter amount"
-                      />
-                    </div>
-                  </div>
-
-                  <div className=" mb-3">
-                    <div>
-                      <label htmlFor="" className="Control-label">Child Payment</label>
-
-                      <input
-                        type="number"
-                        className="form-control  shadow-none"
-                        id="child-partial"
-                        value={childPartialPayment}
-                        onChange={(e) => setChildPartialPayment(e.target.value)}
-                        min="0"
-                        step="1"
-                        placeholder="Enter amount"
-                      />
-                    </div>
-                  </div>
-
-                  <div className=" mb-3">
-                    <div className="form-group">
-                      <label htmlFor="" className="Control-label">Infant Payment</label>
-
-                      <input
-                        type="number"
-                        className="form-control  shadow-none"
-                        id="infant-partial"
-                        value={infantPartialPayment}
-                        onChange={(e) =>
-                          setInfantPartialPayment(e.target.value)
-                        }
-                        min="0"
-                        step="1"
-                        placeholder="Enter amount"
-                      />
-                    </div>
-                  </div>
-                  <div className="form-check d-flex align-items-center">
-                    <input
-                      className="form-check-input border border-black me-2"
-                      type="checkbox"
-                      id="activePartial"
-                      checked={partialTrue}
-                      onChange={(e) => setPartialTrue(e.target.checked)}
-                      style={{ width: "1.3rem", height: "1.3rem" }}
-                    />
-                    <label className="form-check-label" htmlFor="activePartial">
-                      Active
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Flight Conditions Section */}
-              <div className="p-4">
-                <div className="row">
-                  <h4 className="fw-bold mb-3">Flight Conditions</h4>
-                  <div className="col-12 d-flex flex-wrap gap-5">
-                    <div><label htmlFor="" className="Control-label">If Adult from</label>
-
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="7"
-                        value={adultFrom}
-                        onChange={(e) => setAdultFrom(e.target.value)}
-                      /></div>
-
-                    <div><label htmlFor="" className="Control-label">To Adult</label>
-
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="10"
-                        value={adultTo}
-                        onChange={(e) => setAdultTo(e.target.value)}
-                      /></div>
-
-                    <div>
-                      <label htmlFor="" className="Control-label">Max Childs Allowed</label>
-
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="01"
-                        value={maxChilds}
-                        onChange={(e) => setMaxChilds(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="" className="Control-label">Max Infants Allowed</label>
-
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="01"
-                        value={maxInfants}
-                        onChange={(e) => setMaxInfants(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Discounts Sections */}
-              {discounts.map((discount, index) => (
-                <div className="p-4" key={index}>
-                  <div className="row">
-                    <div className="d-flex align-items-center justify-content-between mb-3">
-                      <h4 className="fw-bold mb-3">Discounts {index + 1}</h4>
-                      <div className="d-flex gap-2">
-                        {index === 0 && (
+                  {/* Flight Details Section */}
+                  <div className="p-4">
+                    <div className="row">
+                      {/* Flight Selection Buttons */}
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h4 className="fw-bold">Flight Details</h4>
+                        <div className="d-flex gap-3 align-items-center justify-content-between">
                           <button
-                            onClick={addDiscount}
-                            className="btn btn-primary px-3 py-2"
+                            className="btn btn-primary px-3 py-2 w-100"
+                            onClick={() => setShowFlightModal(true)}
                           >
-                            Add Discounts
+                            Select Flight
                           </button>
-                        )}
-                        {discounts.length > 1 && (
-                          <button
-                            onClick={() => removeDiscount(index)}
-                            className="btn btn-danger px-3 py-2"
-                          >
-                            Remove
-                          </button>
-                        )}
+                        </div>
+                      </div>
+
+                      {/* Selected Flight Alert */}
+                      {selectedFlight && !withoutFlight && (
+                        <div className="alert alert-info mb-4">
+                          <div className="d-flex justify-content-between align-items-start">
+                            <div style={{ minWidth: 0 }}>
+                              <strong>Selected Flight</strong>
+                              <div className="mt-2">
+                                <div><strong>Airline:</strong> {airlinesMap[selectedFlight.airline]?.name || 'N/A'}</div>
+                                <div><strong>PNR:</strong> {selectedFlight.pnr || 'N/A'}</div>
+                                <div><strong>Seats:</strong> {selectedFlight.seats ?? 'N/A'}</div>
+                                <div className="mt-2"><strong>Prices:</strong></div>
+                                <div className="ms-3">Adult: Rs. {selectedFlight.adult_price?.toLocaleString() ?? '0'}</div>
+                                <div className="ms-3">Child: Rs. {selectedFlight.child_price?.toLocaleString() ?? '0'}</div>
+                                <div className="ms-3">Infant: Rs. {selectedFlight.infant_price?.toLocaleString() ?? '0'}</div>
+
+                                <div className="mt-2"><strong>Trip Segments:</strong></div>
+                                <div className="ms-3">
+                                  {selectedFlight.trip_details && selectedFlight.trip_details.length > 0 ? (
+                                    selectedFlight.trip_details.map((seg, i) => (
+                                      <div key={i} className="mb-2">
+                                        <div><strong>Type:</strong> {seg.trip_type || 'N/A'}</div>
+                                        <div><strong>Flight #:</strong> {seg.flight_number || 'N/A'}</div>
+                                        <div>
+                                          <strong>Departure:</strong>{' '}
+                                          {seg.departure_date_time ? new Date(seg.departure_date_time).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>Arrival:</strong>{' '}
+                                          {seg.arrival_date_time ? new Date(seg.arrival_date_time).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                        </div>
+                                        <div>
+                                          <strong>From:</strong>{' '}{seg.departure_city ? (citiesMap[seg.departure_city]?.code || citiesMap[seg.departure_city]?.name || 'N/A') : 'N/A'}
+                                          {'  '}
+                                          <strong>To:</strong>{' '}{seg.arrival_city ? (citiesMap[seg.arrival_city]?.code || citiesMap[seg.arrival_city]?.name || 'N/A') : 'N/A'}
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div>N/A</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="ms-3">
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => {
+                                  setSelectedFlight(null);
+                                  resetFlightFields();
+                                }}
+                              >
+                                Change Flight
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Flight Modal */}
+                  <FlightModal
+                    show={showFlightModal}
+                    onClose={() => setShowFlightModal(false)}
+                    flights={ticketsList}
+                    onSelect={handleFlightSelect}
+                    airlinesMap={airlinesMap}
+                    citiesMap={citiesMap}
+                  />
+                  <CustomTicketModal
+                    show={showCustomTicketModal}
+                    onClose={() => setShowCustomTicketModal(false)}
+                    onSubmit={(ticket) => {
+                      setTicketId(ticket.id);
+                      setSelectedFlight(ticket);
+                      setFlightOptions("custom");
+                      setShowCustomTicketModal(false);
+                      toast.success("Custom ticket created successfully!");
+                    }}
+                  />
+
+                  {/* Which Room Types Allowed */}
+                  <div className="p-4">
+                    <h4 className="fw-bold mb-3">Which Room Types Allowed</h4>
+                    <div className="flex-wrap d-flex gap-5 px-4">
+                      <div className="mb-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="quaint-active"
+                            checked={isQuaintActive}
+                            onChange={(e) => setIsQuaintActive(e.target.checked)}
+                          />
+                          <label className="form-check-label" htmlFor="quaint-active">
+                            Quaint Active
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="sharing-active"
+                            checked={isSharingActive}
+                            onChange={(e) => setIsSharingActive(e.target.checked)}
+                          />
+                          <label className="form-check-label" htmlFor="sharing-active">
+                            Sharing Active
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="quad-active"
+                            checked={isQuadActive}
+                            onChange={(e) => setIsQuadActive(e.target.checked)}
+                          />
+                          <label className="form-check-label" htmlFor="quad-active">
+                            Quad Active
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="triple-active"
+                            checked={isTripleActive}
+                            onChange={(e) => setIsTripleActive(e.target.checked)}
+                          />
+                          <label className="form-check-label" htmlFor="triple-active">
+                            Triple Active
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="double-active"
+                            checked={isDoubleActive}
+                            onChange={(e) => setIsDoubleActive(e.target.checked)}
+                          />
+                          <label className="form-check-label" htmlFor="double-active">
+                            Double Active
+                          </label>
+                        </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Partial Payments Section */}
+                  <div className="row p-4">
+                    <h4 className="mb-3 fw-bold">Partial Payments</h4>
                     <div className="col-12 d-flex flex-wrap gap-5">
-                      <div>
-                        <label htmlFor="" className="Control-label">If Adult from</label>
+                      <div className=" mb-3">
+                        <div className="form-group">
+                          <label htmlFor="" className="Control-label">Adult Payment</label>
 
-                        <input
-                          type="text"
-                          className="form-control rounded shadow-none  px-1 py-2"
-                          required
-                          placeholder="7"
-                          value={discount.discountAdultFrom}
-                          onChange={(e) =>
-                            handleDiscountChange(
-                              index,
-                              "discountAdultFrom",
-                              e.target.value
-                            )
-                          }
-                        />
+                          <input
+                            type="number"
+                            className="form-control  shadow-none"
+                            id="adult-partial"
+                            value={adaultPartialPayment}
+                            onChange={(e) => setAdultPartialPayment(e.target.value)}
+                            min="0"
+                            step="1"
+                            placeholder="Enter amount"
+                          />
+                        </div>
                       </div>
 
-                      <div><label htmlFor="" className="Control-label">To Adult</label>
+                      <div className=" mb-3">
+                        <div>
+                          <label htmlFor="" className="Control-label">Child Payment</label>
 
+                          <input
+                            type="number"
+                            className="form-control  shadow-none"
+                            id="child-partial"
+                            value={childPartialPayment}
+                            onChange={(e) => setChildPartialPayment(e.target.value)}
+                            min="0"
+                            step="1"
+                            placeholder="Enter amount"
+                          />
+                        </div>
+                      </div>
+
+                      <div className=" mb-3">
+                        <div className="form-group">
+                          <label htmlFor="" className="Control-label">Infant Payment</label>
+
+                          <input
+                            type="number"
+                            className="form-control  shadow-none"
+                            id="infant-partial"
+                            value={infantPartialPayment}
+                            onChange={(e) =>
+                              setInfantPartialPayment(e.target.value)
+                            }
+                            min="0"
+                            step="1"
+                            placeholder="Enter amount"
+                          />
+                        </div>
+                      </div>
+                      <div className="form-check d-flex align-items-center">
                         <input
-                          type="text"
-                          className="form-control rounded shadow-none  px-1 py-2"
-                          required
-                          placeholder="10"
-                          value={discount.discountAdultTo}
-                          onChange={(e) =>
-                            handleDiscountChange(
-                              index,
-                              "discountAdultTo",
-                              e.target.value
-                            )
-                          }
-                        /></div>
-
-                      <div>
-                        <label htmlFor="" className="Control-label">Max Discount</label>
-
-                        <input
-                          type="text"
-                          className="form-control rounded shadow-none  px-1 py-2"
-                          required
-                          placeholder="01"
-                          value={discount.maxDiscount}
-                          onChange={(e) =>
-                            handleDiscountChange(
-                              index,
-                              "maxDiscount",
-                              e.target.value
-                            )
-                          }
+                          className="form-check-input border border-black me-2"
+                          type="checkbox"
+                          id="activePartial"
+                          checked={partialTrue}
+                          onChange={(e) => setPartialTrue(e.target.checked)}
+                          style={{ width: "1.3rem", height: "1.3rem" }}
                         />
+                        <label className="form-check-label" htmlFor="activePartial">
+                          Active
+                        </label>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
 
-              {/* Service Charges Section */}
-              <div className="p-4">
-                <div className="row">
-                  <h4 className="fw-bold mb-3">
-                    Service Charges for Area Customers
-                  </h4>
-                  <div className="col-12 d-flex flex-wrap gap-5">
-                    <div>
-                      <label htmlFor="" className="Control-label">Charges per adult</label>
+                  {/* Flight Conditions Section */}
+                  <div className="p-4">
+                    <div className="row">
+                      <h4 className="fw-bold mb-3">Flight Conditions</h4>
+                      <div className="col-12 d-flex flex-wrap gap-5">
+                        <div><label htmlFor="" className="Control-label">If Adult from</label>
 
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="7"
+                            value={adultFrom}
+                            onChange={(e) => setAdultFrom(e.target.value)}
+                          /></div>
+
+                        <div><label htmlFor="" className="Control-label">To Adult</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="10"
+                            value={adultTo}
+                            onChange={(e) => setAdultTo(e.target.value)}
+                          /></div>
+
+                        <div>
+                          <label htmlFor="" className="Control-label">Max Childs Allowed</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="01"
+                            value={maxChilds}
+                            onChange={(e) => setMaxChilds(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="" className="Control-label">Max Infants Allowed</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="01"
+                            value={maxInfants}
+                            onChange={(e) => setMaxInfants(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Discounts Sections */}
+                  {discounts.map((discount, index) => (
+                    <div className="p-4" key={index}>
+                      <div className="row">
+                        <div className="d-flex align-items-center justify-content-between mb-3">
+                          <h4 className="fw-bold mb-3">Discounts {index + 1}</h4>
+                          <div className="d-flex gap-2">
+                            {index === 0 && (
+                              <button
+                                onClick={addDiscount}
+                                className="btn btn-primary px-3 py-2"
+                              >
+                                Add Discounts
+                              </button>
+                            )}
+                            {discounts.length > 1 && (
+                              <button
+                                onClick={() => removeDiscount(index)}
+                                className="btn btn-danger px-3 py-2"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="col-12 d-flex flex-wrap gap-5">
+                          <div>
+                            <label htmlFor="" className="Control-label">If Adult from</label>
+
+                            <input
+                              type="text"
+                              className="form-control rounded shadow-none  px-1 py-2"
+                              required
+                              placeholder="7"
+                              value={discount.discountAdultFrom}
+                              onChange={(e) =>
+                                handleDiscountChange(
+                                  index,
+                                  "discountAdultFrom",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div><label htmlFor="" className="Control-label">To Adult</label>
+
+                            <input
+                              type="text"
+                              className="form-control rounded shadow-none  px-1 py-2"
+                              required
+                              placeholder="10"
+                              value={discount.discountAdultTo}
+                              onChange={(e) =>
+                                handleDiscountChange(
+                                  index,
+                                  "discountAdultTo",
+                                  e.target.value
+                                )
+                              }
+                            /></div>
+
+                          <div>
+                            <label htmlFor="" className="Control-label">Max Discount</label>
+
+                            <input
+                              type="text"
+                              className="form-control rounded shadow-none  px-1 py-2"
+                              required
+                              placeholder="01"
+                              value={discount.maxDiscount}
+                              onChange={(e) =>
+                                handleDiscountChange(
+                                  index,
+                                  "maxDiscount",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Service Charges Section */}
+                  <div className="p-4">
+                    <div className="row">
+                      <h4 className="fw-bold mb-3">
+                        Service Charges for Area Customers
+                      </h4>
+                      <div className="col-12 d-flex flex-wrap gap-5">
+                        <div>
+                          <label htmlFor="" className="Control-label">Charges per adult</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="7"
+                            value={chargePerAdult}
+                            onChange={(e) => setChargePerAdult(e.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="" className="Control-label">Child</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="10"
+                            value={chargePerChild}
+                            onChange={(e) => setChargePerChild(e.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="" className="Control-label">Infant</label>
+
+                          <input
+                            type="text"
+                            className="form-control rounded shadow-none  px-1 py-2"
+                            required
+                            placeholder="01"
+                            value={chargePerInfant}
+                            onChange={(e) => setChargePerInfant(e.target.value)}
+                          />
+                        </div>
+                        <div className="form-check d-flex align-items-center">
+                          <input
+                            className="form-check-input border border-black me-2"
+                            type="checkbox"
+                            id="activeServiceCharge"
+                            checked={activeServiceCharge}
+                            onChange={(e) => setActiveServiceCharge(e.target.checked)}
+                            style={{ width: "1.3rem", height: "1.3rem" }}
+                          />
+                          <label
+                            className="form-check-label"
+                            htmlFor="activeServiceCharge"
+                          >
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Package Status Section */}
+                  <div className="d-flex gap-5 p-4">
+                    <div className="form-check d-flex align-items-center">
                       <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="7"
-                        value={chargePerAdult}
-                        onChange={(e) => setChargePerAdult(e.target.value)}
+                        className="form-check-input border border-black me-2"
+                        type="radio"
+                        id="package-active"
+                        name="package-status"
+                        checked={packageStatus === true}
+                        onChange={() => setPackageStatus(true)}
+                        style={{ width: "1.3rem", height: "1.3rem" }}
                       />
+                      <label className="form-check-label" htmlFor="package-active">
+                        Package Active
+                      </label>
                     </div>
 
-                    <div>
-                      <label htmlFor="" className="Control-label">Child</label>
-
+                    <div className="form-check d-flex align-items-center">
                       <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="10"
-                        value={chargePerChild}
-                        onChange={(e) => setChargePerChild(e.target.value)}
+                        className="form-check-input border border-black me-2"
+                        type="radio"
+                        id="package-inactive"
+                        name="package-status"
+                        checked={packageStatus === false}
+                        onChange={() => setPackageStatus(false)}
+                        style={{ width: "1.3rem", height: "1.3rem" }}
                       />
+                      <label className="form-check-label" htmlFor="package-inactive">
+                        Package Inactive
+                      </label>
                     </div>
+                  </div>
 
-                    <div>
-                      <label htmlFor="" className="Control-label">Infant</label>
-
-                      <input
-                        type="text"
-                        className="form-control rounded shadow-none  px-1 py-2"
-                        required
-                        placeholder="01"
-                        value={chargePerInfant}
-                        onChange={(e) => setChargePerInfant(e.target.value)}
-                      />
-                    </div>
+                  {/* Reselling Section */}
+                  <div className="d-flex gap-5 p-4">
                     <div className="form-check d-flex align-items-center">
                       <input
                         className="form-check-input border border-black me-2"
                         type="checkbox"
-                        id="activeServiceCharge"
-                        checked={activeServiceCharge}
-                        onChange={(e) => setActiveServiceCharge(e.target.checked)}
+                        id="reselling-allowed"
+                        checked={resellingAllowed}
+                        onChange={(e) => setResellingAllowed(e.target.checked)}
                         style={{ width: "1.3rem", height: "1.3rem" }}
                       />
-                      <label
-                        className="form-check-label"
-                        htmlFor="activeServiceCharge"
-                      >
-                        Active
+                      <label className="form-check-label fw-medium" htmlFor="reselling-allowed">
+                        Allow Reselling
                       </label>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Package Status Section */}
-              <div className="d-flex gap-5 p-4">
-                <div className="form-check d-flex align-items-center">
-                  <input
-                    className="form-check-input border border-black me-2"
-                    type="radio"
-                    id="package-active"
-                    name="package-status"
-                    checked={packageStatus === true}
-                    onChange={() => setPackageStatus(true)}
-                    style={{ width: "1.3rem", height: "1.3rem" }}
-                  />
-                  <label className="form-check-label" htmlFor="package-active">
-                    Package Active
-                  </label>
+                  {/* Action Buttons */}
+                  <div className="d-flex flex-wrap gap-2 justify-content-end p-4">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleSubmit("save")}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleSubmit("saveAndNew")}
+                    >
+                      Save and New
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleSubmit("saveAndClose")}
+                    >
+                      Save and close
+                    </button>
+                    {/* Dev/test helper: create a minimal package using organization 11 */}
+                    <button
+                      className="btn btn-warning"
+                      onClick={async () => {
+                        await testCreatePackage();
+                      }}
+                      title="Creates a minimal test package with organization=11"
+                    >
+                      Test Create Package (org 11)
+                    </button>
+                    <button
+                      className="btn btn-info"
+                      onClick={async () => {
+                        await checkBackendConnection();
+                      }}
+                      title="Run quick backend checks for food/ziarat/tickets (org 11)"
+                    >
+                      Check Backend (org 11)
+                    </button>
+                    <Link to="/packages" className="btn btn-outline-secondary">
+                      Cancel
+                    </Link>
+                  </div>
                 </div>
-
-                <div className="form-check d-flex align-items-center">
-                  <input
-                    className="form-check-input border border-black me-2"
-                    type="radio"
-                    id="package-inactive"
-                    name="package-status"
-                    checked={packageStatus === false}
-                    onChange={() => setPackageStatus(false)}
-                    style={{ width: "1.3rem", height: "1.3rem" }}
-                  />
-                  <label className="form-check-label" htmlFor="package-inactive">
-                    Package Inactive
-                  </label>
-                </div>
-              </div>
-
-              {/* Reselling Section */}
-              <div className="d-flex gap-5 p-4">
-                <div className="form-check d-flex align-items-center">
-                  <input
-                    className="form-check-input border border-black me-2"
-                    type="checkbox"
-                    id="reselling-allowed"
-                    checked={resellingAllowed}
-                    onChange={(e) => setResellingAllowed(e.target.checked)}
-                    style={{ width: "1.3rem", height: "1.3rem" }}
-                  />
-                  <label className="form-check-label fw-medium" htmlFor="reselling-allowed">
-                    Allow Reselling
-                  </label>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="d-flex flex-wrap gap-2 justify-content-end p-4">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => handleSubmit("save")}
-                >
-                  Save
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => handleSubmit("saveAndNew")}
-                >
-                  Save and New
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => handleSubmit("saveAndClose")}
-                >
-                  Save and close
-                </button>
-                {/* Dev/test helper: create a minimal package using organization 11 */}
-                <button
-                  className="btn btn-warning"
-                  onClick={async () => {
-                    await testCreatePackage();
-                  }}
-                  title="Creates a minimal test package with organization=11"
-                >
-                  Test Create Package (org 11)
-                </button>
-                <button
-                  className="btn btn-info"
-                  onClick={async () => {
-                    await checkBackendConnection();
-                  }}
-                  title="Run quick backend checks for food/ziarat/tickets (org 11)"
-                >
-                  Check Backend (org 11)
-                </button>
-                <Link to="/packages" className="btn btn-outline-secondary">
-                  Cancel
-                </Link>
               </div>
             </div>
           </div>
-          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 };

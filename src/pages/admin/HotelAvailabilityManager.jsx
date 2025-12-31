@@ -4,6 +4,7 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import HotelsTabs from "../../components/HotelsTabs";
 import RoomMapManager from "../../components/RoomMapManager";
+import { useNavigate } from "react-router-dom";
 import {
   Hotel, Building, MapPin, Calendar, Users, DollarSign,
   Plus, Edit2, Trash2, Eye, Search, Filter, CheckCircle,
@@ -14,6 +15,7 @@ import api from "../../utils/Api";
 import { jwtDecode } from 'jwt-decode';
 
 const HotelAvailabilityManager = () => {
+  const navigate = useNavigate();
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState("");
   const [distanceFilter, setDistanceFilter] = useState("");
@@ -616,7 +618,12 @@ const HotelAvailabilityManager = () => {
         capacity: parseInt(bedTypeForm.capacity) || 1,
       };
 
-      // Organization is passed as query param, not in payload
+      // Add organization to payload if available
+      if (organizationId) {
+        payload.organization = organizationId;
+      }
+
+      // Organization is also passed as query param for compatibility
       const config = organizationId ? { params: { organization: organizationId } } : {};
 
       if (editingBedType) {
@@ -1633,34 +1640,9 @@ const HotelAvailabilityManager = () => {
     setAddHotelTab("hotel");
   };
 
-  // Open edit modal
+  // Open add hotel page (navigate instead of modal)
   const openAddModal = async () => {
-    // Reset form states
-    setHotelForm({
-      city: "",
-      name: "",
-      address: "",
-      google_location: "",
-      contact_number: "",
-      category: "",
-      distance: "",
-      walking_time: "",
-      walking_distance: "",
-      is_active: true,
-      available_start_date: "",
-      available_end_date: ""
-    });
-    setContactDetails([{ contact_person: "", contact_number: "" }]);
-    setPriceSections([{ start_date: "", end_date: "", room_type: "double", price: "", purchase_price: "", bed_prices: [] }]);
-    setPhotoFiles([]);
-    setVideoFile(null);
-    setResellingAllowed(false);
-    setHotelStatus("active");
-    setRooms([]);
-    setAddHotelTab("hotel");
-    // ensure categories are available in the add form
-    try { await fetchCategories(); } catch (e) { /* ignore */ }
-    setShowAddModal(true);
+    navigate('/add-hotel');
   };
 
   const openEditModal = (hotel) => {
@@ -2017,17 +1999,33 @@ const HotelAvailabilityManager = () => {
               <div>
                 <h2 className="mb-1" style={{ fontWeight: 600, color: "#2c3e50" }}>
                   <Hotel size={32} className="me-2" style={{ color: "#1B78CE" }} />
-                  Hotel Availability Manager
+                  Hotel Overview
                 </h2>
                 <p className="text-muted mb-0">Manage hotels, rooms, pricing, and availability</p>
               </div>
-              <Button
-                style={{ backgroundColor: "#1B78CE", border: "none" }}
-                onClick={openAddModal}
-              >
-                <Plus size={20} className="me-2" />
-                Add New Hotel
-              </Button>
+              <div className="d-flex gap-2">
+                <Button
+                  variant="outline-primary"
+                  onClick={async () => { setShowCategoryModal(true); await fetchCategories(); }}
+                >
+                  <Plus size={20} className="me-2" />
+                  Add Category
+                </Button>
+                <Button
+                  variant="outline-primary"
+                  onClick={openAddBedType}
+                >
+                  <Plus size={20} className="me-2" />
+                  Add Bed Type
+                </Button>
+                <Button
+                  style={{ backgroundColor: "#1B78CE", border: "none" }}
+                  onClick={openAddModal}
+                >
+                  <Plus size={20} className="me-2" />
+                  Add New Hotel
+                </Button>
+              </div>
             </div>
 
             {/* Gallery modal (for multiple photos) */}
@@ -2088,8 +2086,8 @@ const HotelAvailabilityManager = () => {
                       };
                     }
                     const bedType = getBedTypeName(p.room_type);
-                    const purchasePrice = p.purchase_price || 0;
-                    dateRangeMap[key].prices[bedType] = purchasePrice;
+                    const sellingPrice = p.price || 0;
+                    dateRangeMap[key].prices[bedType] = sellingPrice;
                   });
 
                   // Define fixed column order: Room, Sharing, Double, Triple, Quad, Quint, 6, 7, 8, 9, 10
@@ -2558,7 +2556,7 @@ const HotelAvailabilityManager = () => {
 
                               const pickPrice = (type) => {
                                 const found = prices.find(p => String(p.room_type).toLowerCase() === String(type).toLowerCase());
-                                return found && found.selling_price != null ? found.selling_price : null;
+                                return found && found.price != null ? found.price : null;
                               };
 
                               const doublePrice = pickPrice('double');
@@ -2566,25 +2564,13 @@ const HotelAvailabilityManager = () => {
                               const quadPrice = pickPrice('quad');
                               const quintPrice = pickPrice('quint');
 
-                              // room price: choose the lowest selling_price (or price) among all entries
-                              let roomPrice = null;
-                              prices.forEach(p => {
-                                if (!p) return;
-                                const sp = p.selling_price != null ? p.selling_price : p.price;
-                                if (sp != null && (roomPrice == null || sp < roomPrice)) roomPrice = sp;
-                              });
+                              // room price: look for specific 'room' type entry
+                              const roomEntry = prices.find(p => p && String(p.room_type).toLowerCase() === 'room');
+                              const roomPrice = roomEntry ? roomEntry.price : null;
 
-                              let sharingPrice = null;
-                              prices.forEach(p => {
-                                if (p && p.is_sharing_allowed) {
-                                  const sp = p.selling_price != null ? p.selling_price : p.price;
-                                  if (sharingPrice == null || (sp != null && sp < sharingPrice)) sharingPrice = sp;
-                                }
-                              });
-                              if (sharingPrice == null) {
-                                const byType = prices.find(p => p && String(p.room_type).toLowerCase() === 'sharing');
-                                if (byType) sharingPrice = byType.selling_price != null ? byType.selling_price : byType.price;
-                              }
+                              // sharing price: look for specific 'sharing' type entry
+                              const sharingEntry = prices.find(p => p && String(p.room_type).toLowerCase() === 'sharing');
+                              const sharingPrice = sharingEntry ? sharingEntry.price : null;
 
                               const fmt = (v) => (v == null ? 'N/A' : (Number.isFinite(Number(v)) ? Number(v).toLocaleString() : String(v)));
 
@@ -2657,10 +2643,28 @@ const HotelAvailabilityManager = () => {
                                         <Eye size={14} className="me-2" /> View Details
                                       </Dropdown.Item>
                                       <Dropdown.Item
+                                        onClick={() => {
+                                          if (isOwner) navigate(`/hotels/edit-details/${hotel.id}`);
+                                          else { setSelectedHotel(hotel); setShowResellerPopup(true); }
+                                        }}
+                                        title={isOwner ? "Edit Hotel Details" : "Click to see why editing is disabled"}
+                                      >
+                                        <Edit2 size={14} className="me-2" /> Edit Details
+                                      </Dropdown.Item>
+                                      <Dropdown.Item
+                                        onClick={() => {
+                                          if (isOwner) navigate(`/hotels/edit-pricing/${hotel.id}`);
+                                          else { setSelectedHotel(hotel); setShowResellerPopup(true); }
+                                        }}
+                                        title={isOwner ? "Edit Hotel Pricing" : "Click to see why editing is disabled"}
+                                      >
+                                        <DollarSign size={14} className="me-2" /> Edit Pricing
+                                      </Dropdown.Item>
+                                      <Dropdown.Item
                                         onClick={() => { if (isOwner) openEditModal(hotel); else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
                                         title={isOwner ? "Edit Hotel" : "Click to see why editing is disabled"}
                                       >
-                                        <Edit2 size={14} className="me-2" /> Edit
+                                        <Edit2 size={14} className="me-2" /> Edit (Legacy)
                                       </Dropdown.Item>
                                       <Dropdown.Item
                                         onClick={() => { if (isOwner) { setSelectedHotel(hotel); setShowDeleteModal(true); } else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
@@ -2693,412 +2697,6 @@ const HotelAvailabilityManager = () => {
             </Modal.Body>
             <Modal.Footer>
               <Button variant="primary" onClick={() => setShowResellerPopup(false)}>OK</Button>
-            </Modal.Footer>
-          </Modal>
-
-          {/* Add Hotel Modal */}
-          <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
-            <Modal.Header closeButton className="border-0">
-              <Modal.Title className="d-flex align-items-center">
-                <Plus size={22} className="me-2" style={{ color: '#1B78CE' }} />
-                <span style={{ color: '#1B78CE' }}>Add New Hotel</span>
-              </Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-              <Tabs activeKey={addHotelTab} onSelect={(k) => setAddHotelTab(k)} className="mb-3">
-                <Tab eventKey="hotel" title="Hotel">
-                  <Form>
-                    <Row className="g-3">
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">City <span className="text-danger">*</span></Form.Label>
-                          <Form.Select
-                            value={hotelForm.city}
-                            onChange={(e) => setHotelForm({ ...hotelForm, city: e.target.value })}
-                          >
-                            <option value="">Select City</option>
-                            {dedupedCities.map(city => (
-                              <option key={city.id ?? city.name} value={city.id}>{city.name}</option>
-                            ))}
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Hotel Name <span className="text-danger">*</span></Form.Label>
-                          <Form.Control
-                            type="text"
-                            value={hotelForm.name}
-                            onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-                            placeholder="Enter hotel name"
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col xs={12}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Address <span className="text-danger">*</span></Form.Label>
-                          <Form.Control
-                            as="textarea"
-                            rows={2}
-                            value={hotelForm.address}
-                            onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
-                            placeholder="Enter full address"
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={4}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Category</Form.Label>
-                          <div className="d-flex">
-                            <Form.Select
-                              value={hotelForm.category}
-                              onChange={(e) => setHotelForm({ ...hotelForm, category: e.target.value })}
-                            >
-                              <option value="">Select Category</option>
-                              {Array.isArray(categoriesList) && categoriesList.length > 0 ? (
-                                categoriesList.map(cat => (
-                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                ))
-                              ) : (
-                                <option value="" disabled>-- No categories --</option>
-                              )}
-                            </Form.Select>
-                            <Button variant="outline-primary" className="ms-2" onClick={async () => { setShowCategoryModal(true); await fetchCategories(); }} title="Manage Categories">+</Button>
-                          </div>
-                        </Form.Group>
-                      </Col>
-                      <Col md={4}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">
-                            <BedDouble size={18} className="me-2" />
-                            Bed Type
-                          </Form.Label>
-                          <div className="d-flex">
-                            <Form.Select
-                              value={hotelForm.bed_type}
-                              onChange={(e) => setHotelForm({ ...hotelForm, bed_type: e.target.value })}
-                              disabled={bedTypeLoading}
-                            >
-                              <option value="">Select Bed Type</option>
-                              {bedTypesList.map((bt) => (
-                                <option key={bt.id} value={bt.id}>
-                                  {bt.name} (Capacity: {bt.capacity})
-                                </option>
-                              ))}
-                            </Form.Select>
-                            <Button variant="outline-primary" className="ms-2" onClick={openAddBedType} title="Add New Bed Type">+</Button>
-                          </div>
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Distance (m)</Form.Label>
-                          <Form.Control
-                            type="text"
-                            value={hotelForm.distance}
-                            onChange={(e) => setHotelForm({ ...hotelForm, distance: e.target.value })}
-                            placeholder="e.g., 500"
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Walking Time (min)</Form.Label>
-                          <Form.Control
-                            type="text"
-                            value={hotelForm.walking_time}
-                            onChange={(e) => setHotelForm({ ...hotelForm, walking_time: e.target.value })}
-                            placeholder="e.g., 10"
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Walking Distance (m)</Form.Label>
-                          <Form.Control
-                            type="text"
-                            value={hotelForm.walking_distance}
-                            onChange={(e) => setHotelForm({ ...hotelForm, walking_distance: e.target.value })}
-                            placeholder="e.g., 400"
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={3}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Contact Number</Form.Label>
-                          <Form.Control
-                            type="tel"
-                            value={hotelForm.contact_number}
-                            onChange={(e) => setHotelForm({ ...hotelForm, contact_number: e.target.value })}
-                            placeholder="+92 XXX XXXXXXX"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Google Location Link</Form.Label>
-                          <Form.Control
-                            type="url"
-                            value={hotelForm.google_location}
-                            onChange={(e) => setHotelForm({ ...hotelForm, google_location: e.target.value })}
-                            placeholder="https://maps.google.com/..."
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Available From</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={hotelForm.available_start_date}
-                            onChange={(e) => setHotelForm({ ...hotelForm, available_start_date: e.target.value })}
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Available Until</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={hotelForm.available_end_date}
-                            onChange={(e) => setHotelForm({ ...hotelForm, available_end_date: e.target.value })}
-                          />
-                        </Form.Group>
-                      </Col>
-
-                      {/* Contact Details */}
-                      <Col xs={12}>
-                        <Form.Label className="fw-medium">Contact Details</Form.Label>
-                        {contactDetails.map((c, idx) => (
-                          <Row className="g-2 mb-2" key={idx}>
-                            <Col md={5}>
-                              <Form.Control
-                                placeholder="Contact Person"
-                                value={c.contact_person}
-                                onChange={(e) => {
-                                  const copy = [...contactDetails];
-                                  copy[idx].contact_person = e.target.value;
-                                  setContactDetails(copy);
-                                }}
-                              />
-                            </Col>
-                            <Col md={5}>
-                              <Form.Control
-                                placeholder="Contact Number"
-                                value={c.contact_number}
-                                onChange={(e) => {
-                                  const copy = [...contactDetails];
-                                  copy[idx].contact_number = e.target.value;
-                                  setContactDetails(copy);
-                                }}
-                              />
-                            </Col>
-                            <Col md={2} className="d-flex align-items-center">
-                              <Button variant="danger" size="sm" onClick={() => {
-                                if (contactDetails.length === 1) return;
-                                const copy = contactDetails.filter((_, i) => i !== idx);
-                                setContactDetails(copy);
-                              }}>Remove</Button>
-                            </Col>
-                          </Row>
-                        ))}
-                        <Button size="sm" onClick={() => setContactDetails([...contactDetails, { contact_person: "", contact_number: "" }])}>Add Contact</Button>
-                      </Col>
-
-                      {/* Price Sections (renamed per-request to numbered Hotel Price entries) */}
-                      <Col xs={12}>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <Form.Label className="fw-medium mb-0">Hotel Prices</Form.Label>
-                          <Button size="sm" onClick={() => setPriceSections([...priceSections, { start_date: "", end_date: "", room_type: "room", price: "", purchase_price: "", bed_prices: [] }])} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }} title="Add another hotel price">+ Add Hotel Price</Button>
-                        </div>
-
-                        {priceSections.map((p, idx) => (
-                          <div key={idx} className="mb-3 p-2 rounded" style={{ backgroundColor: '#fafafa', border: '1px solid #eee' }}>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <strong>Hotel Price {idx + 1}</strong>
-                              <Button size="sm" variant="outline-danger" onClick={() => { if (priceSections.length === 1) return; setPriceSections(priceSections.filter((_, i) => i !== idx)); }}>Remove</Button>
-                            </div>
-
-                            <Row className="g-2 align-items-center">
-                              <Col md={6}><Form.Control type="date" value={p.start_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
-                              <Col md={6}><Form.Control type="date" value={p.end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
-                            </Row>
-                            <Row className="g-2 mt-2">
-                              <Col xs={12} className="mb-2"><strong>Only-Room Price</strong></Col>
-                              <Col md={4}><Form.Select value={""} disabled><option value="">Room price</option></Form.Select></Col>
-                              <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={p.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].price = e.target.value; setPriceSections(copy); }} /></Col>
-                              <Col md={4}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={p.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
-                            </Row>
-
-                            {/* Bed-specific prices within this price section */}
-                            {(p.bed_prices || []).map((bp, bidx) => (
-                              <Row key={bidx} className="g-2 align-items-center mt-2">
-                                <Col md={4}>
-                                  <Form.Select value={bp.type || p.room_type || ""} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
-                                    <option value="">Select Bed Type</option>
-                                    {bedTypesList.map((bt) => (
-                                      <option key={bt.id} value={bt.slug || bt.name.toLowerCase().replace(/\s+/g, '-')}>
-                                        {bt.name} (Capacity: {bt.capacity})
-                                      </option>
-                                    ))}
-                                  </Form.Select>
-                                </Col>
-                                <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={bp.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].price = e.target.value; setPriceSections(copy); }} /></Col>
-                                <Col md={3}><Form.Control type="number" placeholder="Purchase Price (SAR)" value={bp.purchase_price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].purchase_price = e.target.value; setPriceSections(copy); }} /></Col>
-                                <Col md={1} className="d-flex">
-                                  <Button size="sm" variant="danger" onClick={() => { const copy = [...priceSections]; copy[idx].bed_prices = copy[idx].bed_prices.filter((_, i) => i !== bidx); setPriceSections(copy); }}>Remove</Button>
-                                </Col>
-                              </Row>
-                            ))}
-
-                            <div className="d-flex gap-3 mt-2">
-                              <Button size="sm" className="" onClick={() => {
-                                const copy = [...priceSections];
-                                const defaultType = (copy[idx] && copy[idx].room_type) ? copy[idx].room_type : 'sharing';
-                                copy[idx].bed_prices = copy[idx].bed_prices ? [...copy[idx].bed_prices, { type: defaultType, price: '', purchase_price: '' }] : [{ type: defaultType, price: '', purchase_price: '' }];
-                                setPriceSections(copy);
-                              }} style={{ backgroundColor: '#1B78CE', border: 'none', color: '#fff' }}>+ Add Bed Type</Button>
-                            </div>
-                          </div>
-                        ))}
-                      </Col>
-
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Photos</Form.Label>
-                          <Form.Control type="file" accept="image/*" multiple onChange={(e) => setPhotoFiles(Array.from(e.target.files))} />
-                        </Form.Group>
-                      </Col>
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Video</Form.Label>
-                          <Form.Control type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)} />
-                        </Form.Group>
-                      </Col>
-
-                      <Col md={6} className="d-flex align-items-center">
-                        <Form.Check type="checkbox" label={<span className="fw-medium">Allow Reselling</span>} checked={resellingAllowed} onChange={(e) => setResellingAllowed(e.target.checked)} />
-                      </Col>
-                      <Col md={6}>
-                        <Form.Group>
-                          <Form.Label className="fw-medium">Status</Form.Label>
-                          <Form.Select value={hotelStatus} onChange={(e) => setHotelStatus(e.target.value)}>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="pending">Pending</option>
-                            <option value="maintenance">Maintenance</option>
-                          </Form.Select>
-                        </Form.Group>
-                      </Col>
-                    </Row>
-                  </Form>
-                </Tab>
-                <Tab eventKey="rooms" title={`Rooms (${rooms.length})`}>
-                  <div>
-                    <div className="mb-3 d-flex justify-content-between align-items-center">
-                      <h6>Rooms Builder</h6>
-                      <div>
-                        <Button size="sm" onClick={addRoom} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Room</Button>
-                        <Button size="sm" variant="outline-secondary" onClick={() => setRooms([])}>Clear All</Button>
-                      </div>
-                    </div>
-
-                    {rooms.length === 0 && (
-                      <div className="text-muted">No rooms added yet. Click "Add Room" to create room entries.</div>
-                    )}
-
-                    {rooms.map((r, ri) => (
-                      <Card key={`room-${ri}`} className="mb-2">
-                        <Card.Body>
-                          <Row className="g-2">
-                            <Col md={3}>
-                              <Form.Select value={r.floor || "Ground Floor"} onChange={(e) => { const copy = [...rooms]; copy[ri].floor = e.target.value; setRooms(copy); }}>
-                                <option value="Ground Floor">Ground Floor</option>
-                                <option value="1st Floor">1st Floor</option>
-                                <option value="2nd Floor">2nd Floor</option>
-                                <option value="3rd Floor">3rd Floor</option>
-                                <option value="4th Floor">4th Floor</option>
-                                <option value="5th Floor">5th Floor</option>
-                                <option value="6th Floor">6th Floor</option>
-                                <option value="7th Floor">7th Floor</option>
-                                <option value="8th Floor">8th Floor</option>
-                                <option value="9th Floor">9th Floor</option>
-                                <option value="10th Floor">10th Floor</option>
-                              </Form.Select>
-                            </Col>
-                            <Col md={3}>
-                              <Form.Control placeholder="Room No" value={r.room_no} onChange={(e) => { const copy = [...rooms]; copy[ri].room_no = e.target.value; setRooms(copy); }} />
-                            </Col>
-                            <Col md={3}>
-                              <Form.Select value={r.room_type} onChange={(e) => { const copy = [...rooms]; const newType = e.target.value; copy[ri].room_type = newType; const found = roomTypes.find(rt => rt.value === newType); if (found) copy[ri].capacity = found.capacity; setRooms(copy); }}>
-                                {roomTypes
-                                  .filter(rt => {
-                                    // allow the current room's selected type to remain selectable
-                                    if (rt.value === r.room_type) return true;
-                                    // hide types already selected by other rooms
-                                    return !rooms.some((other, idx) => idx !== ri && other.room_type === rt.value);
-                                  })
-                                  .map(rt => <option key={rt.value} value={rt.value}>{rt.label}</option>)}
-                              </Form.Select>
-                            </Col>
-                            <Col md={2}>
-                              <Form.Select value={r.status || 'available'} onChange={(e) => { const copy = [...rooms]; copy[ri].status = e.target.value; setRooms(copy); }}>
-                                {roomStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                              </Form.Select>
-                            </Col>
-                            <Col md={1} className="d-flex align-items-center">
-                              <Button variant="danger" size="sm" onClick={() => removeRoom(ri)}>Remove</Button>
-                            </Col>
-                          </Row>
-
-                          <hr />
-                          <div>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <strong>Beds ({(r.details || []).length})</strong>
-                              <div>
-                                <Button size="sm" onClick={() => addBedToRoom(ri)} className="me-2" style={{ backgroundColor: '#1B78CE', border: 'none' }}>Add Bed</Button>
-                                <Button size="sm" variant="outline-secondary" onClick={() => { const copy = [...rooms]; copy[ri].details = []; setRooms(copy); }}>Clear Beds</Button>
-                              </div>
-                            </div>
-
-                            {(r.details || []).map((b, bi) => (
-                              <Row className="g-2 mb-2" key={`bed-${ri}-${bi}`}>
-                                <Col md={6}>
-                                  <Form.Control placeholder="Bed No" value={b.bed_no} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].bed_no = e.target.value; setRooms(copy); }} />
-                                </Col>
-                                <Col md={4} className="d-flex align-items-center">
-                                  <Form.Check type="checkbox" label="Assigned" checked={!!b.is_assigned} onChange={(e) => { const copy = [...rooms]; copy[ri].details[bi].is_assigned = e.target.checked; setRooms(copy); }} />
-                                </Col>
-                                <Col md={2} className="d-flex align-items-center">
-                                  <Button variant="danger" size="sm" onClick={() => removeBedFromRoom(ri, bi)}>Remove</Button>
-                                </Col>
-                              </Row>
-                            ))}
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    ))}
-                  </div>
-                </Tab>
-              </Tabs>
-            </Modal.Body>
-            <Modal.Footer className="border-0">
-              <div className="d-flex w-100 justify-content-between align-items-center">
-                <div className="text-muted small">Fields marked <span className="text-danger">*</span> are required</div>
-                <div>
-                  <Button variant="outline-secondary" onClick={() => setShowAddModal(false)} className="me-2">Cancel</Button>
-                  <Button onClick={handleAddHotel} style={{ backgroundColor: '#1B78CE', border: 'none' }} disabled={!hotelForm.city || !hotelForm.name || !hotelForm.address}>
-                    <Save size={16} className="me-1" /> Save Hotel
-                  </Button>
-                </div>
-              </div>
             </Modal.Footer>
           </Modal>
 
@@ -3478,18 +3076,20 @@ const HotelAvailabilityManager = () => {
                             {(p.bed_prices || []).map((bp, bidx) => (
                               <Row key={bidx} className="g-2 align-items-center mt-2">
                                 <Col md={4}>
-                                  <Form.Select value={bp.type || p.room_type || "sharing"} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
+                                  <Form.Select value={bp.type || p.room_type || "single"} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].type = e.target.value; setPriceSections(copy); }}>
+                                    <option value="">Select Bed Type</option>
+                                    <option value="room">Room</option>
                                     <option value="sharing">Sharing</option>
                                     <option value="single">Single Bed</option>
                                     <option value="double">Double Bed</option>
                                     <option value="triple">Triple Bed</option>
                                     <option value="quad">Quad Bed</option>
                                     <option value="quint">Quint Bed</option>
-                                    <option value="6" disabled>6 Bed</option>
-                                    <option value="7" disabled>7 Bed</option>
-                                    <option value="8" disabled>8 Bed</option>
-                                    <option value="9" disabled>9 Bed</option>
-                                    <option value="10" disabled>10 Bed</option>
+                                    <option value="6-bed">6 Bed</option>
+                                    <option value="7-bed">7 Bed</option>
+                                    <option value="8-bed">8 Bed</option>
+                                    <option value="9-bed">9 Bed</option>
+                                    <option value="10-bed">10 Bed</option>
                                   </Form.Select>
                                 </Col>
                                 <Col md={4}><Form.Control type="number" placeholder="Selling Price (SAR)" value={bp.price} onChange={(e) => { const copy = [...priceSections]; copy[idx].bed_prices[bidx].price = e.target.value; setPriceSections(copy); }} /></Col>
@@ -4183,17 +3783,20 @@ const HotelAvailabilityManager = () => {
               {priceModalHotel && (() => {
                 const prices = priceModalHotel.prices || priceModalHotel.price_sections || [];
 
+
                 // Helper to get bed type name - returns lowercase standardized names
                 const getBedTypeName = (type) => {
-                  if (!type) return 'room';
+                  if (!type) return 'single';
                   const typeStr = String(type).toLowerCase().trim();
 
                   const typeMap = {
-                    'single': 'single', 'sharing': 'sharing', 'double': 'double',
-                    'triple': 'triple', 'quad': 'quad', 'quint': 'quint', 'room': 'room',
-                    '6': '6', '7': '7', '8': '8', '9': '9', '10': '10',
-                    '6-bed': '6', '7-bed': '7', '8-bed': '8', '9-bed': '9', '10-bed': '10',
-                    '6 bed': '6', '7 bed': '7', '8 bed': '8', '9 bed': '9', '10 bed': '10'
+                    'room': 'room', 'sharing': 'sharing',
+                    'single': 'single', 'double': 'double', 'triple': 'triple',
+                    'quad': 'quad', 'quint': 'quint',
+                    '6': '6-bed', '7': '7-bed', '8': '8-bed', '9': '9-bed', '10': '10-bed',
+                    '6-bed': '6-bed', '7-bed': '7-bed', '8-bed': '8-bed', '9-bed': '9-bed', '10-bed': '10-bed',
+                    '6 bed': '6-bed', '7 bed': '7-bed', '8 bed': '8-bed', '9 bed': '9-bed', '10 bed': '10-bed',
+                    'six bed': '6-bed', 'seven bed': '7-bed', 'eight bed': '8-bed', 'nine bed': '9-bed', 'ten bed': '10-bed'
                   };
 
                   if (typeMap[typeStr]) return typeMap[typeStr];
@@ -4218,23 +3821,23 @@ const HotelAvailabilityManager = () => {
                     dateRangeMap[key] = { start_date: p.start_date || 'N/A', end_date: p.end_date || 'N/A', prices: {} };
                   }
                   const bedType = getBedTypeName(p.room_type);
-                  const purchasePrice = p.purchase_price || 0;
-                  dateRangeMap[key].prices[bedType] = purchasePrice;
+                  const sellingPrice = p.price || p.selling_price || 0;
+                  dateRangeMap[key].prices[bedType] = sellingPrice;
                 });
 
-                // Fixed column order
-                const bedTypeColumns = ['room', 'sharing', 'double', 'triple', 'quad', 'quint', '6', '7', '8', '9', '10'];
+                // Bed type columns including room and sharing
+                const bedTypeColumns = ['room', 'sharing', 'single', 'double', 'triple', 'quad', 'quint', '6-bed', '7-bed', '8-bed', '9-bed', '10-bed'];
                 const columnNames = {
-                  'room': 'Room', 'sharing': 'Sharing', 'double': 'Double', 'triple': 'Triple',
-                  'quad': 'Quad', 'quint': 'Quint', '6': '6 Bed', '7': '7 Bed',
-                  '8': '8 Bed', '9': '9 Bed', '10': '10 Bed'
+                  'room': 'Room', 'sharing': 'Sharing', 'single': 'Single', 'double': 'Double', 'triple': 'Triple',
+                  'quad': 'Quad', 'quint': 'Quint', '6-bed': '6 Bed', '7-bed': '7 Bed',
+                  '8-bed': '8 Bed', '9-bed': '9 Bed', '10-bed': '10 Bed'
                 };
 
                 const dateRanges = Object.values(dateRangeMap);
 
                 return (
                   <div>
-                    <h6 className="mb-3">Hotel Prices by Date Range (Purchase Prices)</h6>
+                    <h6 className="mb-3">Hotel Prices by Date Range (Selling Prices)</h6>
                     {prices.length === 0 ? (
                       <div className="text-center text-muted py-3">No prices available for this hotel</div>
                     ) : (
@@ -4283,6 +3886,70 @@ const HotelAvailabilityManager = () => {
         .content-wrapper {
           width: 100% !important;
         }
+      }
+      
+      /* Fix dropdown jiggle issue and z-index conflicts */
+      .dropdown-toggle {
+        position: relative !important;
+        z-index: 1 !important;
+      }
+      
+      .dropdown-toggle:hover,
+      .dropdown-toggle:focus,
+      .dropdown-toggle:active {
+        position: relative !important;
+        z-index: 1 !important;
+      }
+      
+      /* When dropdown is open, increase z-index significantly */
+      .dropdown.show {
+        z-index: 9999 !important;
+        position: relative !important;
+      }
+      
+      .dropdown.show .dropdown-toggle {
+        z-index: 9999 !important;
+      }
+      
+      .dropdown-menu {
+        z-index: 10000 !important;
+        pointer-events: auto !important;
+      }
+      
+      /* Ensure dropdown doesn't affect table cell dimensions */
+      .dropdown {
+        position: static !important;
+      }
+      
+      td .dropdown {
+        position: relative !important;
+      }
+      
+      /* Prevent clicking on elements behind dropdown when it's open */
+      .dropdown.show ~ * {
+        pointer-events: none !important;
+      }
+      
+      /* Create overlay effect when dropdown is open */
+      .dropdown.show .dropdown-menu {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+      }
+      
+      /* Ensure dropdown menu items are clickable */
+      .dropdown-menu .dropdown-item {
+        pointer-events: auto !important;
+      }
+      
+      /* Ensure table rows with closed dropdowns stay behind open dropdown */
+      tbody tr {
+        position: relative;
+        z-index: 1;
+      }
+      
+      /* When a dropdown in a row is open, that row gets highest z-index */
+      tbody tr:has(.dropdown.show) {
+        z-index: 10001 !important;
+        position: relative !important;
       }
     `}</style>
     </>

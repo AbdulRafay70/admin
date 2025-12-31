@@ -1,0 +1,91 @@
+/* Blog Builder Styles */
+.blog-builder {
+  background-color: #f8f9fa;
+  min-height: calc(100vh - 60px);
+}
+
+.blog-builder .card {
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.blog-builder .card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.blog-builder .card.border-primary {
+  border-width: 2px;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.blog-builder .sticky-top {
+  z-index: 10;
+}
+
+.blog-builder .section-preview {
+  border-left: 4px solid #0d6efd;
+  padding-left: 1rem;
+  margin-bottom: 1rem;
+}
+
+.blog-builder textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+
+.blog-builder .btn-group-sm .btn {
+  padding: 0.25rem 0.5rem;
+}
+
+/* Preview Mode */
+.blog-preview {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.blog-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.blog-preview h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.blog-preview h3 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Section Cards */
+.section-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.section-card:hover {
+  transform: translateY(-2px);
+}
+
+.section-card.active {
+  border-color: #0d6efd !important;
+  background-color: #f0f7ff;
+}
+
+/* Color Pickers */
+input[type="color"] {
+  height: 38px;
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .blog-builder .sticky-top {
+    position: relative !important;
+    top: 0 !important;
+  }
+}

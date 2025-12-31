@@ -36,9 +36,11 @@ import {
   BarChart3,
   TrendingUp,
   MoreVertical,
+  Zap,
+  X,
 } from "lucide-react";
 import axios from "axios";
- 
+
 const LeadManagement = () => {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -91,6 +93,7 @@ const LeadManagement = () => {
     loan_remarks: "",
     conversion_status: "not_converted",
     whatsapp_number: "",
+    is_instant: false,
 
   });
 
@@ -163,8 +166,8 @@ const LeadManagement = () => {
       // Accept Date or string
       const d = (val instanceof Date) ? val : new Date(String(val));
       if (isNaN(d.getTime())) return String(val);
-      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       return `${date} ${time}`;
     } catch (e) { return String(val); }
   };
@@ -227,6 +230,7 @@ const LeadManagement = () => {
     last_contacted_date: "",
     whatsapp_number: "",
     assigned_to: "",
+    is_instant: false,
   });
 
   // Validation errors for Add Loan modal
@@ -266,6 +270,7 @@ const LeadManagement = () => {
     loan_status: 'pending',
     due_date: '',
     time: '',
+    is_instant: false,
   });
 
   // Chat state
@@ -278,6 +283,7 @@ const LeadManagement = () => {
   const [followupDate, setFollowupDate] = useState("");
   const [followupTime, setFollowupTime] = useState("");
   const [followupRemarks, setFollowupRemarks] = useState("");
+  const [followupIsInstant, setFollowupIsInstant] = useState(false);
 
   const sendChatMessage = () => {
     const text = (chatInput || "").trim();
@@ -326,6 +332,7 @@ const LeadManagement = () => {
         loan_amount: newLoanForm.amount ? Number(String(newLoanForm.amount).replace(/,/g, '')) : 0,
         loan_promise_date: newLoanForm.loan_promise_date || newLoanForm.due_date || null,
         remarks: newLoanForm.reason || null,
+        is_instant: newLoanForm.is_instant || false,
         organization: organizationId,
         branch: newLoanForm.branch_id ? Number(newLoanForm.branch_id) : (userBranchId || getUserBranchId()),
         created_by_user: null,
@@ -348,7 +355,7 @@ const LeadManagement = () => {
       }
 
       setShowAddLoanModal(false);
-      setNewLoanForm({ customer_full_name: "", contact_number: "", cnic_number: "", email: "", amount: "", reason: "", loan_promise_date: "", loan_status: "pending", recovered_amount: "", recovery_date: "", loan_remarks: "", last_contacted_date: "", whatsapp_number: "", assigned_to: "", address: "" });
+      setNewLoanForm({ customer_full_name: "", contact_number: "", cnic_number: "", email: "", amount: "", reason: "", loan_promise_date: "", loan_status: "pending", recovered_amount: "", recovery_date: "", loan_remarks: "", last_contacted_date: "", whatsapp_number: "", assigned_to: "", address: "", is_instant: false });
       setChatMessages([]);
       setChatInput("");
       setEditingLoanId(null);
@@ -591,7 +598,7 @@ const LeadManagement = () => {
             computedStatus = 'cleared';
           } else if (a > 0 && dueDate) {
             const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             if (dueDate < todayStr) {
               // if due date has passed and not fully recovered
               if (r < a) computedStatus = 'overdue';
@@ -614,6 +621,8 @@ const LeadManagement = () => {
           recovered_amount: Number.isFinite(recovered) ? recovered : 0,
           recovery_date: item.recovery_date || null,
           branch_id: item.branch || item.branch_id || item.branch_id || null,
+          organization: item.organization || item.organization_id || null,
+          is_instant: item.is_instant || false,
           branch_name: item.branch_name || (branches.find(b => b.id === (item.branch || item.branch_id)) || {}).name || '',
           // keep raw payload for other uses
           raw: item,
@@ -642,6 +651,8 @@ const LeadManagement = () => {
           due_date: item.next_followup_date || item.due_date || null,
           time: item.next_followup_time || item.time || null,
           branch_id: item.branch || item.branch_id || null,
+          organization: item.organization || item.organization_id || null,
+          is_instant: item.is_instant || false,
           is_internal: !!(item.is_internal_task || item.is_internal),
           branch_name: item.branch_name || (branches.find(b => b.id === (item.branch || item.branch_id)) || {}).name || '',
           raw: item,
@@ -902,6 +913,7 @@ const LeadManagement = () => {
         // next_followup_date/time will be posted separately to the followup API if present
         remarks: leadForm.remarks || null,
         conversion_status: leadForm.conversion_status || null,
+        is_instant: leadForm.is_instant || false,
         created_by_user: null,
       };
 
@@ -915,7 +927,7 @@ const LeadManagement = () => {
         if (leadForm.loan_remarks) payload.loan_remarks = leadForm.loan_remarks;
       }
 
-        const createResp = await axios.post(`http://127.0.0.1:8000/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
+      const createResp = await axios.post(`http://127.0.0.1:8000/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -1017,11 +1029,15 @@ const LeadManagement = () => {
     }
 
     try {
-      const basePayload = { organization: organizationId, branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()) };
+      // Get organization ID with fallback to selectedLead's organization
+      const orgId = organizationId || selectedLead.organization || selectedLead.organization_id;
+      const basePayload = { organization: orgId, branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()) };
 
       if (isTaskRecord(selectedLead)) {
-        // For tasks, mark the task status as completed (use PATCH to avoid overwriting other fields)
-        const taskPayload = { ...basePayload, status: 'completed' };
+        // For tasks, update lead_status to match the close option
+        // Map 'converted' to 'confirmed' as that's the valid choice in the backend Lead model
+        let leadStatus = closeLeadOption === 'converted' ? 'confirmed' : closeLeadOption === 'lost' ? 'lost' : 'confirmed';
+        const taskPayload = { ...basePayload, lead_status: leadStatus };
         await axios.patch(`http://127.0.0.1:8000/api/leads/update/${selectedLead.id}/`, taskPayload, { headers: { Authorization: `Bearer ${token}` } });
       } else {
         // For leads, preserve existing close options
@@ -1032,19 +1048,20 @@ const LeadManagement = () => {
           updatePayload.conversion_status = 'converted_to_booking';
           updatePayload.lead_status = 'confirmed';
         }
-
         await axios.patch(`http://127.0.0.1:8000/api/leads/update/${selectedLead.id}/`, updatePayload, { headers: { Authorization: `Bearer ${token}` } });
       }
 
       // Save a followup/remark documenting the close action
+      // Map 'converted' to 'confirmed' for followup_result
+      let followupResult = closeLeadOption === 'converted' ? 'confirmed' : closeLeadOption;
       const followupPayload = {
         lead: selectedLead.id,
         followup_date: (new Date()).toISOString().split('T')[0],
         contacted_via: 'call',
         remarks: closeLeadRemarks || null,
-        organization: organizationId,
+        organization: orgId,
         branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()),
-        followup_result: closeLeadOption,
+        followup_result: followupResult,
       };
 
       await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
@@ -1097,6 +1114,7 @@ const LeadManagement = () => {
         followup_date: (new Date()).toISOString().split('T')[0],
         contacted_via: 'call',
         remarks: remarksInput || null,
+        is_instant: false,  // Add remarks are not instant by default
         organization: organizationId,
         branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()),
       };
@@ -1127,6 +1145,7 @@ const LeadManagement = () => {
     setFollowupDate('');
     setFollowupTime('');
     setFollowupRemarks('');
+    setFollowupIsInstant(false);
     setShowNextFollowupModal(true);
   };
 
@@ -1144,6 +1163,7 @@ const LeadManagement = () => {
         next_followup_date: followupDate || null,
         next_followup_time: followupTime || null,
         remarks: followupRemarks || null,
+        is_instant: followupIsInstant,
         organization: organizationId,
         branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()),
       };
@@ -1153,6 +1173,7 @@ const LeadManagement = () => {
       setFollowupDate('');
       setFollowupTime('');
       setFollowupRemarks('');
+      setFollowupIsInstant(false);
       fetchLeads();
     } catch (err) {
       console.error('Failed to set next followup', err);
@@ -1209,7 +1230,8 @@ const LeadManagement = () => {
         next_followup_date: taskForm.next_followup_date || null,
         next_followup_time: taskForm.next_followup_time || null,
         lead_status: taskForm.lead_status || 'new',
-          created_by_user: null,
+        is_instant: taskForm.is_instant || false,
+        created_by_user: null,
       };
 
       if (editingTaskId) {
@@ -1243,6 +1265,7 @@ const LeadManagement = () => {
         status: 'pending',
         due_date: '',
         time: '',
+        is_instant: false,
       });
       setEditingTaskId(null);
 
@@ -1282,6 +1305,7 @@ const LeadManagement = () => {
       loan_remarks: "",
       conversion_status: "not_converted",
       whatsapp_number: "",
+      is_instant: false,
     });
     setValidationErrors({});
     setCreateLoanWithLead(false);
@@ -1420,6 +1444,7 @@ const LeadManagement = () => {
       loan_status: task.loan_status || (task.status ? (task.status === 'completed' ? 'cleared' : task.status === 'overdue' ? 'overdue' : 'pending') : 'pending'),
       due_date: task.due_date || "",
       time: task.time || "",
+      is_instant: task.is_instant || false,
     });
     setEditingTaskId(task.id);
     setShowAddTaskModal(true);
@@ -1657,13 +1682,13 @@ const LeadManagement = () => {
 
   return (
     <div className="d-flex">
-
+      <Sidebar />
       <div className="flex-grow-1">
 
-
+        <Header />
         <div className="page-inner" style={{ margin: 0, padding: 0 }}>
           <Container fluid className=" ">
-            {/* Page Header */}
+            <CRMTabs activeName={"leads"} />
             <div className="row mb-3">
               <div className="col-12">
                 <h4 className="mb-1" style={{ color: '#1B78CE', fontWeight: '600' }}>Follow-up Dashboard</h4>
@@ -1755,6 +1780,38 @@ const LeadManagement = () => {
                         >
                           <Clock size={16} className="me-2" />
                           Follow-ups
+                        </button>
+                        <button
+                          className={`nav-link btn btn-link ${activeTab === 'closed' ? 'fw-bold' : ''}`}
+                          onClick={() => setActiveTab('closed')}
+                          style={{
+                            color: activeTab === 'closed' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeTab === 'closed' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <CheckCircle size={16} className="me-2" />
+                          Closed Leads
+                        </button>
+                        <button
+                          className={`nav-link btn btn-link ${activeTab === 'instant' ? 'fw-bold' : ''}`}
+                          onClick={() => setActiveTab('instant')}
+                          style={{
+                            color: activeTab === 'instant' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeTab === 'instant' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <Zap size={16} className="me-2" />
+                          Instant
                         </button>
                       </div>
                     </nav>
@@ -1957,6 +2014,7 @@ const LeadManagement = () => {
                                 <th className="text-nowrap">Interested In</th>
                                 <th className="text-nowrap">Source</th>
                                 <th className="text-nowrap">Conversion</th>
+                                <th className="text-nowrap">Instant</th>
                                 <th className="text-nowrap">Actions</th>
                               </tr>
                             </thead>
@@ -1972,7 +2030,10 @@ const LeadManagement = () => {
                                         <User size={16} />
                                       </div>
                                       <div>
-                                        <p className="mb-0 fw-500" style={{ cursor: 'pointer' }} onClick={() => openViewModal(lead)}>{lead.customer_full_name}</p>
+                                        <p className="mb-0 fw-500" style={{ cursor: 'pointer' }} onClick={() => openViewModal(lead)}>
+                                          {lead.customer_full_name}
+                                          {lead.is_instant && <Badge bg="danger" className="ms-2" style={{ fontSize: '0.7rem' }}>Instant</Badge>}
+                                        </p>
                                         <small className="text-muted">{lead.passport_number}</small>
                                       </div>
                                     </div>
@@ -2011,6 +2072,9 @@ const LeadManagement = () => {
                                     </Badge>
                                   </td>
                                   <td>
+                                    {lead.is_instant ? <Badge bg="danger" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Instant</Badge> : <Badge bg="secondary" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Not Instant</Badge>}
+                                  </td>
+                                  <td>
                                     <Dropdown>
                                       <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
                                         <MoreVertical size={16} />
@@ -2018,6 +2082,19 @@ const LeadManagement = () => {
                                       <Dropdown.Menu align="end">
                                         <Dropdown.Item onClick={() => openViewModal(lead)}>
                                           <Eye size={14} className="me-2" /> View
+                                        </Dropdown.Item>
+                                        <Dropdown.Item onClick={async () => {
+                                          try {
+                                            await axios.patch(`http://127.0.0.1:8000/api/leads/update/${lead.id}/`, { is_instant: !lead.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                            showAlert('success', `Lead marked as ${!lead.is_instant ? 'Instant' : 'Not Instant'}`);
+                                            fetchLeads();
+                                            fetchLoans();
+                                            fetchTasks();
+                                          } catch (err) {
+                                            showAlert('danger', 'Failed to update instant status');
+                                          }
+                                        }}>
+                                          {lead.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
                                         </Dropdown.Item>
                                         <Dropdown.Divider />
                                         <Dropdown.Item onClick={() => openCloseLeadModal(lead)}>
@@ -2087,6 +2164,245 @@ const LeadManagement = () => {
                   </>
                 )}
 
+                {/* Closed Leads Content */}
+                {activeTab === 'closed' && (
+                  <div className="p-3">
+                    <div className="row mb-3">
+                      <div className="col-12 d-flex justify-content-between align-items-center">
+                        <h5 className="mb-0">Closed Leads</h5>
+                        <small className="text-muted">Showing all leads marked as Lost or Confirmed</small>
+                      </div>
+                    </div>
+
+                    {/* Stats for Closed Leads */}
+                    <Row className="mb-4">
+                      <Col xs={12} sm={6} lg={4} className="mb-3">
+                        <Card className="stat-card h-100" style={{ borderLeft: '4px solid #28a745' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <p className="text-muted mb-1">Confirmed Leads</p>
+                                <h3 className="mb-0" style={{ color: '#28a745' }}>
+                                  {[...leads, ...loans, ...tasks].filter(l => l.lead_status === 'confirmed').length}
+                                </h3>
+                              </div>
+                              <CheckCircle size={32} style={{ color: '#28a745', opacity: 0.8 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+
+                      <Col xs={12} sm={6} lg={4} className="mb-3">
+                        <Card className="stat-card h-100" style={{ borderLeft: '4px solid #dc3545' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <p className="text-muted mb-1">Lost Leads</p>
+                                <h3 className="mb-0" style={{ color: '#dc3545' }}>
+                                  {[...leads, ...loans, ...tasks].filter(l => l.lead_status === 'lost').length}
+                                </h3>
+                              </div>
+                              <AlertCircle size={32} style={{ color: '#dc3545', opacity: 0.8 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+
+                      <Col xs={12} sm={6} lg={4} className="mb-3">
+                        <Card className="stat-card h-100" style={{ borderLeft: '4px solid #6c757d' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <p className="text-muted mb-1">Total Closed</p>
+                                <h3 className="mb-0" style={{ color: '#6c757d' }}>
+                                  {[...leads, ...loans, ...tasks].filter(l => l.lead_status === 'lost' || l.lead_status === 'confirmed').length}
+                                </h3>
+                              </div>
+                              <TrendingUp size={32} style={{ color: '#6c757d', opacity: 0.8 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
+
+                    <div className="table-responsive">
+                      <Table hover className="mb-0 lead-management-table">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Interested In</th>
+                            <th>Last Contact</th>
+                            <th>Instant</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const closedLeads = [...leads, ...loans, ...tasks].filter(l =>
+                              l.lead_status === 'lost' || l.lead_status === 'confirmed'
+                            );
+
+                            if (closedLeads.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan="8" className="text-center py-4">
+                                    <AlertCircle size={48} className="text-muted mb-3" />
+                                    <p className="text-muted">No closed leads found</p>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return closedLeads.map(lead => (
+                              <tr key={lead.id}>
+                                <td style={{ cursor: 'pointer' }} onClick={() => openViewModal(lead)}>
+                                  {lead.customer_full_name || '-'}
+                                </td>
+                                <td>{lead.contact_number || lead.whatsapp_number || '-'}</td>
+                                <td>{lead.email || '-'}</td>
+                                <td>
+                                  <Badge bg={lead.lead_status === 'confirmed' ? 'success' : 'danger'}>
+                                    {lead.lead_status === 'confirmed' ? 'Confirmed' : 'Lost'}
+                                  </Badge>
+                                </td>
+                                <td>
+                                  <Badge bg="info" className="text-capitalize">
+                                    {lead.interested_in || '-'}
+                                  </Badge>
+                                </td>
+                                <td>
+                                  {lead.last_contacted_date
+                                    ? new Date(lead.last_contacted_date).toLocaleDateString()
+                                    : '-'
+                                  }
+                                </td>
+                                <td>
+                                  {lead.is_instant ? <Badge bg="danger">Instant</Badge> : <span className="text-muted">—</span>}
+                                </td>
+                                <td>
+                                  <Button
+                                    size="sm"
+                                    variant="outline-primary"
+                                    onClick={() => openViewModal(lead)}
+                                    className="me-2"
+                                  >
+                                    <Eye size={14} className="me-1" />
+                                    View
+                                  </Button>
+                                </td>
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Instant Content */}
+                {activeTab === 'instant' && (
+                  <div className="p-3">
+                    <div className="row mb-3">
+                      <div className="col-12">
+                        <h5 className="mb-0 d-flex align-items-center">
+                          <Zap size={20} className="me-2 text-danger" />
+                          Instant Leads, Loans & Tasks
+                        </h5>
+                        <small className="text-muted">All records marked as instant</small>
+                      </div>
+                    </div>
+
+                    {/* <div className="table-responsive">
+                      <Table hover className="mb-0 lead-management-table">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Type</th>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Branch</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            // Combine all instant records from leads, loans, and tasks
+                            const instantLeads = leads.filter(l => l.is_instant).map(l => ({ ...l, recordType: 'lead' }));
+                            const instantLoans = loans.filter(l => l.is_instant).map(l => ({ ...l, recordType: 'loan' }));
+                            const instantTasks = tasks.filter(t => t.is_instant).map(t => ({ ...t, recordType: 'task' }));
+                            const allInstant = [...instantLeads, ...instantLoans, ...instantTasks];
+
+                            if (allInstant.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan="8" className="text-center py-4">
+                                    <Zap size={48} className="text-muted mb-3" />
+                                    <p className="text-muted">No instant records found</p>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return allInstant.map(record => (
+                              <tr key={`${record.recordType}-${record.id}`}>
+                                <td>
+                                  <Badge bg={record.recordType === 'lead' ? 'primary' : record.recordType === 'loan' ? 'warning' : 'info'} className="text-capitalize">
+                                    {record.recordType}
+                                  </Badge>
+                                </td>
+                                <td style={{ cursor: 'pointer' }} onClick={() => openViewModal(record)}>
+                                  {record.customer_full_name || '-'}
+                                </td>
+                                <td>{record.contact_number || record.whatsapp_number || '-'}</td>
+                                <td>{record.email || '-'}</td>
+                                <td>
+                                  {record.recordType === 'lead' && (
+                                    <Badge bg={getStatusBadge(record.lead_status).bg}>
+                                      {getStatusBadge(record.lead_status).label}
+                                    </Badge>
+                                  )}
+                                  {record.recordType === 'loan' && (
+                                    <Badge bg={(record.loan_status || record.status) === 'pending' ? 'warning' : (record.loan_status || record.status) === 'cleared' ? 'success' : 'danger'}>
+                                      {record.loan_status || record.status}
+                                    </Badge>
+                                  )}
+                                  {record.recordType === 'task' && (
+                                    <Badge bg={getTaskStatusBadge(getTaskDisplayStatus(record)).bg}>
+                                      {getTaskStatusBadge(getTaskDisplayStatus(record)).label}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td>
+                                  {record.recordType === 'lead' && (record.next_followup_date || '-')}
+                                  {record.recordType === 'loan' && (record.due_date || record.loan_promise_date || '-')}
+                                  {record.recordType === 'task' && (record.due_date || '-')}
+                                </td>
+                                <td>{record.branch_name || '-'}</td>
+                                <td>
+                                  <Button
+                                    size="sm"
+                                    variant="outline-primary"
+                                    onClick={() => openViewModal(record)}
+                                    className="me-2"
+                                  >
+                                    <Eye size={14} className="me-1" />
+                                    View
+                                  </Button>
+                                </td>
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </Table>
+                    </div> */}
+                  </div>
+                )}
+
                 {/* Follow-ups Content */}
                 {activeTab === 'followups' && (
                   <div className="p-3">
@@ -2105,20 +2421,21 @@ const LeadManagement = () => {
                             <th>Contact</th>
                             <th>Next Follow-up</th>
                             <th>Days Overdue</th>
+                            <th>Instant</th>
                             <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(() => {
                             const today = new Date();
-                            const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+                            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                             const isOverdue = (dateStr, status) => {
                               try {
                                 if (!dateStr) return false;
                                 const nd = normalizeDateYMD(dateStr);
                                 if (!nd) return false;
                                 if (nd >= todayStr) return false;
-                                if (status && ['lost','confirmed'].includes(status)) return false;
+                                if (status && ['lost', 'confirmed'].includes(status)) return false;
                                 return true;
                               } catch (e) { return false; }
                             };
@@ -2153,7 +2470,7 @@ const LeadManagement = () => {
                                 try {
                                   const a = new Date(normalizeDateYMD(item.__followup_date));
                                   const b = new Date();
-                                  const diff = Math.floor((b - a)/(1000*60*60*24));
+                                  const diff = Math.floor((b - a) / (1000 * 60 * 60 * 24));
                                   return diff > 0 ? diff : 0;
                                 } catch (e) { return '-'; }
                               })();
@@ -2170,6 +2487,9 @@ const LeadManagement = () => {
                                   <td>{nd}</td>
                                   <td>{daysOverdue}</td>
                                   <td>
+                                    {item.is_instant ? <Badge bg="danger">Instant</Badge> : <span className="text-muted">—</span>}
+                                  </td>
+                                  <td>
                                     <Badge bg={item.__source === 'task' ? 'primary' : (item.__source === 'loan' ? 'info' : 'secondary')} className="me-2 text-capitalize">{item.__source}</Badge>
                                     <Dropdown>
                                       <Dropdown.Toggle size="sm" variant="outline-primary">Actions</Dropdown.Toggle>
@@ -2177,8 +2497,142 @@ const LeadManagement = () => {
                                         <Dropdown.Item onClick={onView}><Eye size={14} className="me-1" /> View</Dropdown.Item>
                                         <Dropdown.Item onClick={() => openAddRemarksModal(item)}>Add Remarks</Dropdown.Item>
                                         <Dropdown.Item onClick={() => openNextFollowupModal(item)}>Next Follow Up</Dropdown.Item>
+                                        <Dropdown.Item onClick={async () => {
+                                          try {
+                                            await axios.patch(`http://127.0.0.1:8000/api/leads/update/${item.id}/`, { is_instant: !item.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                            showAlert('success', `Lead marked as ${!item.is_instant ? 'Instant' : 'Not Instant'}`);
+                                            fetchLeads();
+                                            fetchLoans();
+                                            fetchTasks();
+                                          } catch (err) {
+                                            showAlert('danger', 'Failed to update instant status');
+                                          }
+                                        }}>
+                                          {item.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
+                                        </Dropdown.Item>
                                         <Dropdown.Divider />
                                         <Dropdown.Item onClick={() => openCloseLeadModal(item)} className="text-danger">{isTaskRecord(item) ? 'Close Task' : 'Close Lead'}</Dropdown.Item>
+                                      </Dropdown.Menu>
+                                    </Dropdown>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Instant Leads Content */}
+                {activeTab === 'instant' && (
+                  <div className="p-2">
+                    {/* <div className="row mb-3">
+                      <div className="col-12 d-flex justify-content-between align-items-center">
+                        <h5 className="mb-0">Instant Leads</h5>
+                        <small className="text-muted">Showing all instant leads, loans, and tasks</small>
+                      </div>
+                    </div> */}
+
+                    <div className="table-responsive">
+                      <Table hover className="mb-0 lead-management-table">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Type</th>
+                            <th>Next Follow-up</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const instantItems = [];
+
+                            // Collect instant leads
+                            (leads || []).forEach((l) => {
+                              if (l.is_instant) instantItems.push({ ...l, __source: 'lead' });
+                            });
+
+                            // Collect instant tasks
+                            (tasks || []).forEach((t) => {
+                              if (t.is_instant) instantItems.push({ ...t, __source: 'task' });
+                            });
+
+                            // Collect instant loans
+                            (loans || []).forEach((ln) => {
+                              if (ln.is_instant) instantItems.push({ ...ln, __source: 'loan' });
+                            });
+
+                            if (instantItems.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan="6" className="text-center text-muted py-4">
+                                    No instant items found
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return instantItems.map(item => {
+                              const onView = () => {
+                                if (item.__source === 'task') return openViewTaskModal(item);
+                                return openViewModal(item);
+                              };
+
+                              return (
+                                <tr key={`${item.__source}-${item.id}`}>
+                                  <td style={{ cursor: 'pointer' }} onClick={onView}>
+                                    {item.customer_full_name || item.title || item.name || '—'}
+                                  </td>
+                                  <td>{item.contact_number || item.whatsapp_number || '-'}</td>
+                                  <td>
+                                    <Badge bg={item.__source === 'task' ? 'primary' : (item.__source === 'loan' ? 'info' : 'secondary')} className="text-capitalize">
+                                      {item.__source}
+                                    </Badge>
+                                  </td>
+                                  <td>
+                                    {item.next_followup_date || item.due_date || item.loan_promise_date || '-'}
+                                  </td>
+                                  <td>
+                                    <Badge bg={
+                                      (item.lead_status === 'new' || item.status === 'pending') ? 'warning' :
+                                        (item.lead_status === 'confirmed' || item.status === 'cleared') ? 'success' :
+                                          'secondary'
+                                    }>
+                                      {item.lead_status || item.loan_status || item.status || 'N/A'}
+                                    </Badge>
+                                  </td>
+                                  <td>
+                                    <Dropdown>
+                                      <Dropdown.Toggle size="sm" variant="outline-primary">Actions</Dropdown.Toggle>
+                                      <Dropdown.Menu align="end">
+                                        <Dropdown.Item onClick={onView}>
+                                          <Eye size={14} className="me-1" /> View
+                                        </Dropdown.Item>
+                                        <Dropdown.Divider />
+                                        <Dropdown.Item
+                                          onClick={async () => {
+                                            try {
+                                              await axios.patch(
+                                                `http://127.0.0.1:8000/api/leads/update/${item.id}/`,
+                                                { is_instant: false },
+                                                { headers: { Authorization: `Bearer ${token}` } }
+                                              );
+                                              showAlert('success', 'Removed from instant list');
+                                              fetchLeads();
+                                              fetchLoans();
+                                              fetchTasks();
+                                            } catch (err) {
+                                              showAlert('danger', 'Failed to update instant status');
+                                            }
+                                          }}
+                                          className="text-danger"
+                                        >
+                                          <X size={14} className="me-1" /> Remove Instant
+                                        </Dropdown.Item>
                                       </Dropdown.Menu>
                                     </Dropdown>
                                   </td>
@@ -2307,6 +2761,7 @@ const LeadManagement = () => {
                             <th>Reason</th>
                             <th>Status</th>
                             <th>Recovered</th>
+                            <th>Instant</th>
                             <th>Actions</th>
                           </tr>
                         </thead>
@@ -2319,7 +2774,9 @@ const LeadManagement = () => {
                                     <User size={14} />
                                   </div>
                                   <div>
-                                    <div className="fw-500">{loan.customer_full_name}</div>
+                                    <div className="fw-500">
+                                      {loan.customer_full_name}
+                                    </div>
                                     <small className="text-muted">{loan.branch_name}</small>
                                   </div>
                                 </div>
@@ -2331,11 +2788,28 @@ const LeadManagement = () => {
                               <td><Badge bg={(loan.loan_status || loan.status) === 'pending' ? 'warning' : (loan.loan_status || loan.status) === 'cleared' ? 'success' : 'danger'}>{loan.loan_status || loan.status}</Badge></td>
                               <td>Rs. {getRecoveredAmount(loan).toLocaleString()}</td>
                               <td>
+                                {loan.is_instant ? <Badge bg="danger" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Instant</Badge> : <Badge bg="secondary" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Not Instant</Badge>}
+                              </td>
+                              <td>
                                 <Dropdown>
                                   <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
                                     <MoreVertical size={16} />
                                   </Dropdown.Toggle>
                                   <Dropdown.Menu align="end">
+                                    <Dropdown.Item onClick={async () => {
+                                      try {
+                                        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, { is_instant: !loan.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                        showAlert('success', `Loan marked as ${!loan.is_instant ? 'Instant' : 'Not Instant'}`);
+                                        fetchLeads();
+                                        fetchLoans();
+                                        fetchTasks();
+                                      } catch (err) {
+                                        showAlert('danger', 'Failed to update instant status');
+                                      }
+                                    }}>
+                                      {loan.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
+                                    </Dropdown.Item>
+                                    <Dropdown.Divider />
                                     <Dropdown.Item onClick={() => handleLoanAddRemarks(loan)}>
                                       <FileText size={14} className="me-2" /> Add Remarks
                                     </Dropdown.Item>
@@ -2457,7 +2931,7 @@ const LeadManagement = () => {
                           {/* Add Task Button */}
                           <Button
                             style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
-                            onClick={() => { setEditingTaskId(null); setTaskForm({ mode: 'customer', customer_full_name: '', contact_number: '', whatsapp_number: '', email: '', task_description: '', task_type: 'call', assigned_to: '', status: 'pending', due_date: '', time: '' }); setShowAddTaskModal(true); }}
+                            onClick={() => { setEditingTaskId(null); setTaskForm({ mode: 'customer', customer_full_name: '', contact_number: '', whatsapp_number: '', email: '', task_description: '', task_type: 'call', assigned_to: '', status: 'pending', due_date: '', time: '', is_instant: false }); setShowAddTaskModal(true); }}
                           >
                             <Plus size={16} className="me-1" />
                             Add Task
@@ -2477,13 +2951,17 @@ const LeadManagement = () => {
                             <th>Time</th>
                             <th>Remarks</th>
                             <th>Status</th>
+                            <th>Instant</th>
                             <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredTasks.map(task => (
                             <tr key={task.id}>
-                              <td>{task.assigned_to_name || task.assigned_to || <small className="text-muted">—</small>}</td>
+                              <td>
+                                {task.assigned_to_name || task.assigned_to || <small className="text-muted">—</small>}
+                                {task.is_instant && <Badge bg="danger" className="ms-2" style={{ fontSize: '0.7rem' }}>Instant</Badge>}
+                              </td>
                               <td className="text-capitalize">{task.task_type || task.type || '-'}</td>
                               <td><Badge bg={getStatusBadge(task.lead_status).bg}>{getStatusBadge(task.lead_status).label}</Badge></td>
                               <td>{task.due_date}</td>
@@ -2497,11 +2975,28 @@ const LeadManagement = () => {
                                 })()
                               }
                               <td>
+                                {task.is_instant ? <Badge bg="danger" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Instant</Badge> : <Badge bg="secondary" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Not Instant</Badge>}
+                              </td>
+                              <td>
                                 <Dropdown>
                                   <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
                                     <MoreVertical size={16} />
                                   </Dropdown.Toggle>
                                   <Dropdown.Menu align="end">
+                                    <Dropdown.Item onClick={async () => {
+                                      try {
+                                        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${task.id}/`, { is_instant: !task.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                        showAlert('success', `Task marked as ${!task.is_instant ? 'Instant' : 'Not Instant'}`);
+                                        fetchLeads();
+                                        fetchLoans();
+                                        fetchTasks();
+                                      } catch (err) {
+                                        showAlert('danger', 'Failed to update instant status');
+                                      }
+                                    }}>
+                                      {task.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
+                                    </Dropdown.Item>
+                                    <Dropdown.Divider />
                                     <Dropdown.Item onClick={() => openViewTaskModal(task)}>
                                       <Eye size={14} className="me-2" /> View
                                     </Dropdown.Item>
@@ -2580,7 +3075,7 @@ const LeadManagement = () => {
                     </Form.Group>
                   </Col>
 
-                  
+
 
                   <Col xs={12} md={6}>
                     <Form.Group>
@@ -2673,6 +3168,17 @@ const LeadManagement = () => {
                       <Form.Control as="textarea" rows={3} value={leadForm.remarks} isInvalid={!!validationErrors.remarks} onChange={(e) => setLeadForm({ ...leadForm, remarks: e.target.value })} placeholder="Short note for follow-up" />
                       <Form.Control.Feedback type="invalid">Remarks required</Form.Control.Feedback>
                     </Form.Group>
+                  </Col>
+
+                  <Col xs={12}>
+                    <Form.Check
+                      type="checkbox"
+                      id="is-instant-lead"
+                      label="Mark as Instant Lead"
+                      checked={leadForm.is_instant}
+                      onChange={(e) => setLeadForm({ ...leadForm, is_instant: e.target.checked })}
+                      className="mt-2"
+                    />
                   </Col>
 
                 </Row>
@@ -2903,6 +3409,15 @@ const LeadManagement = () => {
                   </Col>
                 </Row>
 
+                <Form.Check
+                  type="checkbox"
+                  id="is-instant-lead-edit"
+                  label="Mark as Instant Lead"
+                  checked={leadForm.is_instant}
+                  onChange={(e) => setLeadForm({ ...leadForm, is_instant: e.target.checked })}
+                  className="mb-3"
+                />
+
                 <Form.Group className="mb-3">
                   <Form.Label className="fw-500">Remarks</Form.Label>
                   <Form.Control
@@ -2941,8 +3456,8 @@ const LeadManagement = () => {
         {/* Close Lead Modal */}
         <Modal show={showCloseLeadModal} onHide={() => setShowCloseLeadModal(false)} centered size="md" dialogClassName="compact-modal">
           <Modal.Header closeButton>
-              <Modal.Title>{selectedLead && isTaskRecord(selectedLead) ? 'Close Task' : 'Close Lead'}</Modal.Title>
-            </Modal.Header>
+            <Modal.Title>{selectedLead && isTaskRecord(selectedLead) ? 'Close Task' : 'Close Lead'}</Modal.Title>
+          </Modal.Header>
           <Modal.Body className="compact-modal-body">
             {selectedLead && (
               <div>
@@ -3039,6 +3554,17 @@ const LeadManagement = () => {
                     <Form.Control as="textarea" rows={3} value={taskForm.task_description} onChange={(e) => setTaskForm({ ...taskForm, task_description: e.target.value })} />
                   </Form.Group>
                 </Col>
+
+                <Col xs={12}>
+                  <Form.Check
+                    type="checkbox"
+                    id="is-instant-task"
+                    label="Mark as Instant Task"
+                    checked={taskForm.is_instant}
+                    onChange={(e) => setTaskForm({ ...taskForm, is_instant: e.target.checked })}
+                    className="mt-2"
+                  />
+                </Col>
               </Row>
             </Form>
           </Modal.Body>
@@ -3061,7 +3587,15 @@ const LeadManagement = () => {
                 <Row className="mb-4">
                   <Col md={6} className="mb-3">
                     <p className="text-muted small mb-1">Full Name</p>
-                    <p className="fw-500">{selectedLead.customer_full_name}</p>
+                    <p className="fw-500">
+                      {selectedLead.customer_full_name}
+                      {selectedLead.is_instant && <Badge bg="danger" className="ms-2">Instant</Badge>}
+                    </p>
+                    {typeof selectedLead.is_instant !== 'undefined' && (
+                      <p className="mb-1">
+                        <span className="text-muted small">Instant:</span> {selectedLead.is_instant ? <Badge bg="danger">Yes</Badge> : <Badge bg="secondary">No</Badge>}
+                      </p>
+                    )}
                   </Col>
                   {/* <Col md={6} className="mb-3">
                     <p className="text-muted small mb-1">Passport Number</p>
@@ -3095,7 +3629,7 @@ const LeadManagement = () => {
 
                 <div className="d-flex gap-2 mb-3">
                   {/* If this record looks like a loan, surface loan actions here */}
-                  { (getLoanAmount(selectedLead) > 0 || getRecoveredAmount(selectedLead) > 0) ? (
+                  {(getLoanAmount(selectedLead) > 0 || getRecoveredAmount(selectedLead) > 0) ? (
                     <>
                       <Button variant="outline-danger" size="sm" onClick={() => openClearLoanModal(selectedLead)}>Clear Loan</Button>
                       <Button variant="outline-secondary" size="sm" onClick={() => openAddBalanceModal(selectedLead)}>Add Balance</Button>
@@ -3127,8 +3661,8 @@ const LeadManagement = () => {
                       try {
                         const d = (v instanceof Date) ? v : new Date(String(v));
                         if (isNaN(d.getTime())) return String(v);
-                        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                        const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
                         return `${date} ${time}`;
                       } catch (e) { return String(v); }
                     })()}</p>
@@ -3193,7 +3727,7 @@ const LeadManagement = () => {
                   )}
                 </Row>
 
-                
+
 
                 {/* Remarks */}
                 {selectedLead.remarks && (
@@ -3314,11 +3848,21 @@ const LeadManagement = () => {
                     <Form.Control as="textarea" rows={3} value={followupRemarks} onChange={(e) => setFollowupRemarks(e.target.value)} />
                   </Form.Group>
                 </Col>
+                <Col xs={12}>
+                  <Form.Check
+                    type="checkbox"
+                    id="is-instant-followup"
+                    label="Mark as Instant Follow-up"
+                    checked={followupIsInstant}
+                    onChange={(e) => setFollowupIsInstant(e.target.checked)}
+                    className="mt-2"
+                  />
+                </Col>
               </Row>
             </Form>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => { setShowNextFollowupModal(false); setFollowupDate(''); setFollowupTime(''); setFollowupRemarks(''); }}>
+            <Button variant="secondary" onClick={() => { setShowNextFollowupModal(false); setFollowupDate(''); setFollowupTime(''); setFollowupRemarks(''); setFollowupIsInstant(false); }}>
               Cancel
             </Button>
             <Button variant="primary" onClick={handleSetNextFollowup}>
@@ -3396,6 +3940,17 @@ const LeadManagement = () => {
                     <Form.Label className="fw-500">Loan Reason</Form.Label>
                     <Form.Control as="textarea" rows={3} value={newLoanForm.reason} onChange={(e) => setNewLoanForm({ ...newLoanForm, reason: e.target.value })} placeholder="Reason for loan, any notes..." />
                   </Form.Group>
+                </Col>
+
+                <Col xs={12}>
+                  <Form.Check
+                    type="checkbox"
+                    id="is-instant-loan"
+                    label="Mark as Instant Loan"
+                    checked={newLoanForm.is_instant}
+                    onChange={(e) => setNewLoanForm({ ...newLoanForm, is_instant: e.target.checked })}
+                    className="mt-2"
+                  />
                 </Col>
               </Row>
             </Form>

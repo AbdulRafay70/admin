@@ -3,11 +3,11 @@ import { Nav } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 
 const tabs = [
-  { name: 'Overview', path: '/hotels' },
+  { name: 'Overview', path: '/hotel-availability-manager' },
   // Map to the app's actual routes
-  // { name: 'Management', path: '/unified-hotel-management' },
-  { name: 'Availability', path: '/hotel-availability-manager' },
+  { name: 'Availability', path: '/hotel-availability' },
   { name: 'Outsourcing', path: '/hotel-outsourcing' },
+  { name: 'Floor Management', path: '/hotel-floor-management' },
   // { name: 'Add Hotel', path: '/hotels/add-hotels' },
 ];
 
@@ -21,8 +21,7 @@ export default function HotelsTabs({ activeName }) {
               key={tab.path}
               to={tab.path}
               className={({ isActive }) =>
-                `nav-link btn btn-link text-decoration-none px-0 me-3 ${
-                  isActive || activeName === tab.name ? 'text-primary fw-semibold' : 'text-muted'
+                `nav-link btn btn-link text-decoration-none px-0 me-3 ${isActive || activeName === tab.name ? 'text-primary fw-semibold' : 'text-muted'
                 }`
               }
               style={{ backgroundColor: 'transparent' }}

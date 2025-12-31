@@ -271,6 +271,21 @@ const UmrahPackage = () => {
     return `${d} ${t}`;
   };
 
+  // Format sector reference to readable route
+  const formatSectorReference = (reference) => {
+    if (!reference) return '';
+    const referenceMap = {
+      'full_package': 'R/T - Jed(A)-Mak(H)-Med(H)-Mak(H)-Jed(A)',
+      'jeddah_makkah': 'Jed(A)-Mak(H)',
+      'makkah_madinah': 'Mak(H)-Med(H)',
+      'madinah_makkah': 'Med(H)-Mak(H)',
+      'makkah_jeddah': 'Mak(H)-Jed(A)',
+      'jeddah_madinah': 'Jed(A)-Med(H)',
+      'madinah_jeddah': 'Med(H)-Jed(A)',
+    };
+    return referenceMap[reference] || reference.replace(/_/g, '-').toUpperCase();
+  };
+
   // Compute package price totals using backend selling-price fields with fallbacks
   const computePackageTotals = (pkg, hotelsList, airlinesList, ticketsList = []) => {
     // generic picker helper used throughout this function
@@ -283,7 +298,7 @@ const UmrahPackage = () => {
     };
     // build hotelDetails with resilient price lookups
     const hotelDetails = (pkg?.hotel_details || []).map((hotelEntry) => {
-      const hotelInfo = hotelsList.find(( h) => h.id === hotelEntry.hotel_info?.id) || {};
+      const hotelInfo = hotelsList.find((h) => h.id === hotelEntry.hotel_info?.id) || {};
       const nights = hotelEntry?.number_of_nights || 0;
       // priceSources: prefer explicit entry values, then first prices entry, then hotelInfo root
       const priceSources = [hotelEntry || {}, hotelInfo?.prices?.[0] || {}, hotelInfo || {}];
@@ -312,33 +327,35 @@ const UmrahPackage = () => {
       };
 
       const sharing = priceCandidates(
-        ['sharing_bed_selling_price','sharing_bed_price','sharing_selling_price','sharing_price','sharing'],
+        ['sharing_bed_selling_price', 'sharing_bed_price', 'sharing_selling_price', 'sharing_price', 'sharing'],
         ['sharing_bed_purchase_price']
-      ) || findPriceInPricesArray(['sharing','shared']);
+      ) || findPriceInPricesArray(['sharing', 'shared']);
 
       const quaint = priceCandidates(
-        ['quaint_bed_selling_price','quaint_bed_price','quaint_selling_price','quaint_price','quaint'],
+        ['quaint_bed_selling_price', 'quaint_bed_price', 'quaint_selling_price', 'quaint_price', 'quaint'],
         ['quaint_bed_purchase_price']
-      ) || findPriceInPricesArray(['quaint','quint','quintet']);
+      ) || findPriceInPricesArray(['quaint', 'quint', 'quintet']);
 
       const quad = priceCandidates(
-        ['quad_bed_selling_price','quad_bed_price','quad_selling_price','quad_price','quad'],
+        ['quad_bed_selling_price', 'quad_bed_price', 'quad_selling_price', 'quad_price', 'quad'],
         ['quad_bed_purchase_price']
       ) || findPriceInPricesArray(['quad']);
 
       const triple = priceCandidates(
-        ['triple_bed_selling_price','triple_bed_price','triple_selling_price','triple_price','triple'],
+        ['triple_bed_selling_price', 'triple_bed_price', 'triple_selling_price', 'triple_price', 'triple'],
         ['triple_bed_purchase_price']
       ) || findPriceInPricesArray(['triple']);
 
       const doubleBed = priceCandidates(
-        ['double_bed_selling_price','double_bed_price','double_selling_price','double_price','double'],
+        ['double_bed_selling_price', 'double_bed_price', 'double_selling_price', 'double_price', 'double'],
         ['double_bed_purchase_price']
       ) || findPriceInPricesArray(['double']);
 
       return {
         ...hotelEntry,
         hotel_info: hotelInfo,
+        name: hotelInfo?.name || hotelEntry?.hotel_name || hotelEntry?.hotel_info?.name || '',
+        city: hotelInfo?.city || hotelEntry?.city || hotelInfo?.city_name || '',
         nights,
         sharing_per_night: Number(sharing) || 0,
         quaint_per_night: Number(quaint) || 0,
@@ -360,11 +377,15 @@ const UmrahPackage = () => {
       return 0;
     };
 
-    const food = pkgPick(['food_selling_price','food_price','food_selling_price']);
-    const makkah = pkgPick(['makkah_ziyarat_selling_price','makkah_ziyarat_price']);
-    const madinah = pkgPick(['madinah_ziyarat_selling_price','madinah_ziyarat_price']);
-    const transport = pkgPick(['transport_selling_price','transport_price']);
-    const visaAdult = pkgPick(['adault_visa_selling_price','adault_visa_price']);
+    const food = pkgPick(['food_selling_price', 'food_price', 'food_selling_price']);
+    const makkah = pkgPick(['makkah_ziyarat_selling_price', 'makkah_ziyarat_price']);
+    const madinah = pkgPick(['madinah_ziyarat_selling_price', 'madinah_ziyarat_price']);
+
+    // Transport price: prefer transport_details array, fallback to package-level field
+    const transport = pkg.transport_details?.[0]?.transport_selling_price
+      ?? pkgPick(['transport_selling_price', 'transport_price']);
+
+    const visaAdult = pkgPick(['adault_visa_selling_price', 'adault_visa_price']);
 
     const ticketInfo = pkg?.ticket_details?.[0]?.ticket_info || {};
 
@@ -380,8 +401,8 @@ const UmrahPackage = () => {
         return (t.is_umrah_seat === true || t.is_umrah_seat === 'true') && pkgOrg && String(ownerOrg) === String(pkgOrg);
       });
       if (fallback) {
-        adultTicketRaw = pick(fallback, ['adult_price','adult_selling_price','adult_fare','adult_ticket_price']);
-        childTicketRaw = pick(fallback, ['child_price','child_selling_price','child_fare','child_ticket_price']);
+        adultTicketRaw = pick(fallback, ['adult_price', 'adult_selling_price', 'adult_fare', 'adult_ticket_price']);
+        childTicketRaw = pick(fallback, ['child_price', 'child_selling_price', 'child_fare', 'child_ticket_price']);
       }
     }
 
@@ -405,7 +426,7 @@ const UmrahPackage = () => {
 
     // Infant price should be ticket selling price + infant visa selling price.
     // Accept multiple possible field names from different backend versions.
-    let infantTicketRaw = pick(ticketInfo, ['infant_selling_price', 'infant_price', 'infant_ticket_selling_price', 'infant_ticket_price', 'infantTicketPrice','infant_fare']);
+    let infantTicketRaw = pick(ticketInfo, ['infant_selling_price', 'infant_price', 'infant_ticket_selling_price', 'infant_ticket_price', 'infantTicketPrice', 'infant_fare']);
     // If package has no ticket_details, try to find a matching ticket from global tickets list
     if ((typeof infantTicketRaw === 'undefined' || infantTicketRaw === null || Number(infantTicketRaw) === 0) && Array.isArray(ticketsList) && ticketsList.length > 0) {
       const pkgOrg = pkg.organization || pkg.organization_id || pkg.inventory_owner_organization_id || null;
@@ -414,7 +435,7 @@ const UmrahPackage = () => {
         return (t.is_umrah_seat === true || t.is_umrah_seat === 'true') && pkgOrg && String(ownerOrg) === String(pkgOrg);
       });
       if (fallback) {
-        infantTicketRaw = pick(fallback, ['infant_price','infant_selling_price','infant_fare','infant_ticket_price']);
+        infantTicketRaw = pick(fallback, ['infant_price', 'infant_selling_price', 'infant_fare', 'infant_ticket_price']);
       }
     }
     let infantTicket = Number(infantTicketRaw) || 0;
@@ -433,7 +454,23 @@ const UmrahPackage = () => {
 
     const totalInfant = Number(infantTicket) + Number(infantVisa || 0);
 
-    const childDiscount = Math.max(0, ticketAdult - ticketChild);
+    const adultVisaForDiscount = pkgPick(['adault_visa_price', 'adult_visa_price']) || 0;
+    const childVisaForDiscount = pkgPick(['child_visa_price']) || 0;
+    const childDiscount = Math.max(0, adultVisaForDiscount - childVisaForDiscount);
+
+    console.log('🔍 CHILD DISCOUNT DEBUG:', {
+      packageId: pkg?.id,
+      packageTitle: pkg?.title,
+      adultVisaForDiscount,
+      childVisaForDiscount,
+      childDiscount,
+      rawPkg: {
+        adault_visa_price: pkg?.adault_visa_price,
+        adult_visa_price: pkg?.adult_visa_price,
+        child_visa_price: pkg?.child_visa_price
+      },
+      FULL_PKG: pkg  // Log entire package to see all available fields
+    });
 
     const tripDetails = ticketInfo?.trip_details || [];
     const flightFrom = tripDetails[0];
@@ -469,7 +506,7 @@ const UmrahPackage = () => {
         childDiscount,
         hotelDetails,
       });
-    } catch (e) {}
+    } catch (e) { }
 
     return {
       hotelDetails,
@@ -845,7 +882,7 @@ const UmrahPackage = () => {
                                           <div>
                                             <h4 className="card-title mb-1 fw-bold">
                                               {pkg?.title || "Umrah Package"}
-                                              
+
                                             </h4>
                                             {/* {!pkg.is_active && (
                                         <span className="badge bg-danger">Inactive</span>
@@ -884,9 +921,9 @@ const UmrahPackage = () => {
                                               <div className="col-6 col-sm-4 col-md-2 mb-2">
                                                 <p className="fw-bold mb-1 small">ZAYARAT:</p>
                                                 <div>
-                                                      {(pkg?.makkah_ziyarat_selling_price || pkg?.makkah_ziyarat_price || pkg?.madinah_ziyarat_selling_price || pkg?.madinah_ziyarat_price)
-                                                        ? "YES"
-                                                        : "N/A"}
+                                                  {(pkg?.makkah_ziyarat_selling_price || pkg?.makkah_ziyarat_price || pkg?.madinah_ziyarat_selling_price || pkg?.madinah_ziyarat_price)
+                                                    ? "YES"
+                                                    : "N/A"}
                                                 </div>
                                               </div>
                                               <div className="col-6 col-sm-4 col-md-2 mb-2">
@@ -977,43 +1014,43 @@ const UmrahPackage = () => {
 
                                         {/* Buttons */}
                                         <div className="d-flex flex-wrap gap-3">
-                                                    {(() => {
-                                                      const pkgOrg = pkg.organization || pkg.organization_id || pkg.inventory_owner_organization_id || null;
-                                                      const isExternal = pkgOrg && String(pkgOrg) !== String(organizationId);
-                                                      const forbiddenMessage = "You do not have permission to modify this package. Linked organizations cannot edit or delete packages. If you need access, please contact the owning organization or an administrator.";
+                                          {(() => {
+                                            const pkgOrg = pkg.organization || pkg.organization_id || pkg.inventory_owner_organization_id || null;
+                                            const isExternal = pkgOrg && String(pkgOrg) !== String(organizationId);
+                                            const forbiddenMessage = "You do not have permission to modify this package. Linked organizations cannot edit or delete packages. If you need access, please contact the owning organization or an administrator.";
 
-                                                      return (
-                                                        <>
-                                                          <button
-                                                            className="btn flex-fill text-white"
-                                                            style={{ background: "#1B78CE" }}
-                                                            onClick={() => {
-                                                              if (isExternal) {
-                                                                showForbiddenModal(forbiddenMessage);
-                                                                return;
-                                                              }
-                                                              navigate(`/packages/edit/${pkg.id}`);
-                                                            }}
-                                                          >
-                                                            Edit
-                                                          </button>
+                                            return (
+                                              <>
+                                                <button
+                                                  className="btn flex-fill text-white"
+                                                  style={{ background: "#1B78CE" }}
+                                                  onClick={() => {
+                                                    if (isExternal) {
+                                                      showForbiddenModal(forbiddenMessage);
+                                                      return;
+                                                    }
+                                                    navigate(`/packages/edit/${pkg.id}`);
+                                                  }}
+                                                >
+                                                  Edit
+                                                </button>
 
-                                                          <button
-                                                            className="btn text-white flex-fill"
-                                                            style={{ background: "#1B78CE" }}
-                                                            onClick={() => {
-                                                              if (isExternal) {
-                                                                showForbiddenModal(forbiddenMessage);
-                                                                return;
-                                                              }
-                                                              handleDeletePackage(pkg.id);
-                                                            }}
-                                                          >
-                                                            Delete
-                                                          </button>
-                                                        </>
-                                                      );
-                                                    })()}
+                                                <button
+                                                  className="btn text-white flex-fill"
+                                                  style={{ background: "#1B78CE" }}
+                                                  onClick={() => {
+                                                    if (isExternal) {
+                                                      showForbiddenModal(forbiddenMessage);
+                                                      return;
+                                                    }
+                                                    handleDeletePackage(pkg.id);
+                                                  }}
+                                                >
+                                                  Delete
+                                                </button>
+                                              </>
+                                            );
+                                          })()}
                                         </div>
                                         <div className="d-flex mt-3 flex-wrap">
                                           <button
@@ -1066,11 +1103,22 @@ const UmrahPackage = () => {
                                             Transport:
                                           </h6>
                                           <div className="small text-dark">
-                                            {pkg?.transport_details
-                                              ?.map((t) => t.transport_sector_info?.name)
-                                              .join(" - ") || "N/A"}
+                                            {pkg?.transport_details?.[0]?.transport_sector_info?.reference
+                                              ? formatSectorReference(pkg.transport_details[0].transport_sector_info.reference)
+                                              : pkg?.transport_details?.[0]?.transport_sector_info?.name || "N/A"}
                                           </div>
                                         </div>
+
+                                        {childDiscount > 0 && (
+                                          <div className="mb-1">
+                                            <h6 className="fw-bold mb-1 text-muted fst-italic">
+                                              Child Discount:
+                                            </h6>
+                                            <div className="small text-dark">
+                                              Per Child Rs {childDiscount.toLocaleString()}/. discount.
+                                            </div>
+                                          </div>
+                                        )}
 
                                         <div className="mb-1">
                                           <h6 className="fw-bold mb-1 text-muted fst-italic">
@@ -1082,7 +1130,7 @@ const UmrahPackage = () => {
                                               {flightFrom?.departure_date_time &&
                                                 flightFrom?.arrival_date_time ? (
                                                 <>
-                                                  {airline?.code || "XX"} {ticketInfo?.pnr} -{" "}
+                                                  {ticketInfo?.flight_number || 'N/A'} -{" "}
                                                   {formatDateTime(flightFrom?.departure_date_time)}{" "}
                                                   - {formatDateTime(flightFrom?.arrival_date_time)}
                                                 </>
@@ -1095,7 +1143,7 @@ const UmrahPackage = () => {
                                               {flightTo?.departure_date_time &&
                                                 flightTo?.arrival_date_time ? (
                                                 <>
-                                                  {airline?.code || "XX"} {ticketInfo?.pnr} -{" "}
+                                                  {ticketInfo?.flight_number || 'N/A'} -{" "}
                                                   {formatDateTime(flightTo?.departure_date_time)} -{" "}
                                                   {formatDateTime(flightTo?.arrival_date_time)}
                                                 </>

@@ -30,22 +30,47 @@ const OrderDeliveryDetailInvoice = () => {
         const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
-        // Fetch booking data
-        const bookingResponse = await axios.get(`http://127.0.0.1:8000/api/bookings/?organization_id=${organizationId}&booking_number=${orderNo}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          }
-        });
-        if (!bookingResponse.ok) {
-          throw new Error('Failed to fetch booking data');
-        }
-        const bookingData = bookingResponse.data;
 
-        // Assuming the API returns an array, take the first item that matches our order number
-        const booking = Array.isArray(bookingData)
-          ? bookingData.find(item => item.booking_number === orderNo)
-          : bookingData;
+        let booking = null;
+
+        // Try fetching from agent bookings API first
+        try {
+          const bookingResponse = await axios.get(`http://127.0.0.1:8000/api/bookings/?organization_id=${organizationId}&booking_number=${orderNo}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          });
+
+          const bookingData = bookingResponse.data;
+          booking = Array.isArray(bookingData)
+            ? bookingData.find(item => item.booking_number === orderNo)
+            : bookingData;
+        } catch (err) {
+          console.log('Not found in agent bookings, trying public bookings...');
+        }
+
+        // If not found in agent bookings, try public bookings API
+        if (!booking) {
+          try {
+            const publicResponse = await axios.get(`http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              }
+            });
+
+            const publicData = Array.isArray(publicResponse.data)
+              ? publicResponse.data
+              : (publicResponse.data?.results || []);
+
+            booking = Array.isArray(publicData)
+              ? publicData.find(item => item.booking_number === orderNo)
+              : publicData;
+          } catch (err) {
+            console.error('Not found in public bookings either:', err);
+          }
+        }
 
         setBookingData(booking);
 

@@ -209,7 +209,7 @@ const Sidebar = () => {
                   </NavLink>
                 </Nav.Item>
                 <Nav.Item className="mb-3">
-                  <NavLink to="/hotels" className={getNavLinkClass}>
+                  <NavLink to="//hotel-availability-manager" className={getNavLinkClass}>
                     <Hotel size={20} /> <span className="fs-6">Hotels</span>
                   </NavLink>
                 </Nav.Item>
@@ -353,7 +353,7 @@ const Sidebar = () => {
                 </NavLink>
               </Nav.Item>
               <Nav.Item className="mb-3">
-                <NavLink to="/hotels" style={{ color: "black" }} className={getNavLinkClass}>
+                <NavLink to="/hotel-availability-manager" style={{ color: "black" }} className={getNavLinkClass}>
                   <Hotel size={20} /> <span className="fs-6">Hotels</span>
                 </NavLink>
               </Nav.Item>

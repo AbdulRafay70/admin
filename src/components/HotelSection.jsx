@@ -1,37 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Modal, Form, Badge, Row, Col, InputGroup } from "react-bootstrap";
-import { Bed, Edit3, Trash2 } from "lucide-react";
+import { Table, Button, Modal, Form, Badge, Row, Col, InputGroup, Alert, Spinner, Card } from "react-bootstrap";
+import { Bed, Edit3, Trash2, Hotel } from "lucide-react";
 import PaxDetailsModal, { getPaxDetails } from "./PaxDetailsModal";
-
-const demoHotelData = {
-  date: "2025-10-17",
-  hotels: [
-    {
-      booking_id: "BKG-101",
-      contact: "+923000709017",
-      hotel_name: "Hilton Makkah",
-      city: "Makkah",
-      check_in: "2025-10-17",
-      check_out: "2025-10-20",
-      status: "pending",
-      pax_list: [
-        { pax_id: "PAX001", first_name: "Ali", last_name: "Raza", contact: "+923000709017", room_no: "204", bed_no: "B1", status: "pending" },
-      ],
-    },
-    {
-      booking_id: "BKG-102",
-      contact: "+923001234567",
-      hotel_name: "Makkah Grand",
-      city: "Makkah",
-      check_in: "2025-10-17",
-      check_out: "2025-10-19",
-      status: "checked_in",
-      pax_list: [
-        { pax_id: "PAX002", first_name: "Sara", last_name: "Ali", contact: "+923001234567", room_no: "101", bed_no: "A1", status: "checked_in" },
-      ],
-    },
-  ],
-};
+import AllPassengersModal from "./AllPassengersModal";
+import axios from "axios";
 
 const mockHotels = [
   { id: "H1", name: "Hilton Makkah", rooms: [{ id: "204", beds: ["B1", "B2"] }, { id: "205", beds: ["A1"] }] },
@@ -40,10 +12,23 @@ const mockHotels = [
 
 const HotelSection = () => {
   const [hotelData, setHotelData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [selectedDate, setSelectedDate] = useState(demoHotelData.date || "");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [hotelFilter, setHotelFilter] = useState("");
+  const [checkInFilter, setCheckInFilter] = useState("");
+  const [checkOutFilter, setCheckOutFilter] = useState("");
+  const [quickFilter, setQuickFilter] = useState(""); // 'today_checkin', 'tomorrow_checkin', 'today_checkout'
   const [showAssign, setShowAssign] = useState(false);
+
+  // Helper functions for date calculations
+  const getTodayDate = () => new Date().toISOString().split('T')[0];
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
@@ -54,9 +39,68 @@ const HotelSection = () => {
   const [paxDetails, setPaxDetails] = useState(null);
   const [paxModalOpen, setPaxModalOpen] = useState(false);
 
+  // Fetch delivered bookings from API
   useEffect(() => {
-    setHotelData(demoHotelData);
-  }, []);
+    fetchDeliveredBookings();
+  }, [selectedDate]);
+
+  const fetchDeliveredBookings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get('http://127.0.0.1:8000/api/daily-operations/', {
+        params: { date: selectedDate },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Daily Operations API Response:', response.data);
+      console.log('Number of delivered bookings:', response.data.count);
+      console.log('Bookings data:', response.data.results);
+
+      // Transform API data to match component structure
+      const transformedData = {
+        date: selectedDate,
+        hotels: response.data.results.flatMap(booking => booking.hotel_details?.map(hotel => ({
+          id: hotel.id, // Capture Hotel ID
+          booking_id: booking.booking_number,
+          contact: booking.person_details?.[0]?.contact_number || '',
+          hotel_name: hotel.hotel_name || hotel.self_hotel_name || 'N/A',
+          city: hotel.city_name || 'N/A',
+          check_in: hotel.check_in_date || '',
+          check_out: hotel.check_out_date || '',
+          status: booking.status.toLowerCase(),
+          pax_list: booking.person_details?.map(person => ({
+            pax_id: `PAX-${person.id}`,
+            first_name: person.first_name,
+            last_name: person.last_name,
+            contact: person.contact_number || '',
+            contact_number: person.contact_number || '',
+            person_title: person.person_title || '',
+            country: person.country || '',
+            contact_details: person.contact_details || [],
+            passport_number: person.passport_number || '',
+            date_of_birth: person.date_of_birth || '',
+            age_group: person.age_group || '',
+            is_family_head: person.is_family_head || false,
+            room_no: '',
+            bed_no: '',
+            hotel_status: person.hotel_status || 'Pending',
+            activity_statuses: person.activity_statuses || [], // Capture distinct activity statuses
+            status: person.hotel_status || 'Pending'
+          })) || []
+        })) || [])
+      };
+
+      console.log('Transformed hotel data:', transformedData);
+      setHotelData(transformedData);
+    } catch (err) {
+      console.error('Error fetching delivered bookings:', err);
+      setError('Failed to load booking data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const statusVariant = (status) => {
     if (!status) return "secondary";
@@ -79,6 +123,23 @@ const HotelSection = () => {
     setPaxModalOpen(true);
   };
 
+  const showAllPassengers = (booking) => {
+    // Show all passengers for this booking with hotel-specific data
+    setPaxDetails({
+      booking_id: booking.booking_id,
+      activityId: booking.id, // Pass activity ID
+      passengers: booking.pax_list || [],
+      booking_data: {
+        hotel_name: booking.hotel_name,
+        city: booking.city,
+        check_in: booking.check_in,
+        check_out: booking.check_out,
+        contact: booking.contact
+      }
+    });
+    setPaxModalOpen(true);
+  };
+
   const openAssign = (booking, pax) => {
     setSelectedBooking(booking);
     setSelectedPaxId(pax?.pax_id || null);
@@ -89,20 +150,39 @@ const HotelSection = () => {
     setShowAssign(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (selectedBooking && selectedPaxId) {
-      setHotelData((prev) => ({
-        ...prev,
-        hotels: (prev.hotels || []).map((h) => {
-          if (h.booking_id !== selectedBooking.booking_id) return h;
-          return {
-            ...h,
-            pax_list: (h.pax_list || []).map((p) => p.pax_id === selectedPaxId ? ({ ...p, room_no: selectedRoom, bed_no: selectedBed, status: p.status === 'pending' ? 'checked_in' : p.status }) : p)
-          };
-        })
-      }));
+      try {
+        const token = localStorage.getItem('accessToken');
+        const cleanPaxId = selectedPaxId.replace('PAX-', '');
+
+        await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
+          model_type: 'pax',
+          item_id: cleanPaxId,
+          fields: {
+            room_no: selectedRoom,
+            bed_no: selectedBed,
+            hotel_status: 'checked_in'
+          }
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setHotelData((prev) => ({
+          ...prev,
+          hotels: (prev.hotels || []).map((h) => {
+            if (h.booking_id !== selectedBooking.booking_id) return h;
+            return {
+              ...h,
+              pax_list: (h.pax_list || []).map((p) => p.pax_id === selectedPaxId ? ({ ...p, room_no: selectedRoom, bed_no: selectedBed, hotel_status: 'checked_in' }) : p)
+            };
+          })
+        }));
+      } catch (err) {
+        console.error('Error saving hotel assignment:', err);
+        alert('Failed to save assignment. Please try again.');
+      }
     }
-    console.log("Assigned:", { bookingId: selectedBooking?.booking_id, paxId: selectedPaxId, hotel: selectedHotel, room: selectedRoom, bed: selectedBed });
     setShowAssign(false);
   };
 
@@ -116,92 +196,328 @@ const HotelSection = () => {
     setShowStatusModal(true);
   };
 
-  const handleConfirmStatusUpdate = () => {
+  const handleConfirmStatusUpdate = async () => {
     const { bookingId, paxId, status } = statusModalInfo;
-    setHotelData((prev) => ({
-      ...prev,
-      hotels: prev.hotels.map((h) => h.booking_id === bookingId ? ({ ...h, pax_list: h.pax_list.map(p => p.pax_id === paxId ? ({ ...p, status }) : p) }) : h)
-    }));
+    try {
+      const token = localStorage.getItem('accessToken');
+      const cleanPaxId = paxId.replace('PAX-', '');
+
+      await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
+        model_type: 'pax',
+        item_id: cleanPaxId,
+        status: status,
+        status_field: 'hotel_status'
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setHotelData((prev) => ({
+        ...prev,
+        hotels: prev.hotels.map((h) => h.booking_id === bookingId ? ({ ...h, pax_list: h.pax_list.map(p => p.pax_id === paxId ? ({ ...p, status }) : p) }) : h)
+      }));
+    } catch (err) {
+      console.error('Error updating hotel status:', err);
+      alert('Failed to update status. Please try again.');
+    }
     setShowStatusModal(false);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setHotelFilter("");
+    setCheckInFilter("");
+    setCheckOutFilter("");
+    setQuickFilter("");
+  };
+
+  // Quick filter handlers
+  const applyQuickFilter = (filterType) => {
+    setQuickFilter(filterType);
+    switch (filterType) {
+      case 'today_checkin':
+        setCheckInFilter(getTodayDate());
+        setCheckOutFilter("");
+        break;
+      case 'tomorrow_checkin':
+        setCheckInFilter(getTomorrowDate());
+        setCheckOutFilter("");
+        break;
+      case 'today_checkout':
+        setCheckInFilter("");
+        setCheckOutFilter(getTodayDate());
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Calculate counts for summary cards
+  const getTodayCheckInCount = () => {
+    return (hotelData?.hotels || []).filter(h => h.check_in === getTodayDate()).length;
+  };
+
+  const getTomorrowCheckInCount = () => {
+    return (hotelData?.hotels || []).filter(h => h.check_in === getTomorrowDate()).length;
+  };
+
+  const getTodayCheckOutCount = () => {
+    return (hotelData?.hotels || []).filter(h => h.check_out === getTodayDate()).length;
   };
 
   return (
     <div>
-      <h5 className="mb-3"><Bed size={18} className="me-2" />Hotel Check-in / Check-out</h5>
-      
-      <Row className="align-items-center mb-3">
-        <Col md={3} className="mb-2 mb-md-0">
-          <InputGroup>
-            <InputGroup.Text>Date</InputGroup.Text>
-            <Form.Control type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-          </InputGroup>
+      {error && <Alert variant="danger">{error}</Alert>}
+
+      {/* Summary Cards */}
+      {!loading && hotelData && (
+        <>
+          <Row className="mb-3">
+            <Col md={4} className="mb-3">
+              <Card
+                className={`text-center shadow-sm ${quickFilter === 'today_checkin' ? 'border-primary border-2' : ''}`}
+                style={{ cursor: 'pointer', transition: 'all 0.3s' }}
+                onClick={() => applyQuickFilter('today_checkin')}
+              >
+                <Card.Body>
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div className="text-start">
+                      <h6 className="text-muted mb-1">Today's Check-ins</h6>
+                      <h2 className="mb-0 text-primary">{getTodayCheckInCount()}</h2>
+                      <small className="text-muted">{getTodayDate()}</small>
+                    </div>
+                    <div className="bg-primary bg-opacity-10 p-3 rounded-circle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Hotel size={32} color="#0d6efd" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={4} className="mb-3">
+              <Card
+                className={`text-center shadow-sm ${quickFilter === 'tomorrow_checkin' ? 'border-primary border-2' : ''}`}
+                style={{ cursor: 'pointer', transition: 'all 0.3s' }}
+                onClick={() => applyQuickFilter('tomorrow_checkin')}
+              >
+                <Card.Body>
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div className="text-start">
+                      <h6 className="text-muted mb-1">Tomorrow's Check-ins</h6>
+                      <h2 className="mb-0 text-primary">{getTomorrowCheckInCount()}</h2>
+                      <small className="text-muted">{getTomorrowDate()}</small>
+                    </div>
+                    <div className="bg-primary bg-opacity-10 p-3 rounded-circle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Hotel size={32} color="#0d6efd" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={4} className="mb-3">
+              <Card
+                className={`text-center shadow-sm ${quickFilter === 'today_checkout' ? 'border-primary border-2' : ''}`}
+                style={{ cursor: 'pointer', transition: 'all 0.3s' }}
+                onClick={() => applyQuickFilter('today_checkout')}
+              >
+                <Card.Body>
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div className="text-start">
+                      <h6 className="text-muted mb-1">Today's Check-outs</h6>
+                      <h2 className="mb-0 text-primary">{getTodayCheckOutCount()}</h2>
+                      <small className="text-muted">{getTodayDate()}</small>
+                    </div>
+                    <div className="bg-primary bg-opacity-10 p-3 rounded-circle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Hotel size={32} color="#0d6efd" strokeWidth={2.5} />
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Clear Filter Button - Only shows when a card is selected */}
+          {quickFilter && (
+            <Row className="mb-3">
+              <Col>
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => {
+                    setQuickFilter("");
+                    setCheckInFilter("");
+                    setCheckOutFilter("");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </Col>
+            </Row>
+          )}
+        </>
+      )}
+
+      {/* Filter Row 1 - Date Filters */}
+      <Row className="align-items-center mb-2">
+        <Col lg={3} md={4} className="mb-2 mb-md-0">
+          <Form.Group>
+            <Form.Label className="small mb-1">Date</Form.Label>
+            <Form.Control
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ minWidth: '150px' }}
+            />
+          </Form.Group>
         </Col>
-        <Col md={3} className="mb-2 mb-md-0">
-          <InputGroup>
-            <InputGroup.Text>Hotel</InputGroup.Text>
+        <Col lg={3} md={4} className="mb-2 mb-md-0">
+          <Form.Group>
+            <Form.Label className="small mb-1">Check-In Date</Form.Label>
+            <Form.Control
+              type="date"
+              value={checkInFilter}
+              onChange={(e) => setCheckInFilter(e.target.value)}
+              placeholder="Filter by check-in"
+              style={{ minWidth: '150px' }}
+            />
+          </Form.Group>
+        </Col>
+        <Col lg={3} md={4} className="mb-2 mb-md-0">
+          <Form.Group>
+            <Form.Label className="small mb-1">Check-Out Date</Form.Label>
+            <Form.Control
+              type="date"
+              value={checkOutFilter}
+              onChange={(e) => setCheckOutFilter(e.target.value)}
+              placeholder="Filter by check-out"
+              style={{ minWidth: '150px' }}
+            />
+          </Form.Group>
+        </Col>
+        <Col lg={3} md={12} className="mb-2 mb-md-0">
+          <Form.Group>
+            <Form.Label className="small mb-1">Hotel</Form.Label>
             <Form.Select value={hotelFilter} onChange={(e) => setHotelFilter(e.target.value)}>
               <option value="">All hotels</option>
               {mockHotels.map((h) => (
                 <option key={h.id} value={h.id}>{h.name}</option>
               ))}
             </Form.Select>
-          </InputGroup>
-        </Col>
-        <Col md={4} className="mb-2 mb-md-0">
-          <Form.Control placeholder="Search by booking id, pax name..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </Form.Group>
         </Col>
       </Row>
 
-      <Table hover responsive size="sm" className="align-middle">
-        <thead>
-          <tr>
-            <th>Booking ID</th>
-            <th>Hotel</th>
-            <th>City</th>
-            <th>Check In</th>
-            <th>Check Out</th>
-            <th>Status</th>
-            <th>Pax</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(hotelData?.hotels || []).filter(h => (
-            (matchesSearch(h.booking_id) || matchesSearch(h.hotel_name) || matchesSearch(h.city) || (h.pax_list||[]).some(p => matchesSearch(p.first_name) || matchesSearch(p.last_name)))
-            && (hotelFilter === "" || h.hotel_name === (mockHotels.find(hh => hh.id === hotelFilter)?.name || ""))
-          )).map((h, idx) => (
-            <tr key={idx}>
-              <td>{h.booking_id}</td>
-              <td>{h.hotel_name}</td>
-              <td>{h.city}</td>
-              <td>{h.check_in}</td>
-              <td>{h.check_out}</td>
-              <td><Badge bg={statusVariant(h.status)} className="text-capitalize">{h.status}</Badge></td>
-              <td>
-                {(h.pax_list || []).map((p) => (
-                  <div key={p.pax_id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                    <a href="#" onClick={(e) => { e.preventDefault(); fetchPaxDetails(p.pax_id); }} style={{ textDecoration: "none" }}>
-                      {p.first_name} {p.last_name}
-                    </a>
-                    <Form.Select size="sm" style={{ width: 140 }} value={p.status || "pending"} onChange={(e) => openStatusModal(h.booking_id, p.pax_id, e.target.value)}>
-                      <option value="pending">pending</option>
-                      <option value="checked_in">checked_in</option>
-                      <option value="checked_out">checked_out</option>
-                    </Form.Select>
-                    <Button size="sm" variant="outline-primary" onClick={() => openAssign(h, p)} title="Assign room/bed"><Bed size={14} /></Button>
-                  </div>
-                ))}
-              </td>
-              <td>
-                <div className="d-flex gap-2">
-                  <Button size="sm" variant="outline-secondary"><Edit3 size={14} /></Button>
-                  <Button size="sm" variant="outline-danger"><Trash2 size={14} /></Button>
-                </div>
-              </td>
+      {/* Filter Row 2 - Search and Actions */}
+      <Row className="align-items-center mb-3">
+        <Col md={10} className="mb-2 mb-md-0">
+          <Form.Control
+            placeholder="Search by booking id, hotel, city, pax name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            size="md"
+          />
+        </Col>
+        <Col md={2} className="mb-2 mb-md-0">
+          <Button variant="primary" onClick={fetchDeliveredBookings} disabled={loading} className="w-100">
+            {loading ? <Spinner size="sm" /> : 'Refresh'}
+          </Button>
+        </Col>
+      </Row>
+
+      {/* Clear Filters Row */}
+      {(search || hotelFilter || checkInFilter || checkOutFilter) && (
+        <Row className="mb-2">
+          <Col>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={clearFilters}
+            >
+              Clear All Filters
+            </Button>
+            <span className="ms-3 text-muted">
+              Active filters: {[search, hotelFilter, checkInFilter, checkOutFilter].filter(f => f).length}
+            </span>
+          </Col>
+        </Row>
+      )}
+
+      {loading ? (
+        <div className="text-center py-5">
+          <Spinner animation="border" />
+          <p className="mt-2">Loading delivered bookings...</p>
+        </div>
+      ) : (
+        <Table hover responsive size="sm" className="align-middle">
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Hotel</th>
+              <th>City</th>
+              <th>Check In</th>
+              <th>Check Out</th>
+              <th>Status</th>
+              <th>Pax</th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
+          </thead>
+          <tbody>
+            {(hotelData?.hotels || []).filter(h => {
+              // Search filter
+              const matchesSearchFilter = matchesSearch(h.booking_id) ||
+                matchesSearch(h.hotel_name) ||
+                matchesSearch(h.city) ||
+                (h.pax_list || []).some(p => matchesSearch(p.first_name) || matchesSearch(p.last_name));
+
+              // Hotel filter
+              const matchesHotelFilter = hotelFilter === "" ||
+                h.hotel_name === (mockHotels.find(hh => hh.id === hotelFilter)?.name || "");
+
+              // Check-in date filter
+              const matchesCheckInFilter = checkInFilter === "" || h.check_in === checkInFilter;
+
+              // Check-out date filter
+              const matchesCheckOutFilter = checkOutFilter === "" || h.check_out === checkOutFilter;
+
+              return matchesSearchFilter && matchesHotelFilter && matchesCheckInFilter && matchesCheckOutFilter;
+            }).map((h, idx) => (
+              <tr key={idx}>
+                <td>{h.booking_id}</td>
+                <td>{h.hotel_name}</td>
+                <td>{h.city}</td>
+                <td>{h.check_in}</td>
+                <td>{h.check_out}</td>
+                <td>
+                  {(() => {
+                    const familyHead = (h.pax_list || []).find(p => p.is_family_head) || (h.pax_list || [])[0];
+                    const granularStatus = familyHead?.activity_statuses?.find(s => s.activity_id === h.id && s.activity_type === 'bookinghoteldetails')?.status;
+                    const status = granularStatus || familyHead?.hotel_status || 'Pending';
+                    return <Badge bg={statusVariant(status)} className="text-capitalize">{status}</Badge>;
+                  })()}
+                </td>
+                <td>
+                  {(() => {
+                    const familyHead = (h.pax_list || []).find(p => p.is_family_head) || (h.pax_list || [])[0];
+                    if (!familyHead) return <span className="text-muted">No passengers</span>;
+
+                    return (
+                      <div className="d-flex align-items-center gap-2">
+                        <a
+                          href="#"
+                          onClick={(e) => { e.preventDefault(); showAllPassengers(h); }}
+                          style={{ textDecoration: "none", fontWeight: "500", color: "#0d6efd" }}
+                        >
+                          {familyHead.first_name} {familyHead.last_name}
+                        </a>
+                        {(h.pax_list || []).length > 1 && (
+                          <Badge bg="secondary" pill>{(h.pax_list || []).length}</Badge>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table >
+      )}
 
       <Modal show={showAssign} onHide={() => setShowAssign(false)}>
         <Modal.Header closeButton>
@@ -278,12 +594,73 @@ const HotelSection = () => {
         </Modal.Footer>
       </Modal>
 
-      <PaxDetailsModal 
-        show={paxModalOpen} 
-        onHide={() => setPaxModalOpen(false)} 
-        paxDetails={paxDetails} 
+      <AllPassengersModal
+        show={paxModalOpen}
+        onHide={() => setPaxModalOpen(false)}
+        paxDetails={paxDetails}
+        sectionType="hotel"
+        onStatusUpdate={async (bookingId, paxId, status, activityId) => {
+          try {
+            const token = localStorage.getItem('accessToken');
+            const cleanPaxId = paxId.replace('PAX-', '');
+
+            await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
+              model_type: 'pax',
+              item_id: cleanPaxId,
+              status: status,
+              status_field: 'hotel_status',
+              activity_id: activityId,
+              activity_type: 'hotel'
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setHotelData((prev) => {
+              const updatedHotels = prev.hotels.map((h) => {
+                if (h.booking_id === bookingId && h.id === activityId) {
+                  return {
+                    ...h,
+                    pax_list: h.pax_list.map(p => {
+                      if (p.pax_id === paxId) {
+                        const updatedActivityStatuses = [
+                          ...(p.activity_statuses || []).filter(s => s.activity_id !== activityId || s.activity_type !== 'bookinghoteldetails'),
+                          { activity_type: 'bookinghoteldetails', activity_id: activityId, status: status }
+                        ];
+                        return { ...p, status, activity_statuses: updatedActivityStatuses };
+                      }
+                      return p;
+                    })
+                  };
+                }
+                return h;
+              });
+
+              // Also update the open modal data if it matches
+              if (paxDetails && paxDetails.booking_id === bookingId) {
+                setPaxDetails(prev => ({
+                  ...prev,
+                  passengers: prev.passengers.map(p => {
+                    if (p.pax_id === paxId) {
+                      const updatedActivityStatuses = [
+                        ...(p.activity_statuses || []).filter(s => s.activity_id !== activityId || s.activity_type !== 'bookinghoteldetails'),
+                        { activity_type: 'bookinghoteldetails', activity_id: activityId, status: status }
+                      ];
+                      return { ...p, status, activity_statuses: updatedActivityStatuses };
+                    }
+                    return p;
+                  })
+                }));
+              }
+
+              return { ...prev, hotels: updatedHotels };
+            });
+          } catch (err) {
+            console.error('Error updating hotel status:', err);
+            alert('Failed to update status. Please try again.');
+          }
+        }}
       />
-    </div>
+    </div >
   );
 };
 

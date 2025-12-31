@@ -42,34 +42,71 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
 
-        // Fetch booking by booking_number instead of organization
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/bookings/?booking_number=${orderNo}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        let booking = null;
+
+        // Try fetching from agent bookings API first
+        try {
+          console.log("🔍 Trying agent bookings API...");
+          const response = await fetch(
+            `http://127.0.0.1:8000/api/bookings/?booking_number=${orderNo}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log("📦 Agent API Response:", data);
+            booking = Array.isArray(data)
+              ? data.find(b => b.booking_number === orderNo)
+              : data.results?.find(b => b.booking_number === orderNo);
+
+            if (booking) {
+              console.log("✅ Found in agent bookings!");
+            }
+          }
+        } catch (err) {
+          console.log("❌ Error fetching from agent API:", err);
+        }
+
+        // If not found in agent bookings, try public bookings API
+        if (!booking) {
+          try {
+            console.log("🔍 Trying public bookings API...");
+            const publicResponse = await fetch(
+              `http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              }
+            });
+
+            if (publicResponse.ok) {
+              const publicData = await publicResponse.json();
+              console.log("📦 Public API Response:", publicData);
+
+              const dataArray = Array.isArray(publicData)
+                ? publicData
+                : (publicData.results || []);
+
+              booking = dataArray.find(b => b.booking_number === orderNo);
+
+              if (booking) {
+                console.log("✅ Found in public bookings!");
+              }
+            }
+          } catch (err) {
+            console.log("❌ Error fetching from public API:", err);
           }
         }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch booking data: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        console.log("📦 API Response:", data);
-        console.log("🔍 Looking for booking:", orderNo);
-
-        // API returns array directly, find the booking by booking_number
-        const booking = Array.isArray(data)
-          ? data.find(b => b.booking_number === orderNo)
-          : data.results?.find(b => b.booking_number === orderNo);
 
         if (!booking) {
+          console.log("❌ Booking not found in either API");
           throw new Error("Booking not found");
         }
 
+        console.log("✅ Final booking data:", booking);
         setBookingData(booking);
 
         // Now fetch agency data
@@ -117,25 +154,46 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
       const organizationId = orgData?.id;
       const token = localStorage.getItem("accessToken");
 
-      const response = await axios.patch(
-        `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
-        {
-          status: 'Approved',
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+      // Determine which API to use based on booking type
+      const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+
+      let response;
+      if (isPublicBooking) {
+        // Use dedicated approve action for public bookings
+        console.log('Approving public booking:', bookingData.booking_number);
+        response = await axios.post(
+          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/approve/`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } else {
+        // Use PATCH for agent bookings
+        console.log('Approving agent booking:', bookingData.booking_number);
+        response = await axios.patch(
+          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+          {
+            status: 'Approved',
           },
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
 
       if (response.status === 200) {
         // Update local state to reflect the change
         setBookingData({ ...bookingData, status: 'Approved' });
         alert('Order approved successfully!');
-        // Navigate back to order delivery page
-        navigate("/order-delivery");
+        // Navigate to visa management page
+        navigate(`/order-delivery/visa/${bookingData.booking_number}`);
       } else {
         throw new Error('Failed to approve order');
       }
@@ -495,29 +553,92 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
           <div className="table-responsive mb-4">
             <table className="table table-sm text-center">
               <thead className="table-light">
-                <tr>
-                  <th className="fw-normal">Order No</th>
-                  <th className="fw-normal">Agency Code</th>
-                  <th className="fw-normal">Agreement Status</th>
-                  <th className="fw-normal">Package No</th>
-                  <th className="fw-normal">Total Pax</th>
-                  <th className="fw-normal">Balance</th>
-                  <th className="fw-normal">Status</th>
-                </tr>
+                {bookingData.is_public_booking ? (
+                  // Public Booking Header
+                  <tr>
+                    <th className="fw-normal">Order No</th>
+                    <th className="fw-normal">Total Pax</th>
+                    <th className="fw-normal">Status</th>
+                    <th className="fw-normal">Name</th>
+                    <th className="fw-normal">Email</th>
+                    <th className="fw-normal">Phone</th>
+                  </tr>
+                ) : (
+                  // Agent Booking Header (Original)
+                  <tr>
+                    <th className="fw-normal">Order No</th>
+                    <th className="fw-normal">Agency Code</th>
+                    <th className="fw-normal">Agreement Status</th>
+                    <th className="fw-normal">Package No</th>
+                    <th className="fw-normal">Total Pax</th>
+                    <th className="fw-normal">Balance</th>
+                    <th className="fw-normal">Status</th>
+                  </tr>
+                )}
               </thead>
               <tbody>
-                <tr>
-                  <td>{orderNo}</td>
-                  <td>{getAgencyCode()}</td>
-                  <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
-                  <td>N/A</td>
-                  <td>{bookingData.total_pax}</td>
-                  <td>PKR {bookingData.remaining_amount || 0}</td>
-                  <td dangerouslySetInnerHTML={{ __html: getStatusBadge(bookingData.status) }}></td>
-                </tr>
+                {bookingData.is_public_booking ? (
+                  // Public Booking Row
+                  <tr>
+                    <td>{orderNo}</td>
+                    <td>{bookingData.total_pax}</td>
+                    <td dangerouslySetInnerHTML={{ __html: getStatusBadge(bookingData.status) }}></td>
+                    <td>{bookingData.contact_information?.[0]?.name || 'N/A'}</td>
+                    <td>{bookingData.contact_information?.[0]?.email || 'N/A'}</td>
+                    <td>{bookingData.contact_information?.[0]?.phone || 'N/A'}</td>
+                  </tr>
+                ) : (
+                  // Agent Booking Row (Original)
+                  <tr>
+                    <td>{orderNo}</td>
+                    <td>{getAgencyCode()}</td>
+                    <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
+                    <td>N/A</td>
+                    <td>{bookingData.total_pax}</td>
+                    <td>PKR {bookingData.remaining_amount || 0}</td>
+                    <td dangerouslySetInnerHTML={{ __html: getStatusBadge(bookingData.status) }}></td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+
+          {/* Payment Summary - Only show for public bookings */}
+          {bookingData.is_public_booking && (
+            <div className="mb-4">
+              <h6 className="fw-bold mb-2">Payment Summary</h6>
+              <div className="table-responsive">
+                <table className="table table-sm text-center">
+                  <thead className="table-light">
+                    <tr>
+                      <th className="fw-normal">Total Payment</th>
+                      <th className="fw-normal">Received Payment</th>
+                      <th className="fw-normal">Remaining Payment</th>
+                      <th className="fw-normal">Payment Method</th>
+                      <th className="fw-normal">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>PKR {bookingData.total_amount || 0}</td>
+                      <td>PKR {(bookingData.total_amount || 0) - (bookingData.remaining_amount || 0)}</td>
+                      <td>PKR {bookingData.remaining_amount || 0}</td>
+                      <td>
+                        {bookingData.payments && bookingData.payments.length > 0
+                          ? bookingData.payments[0].payment_method || 'N/A'
+                          : 'N/A'}
+                      </td>
+                      <td>
+                        <button className="btn btn-sm btn-primary">
+                          Add Payment
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Booking Overview */}
           <h6 className="fw-bold mb-3">Booking Overview</h6>
@@ -1420,31 +1541,74 @@ const VisaApplicationInterface = ({ onClose }) => {
         const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
-        // Fetch booking data
-        const bookingResponse = await axios.get(
-          `http://127.0.0.1:8000/api/bookings/`,
-          {
-            params: {
-              booking_number: orderNo,
-              organization: organizationId,
-            },
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log(orderNo)
-        console.log("API Response:", bookingResponse.data);
 
-        // API might return an array or a single object
-        let booking;
-        if (Array.isArray(bookingResponse.data)) {
-          booking = bookingResponse.data[0]; // Get first item if array
-        } else if (bookingResponse.data.results) {
-          booking = bookingResponse.data.results[0]; // Get first item from results
-        } else {
-          booking = bookingResponse.data; // Use as is if single object
+        let booking = null;
+
+        // Try fetching from agent bookings API first
+        try {
+          console.log('🔍 Trying agent bookings API for visa page...');
+          const bookingResponse = await axios.get(
+            `http://127.0.0.1:8000/api/bookings/`,
+            {
+              params: {
+                booking_number: orderNo,
+                organization: organizationId,
+              },
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          console.log("📦 Agent API Response:", bookingResponse.data);
+
+          // API might return an array or a single object
+          if (Array.isArray(bookingResponse.data)) {
+            booking = bookingResponse.data[0];
+          } else if (bookingResponse.data.results) {
+            booking = bookingResponse.data.results[0];
+          } else {
+            booking = bookingResponse.data;
+          }
+
+          if (booking) {
+            console.log("✅ Found in agent bookings!");
+          }
+        } catch (err) {
+          console.log("❌ Not found in agent bookings, trying public bookings...");
+        }
+
+        // If not found in agent bookings, try public bookings API
+        if (!booking) {
+          try {
+            console.log('🔍 Trying public bookings API for visa page...');
+            const publicResponse = await axios.get(
+              `http://127.0.0.1:8000/api/admin/public-bookings/`,
+              {
+                params: {
+                  booking_number: orderNo,
+                  organization: organizationId,
+                },
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+            console.log("📦 Public API Response:", publicResponse.data);
+
+            const publicData = Array.isArray(publicResponse.data)
+              ? publicResponse.data
+              : (publicResponse.data?.results || []);
+
+            booking = publicData[0];
+
+            if (booking) {
+              console.log("✅ Found in public bookings!");
+            }
+          } catch (err) {
+            console.log("❌ Not found in public bookings either");
+          }
         }
 
         console.log("Matched Booking:", booking);
@@ -1715,31 +1879,96 @@ const VisaApplicationInterface = ({ onClose }) => {
             <div className="table-responsive mb-4">
               <table className="table table-sm text-center">
                 <thead className="table-light">
-                  <tr>
-                    <th>Order No</th>
-                    <th>Agency Code</th>
-                    <th>Agreement Status</th>
-                    <th>Package No</th>
-                    <th>Total Pax</th>
-                    <th>Balance</th>
-                    <th>Status</th>
-                  </tr>
+                  {bookingData.is_public_booking ? (
+                    // Public Booking Header
+                    <tr>
+                      <th>Order No</th>
+                      <th>Total Pax</th>
+                      <th>Status</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                    </tr>
+                  ) : (
+                    // Agent Booking Header (Original)
+                    <tr>
+                      <th>Order No</th>
+                      <th>Agency Code</th>
+                      <th>Agreement Status</th>
+                      <th>Package No</th>
+                      <th>Total Pax</th>
+                      <th>Balance</th>
+                      <th>Status</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>{orderNo}</td>
-                    <td>{bookingData?.agency?.agency_code || bookingData?.agency_id || "N/A"}</td>
-                    <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
-                    <td>{bookingData.id}</td>
-                    <td>{bookingData.total_pax}</td>
-                    <td>PKR {bookingData.remaining_amount || 0}</td>
-                    <td>
-                      <span className="text-info">{bookingData.status || "N/A"}</span>
-                    </td>
-                  </tr>
+                  {bookingData.is_public_booking ? (
+                    // Public Booking Row
+                    <tr>
+                      <td>{orderNo}</td>
+                      <td>{bookingData.total_pax}</td>
+                      <td>
+                        <span className={bookingData.status === 'Approved' ? 'text-success' : 'text-info'}>{bookingData.status || "N/A"}</span>
+                      </td>
+                      <td>{bookingData.contact_information?.[0]?.name || 'N/A'}</td>
+                      <td>{bookingData.contact_information?.[0]?.email || 'N/A'}</td>
+                      <td>{bookingData.contact_information?.[0]?.phone || 'N/A'}</td>
+                    </tr>
+                  ) : (
+                    // Agent Booking Row (Original)
+                    <tr>
+                      <td>{orderNo}</td>
+                      <td>{bookingData?.agency?.agency_code || bookingData?.agency_id || "N/A"}</td>
+                      <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
+                      <td>{bookingData.id}</td>
+                      <td>{bookingData.total_pax}</td>
+                      <td>PKR {bookingData.remaining_amount || 0}</td>
+                      <td>
+                        <span className={bookingData.status === 'Approved' ? 'text-success' : 'text-info'}>{bookingData.status || "N/A"}</span>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Payment Summary - Only show for public bookings */}
+            {bookingData.is_public_booking && (
+              <div className="mb-4">
+                <h6 className="fw-bold mb-2">Payment Summary</h6>
+                <div className="table-responsive">
+                  <table className="table table-sm text-center">
+                    <thead className="table-light">
+                      <tr>
+                        <th className="fw-normal">Total Payment</th>
+                        <th className="fw-normal">Received Payment</th>
+                        <th className="fw-normal">Remaining Payment</th>
+                        <th className="fw-normal">Payment Method</th>
+                        <th className="fw-normal">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>PKR {bookingData.total_amount || 0}</td>
+                        <td>PKR {(bookingData.total_amount || 0) - (bookingData.remaining_amount || 0)}</td>
+                        <td>PKR {bookingData.remaining_amount || 0}</td>
+                        <td>
+                          {bookingData.payments && bookingData.payments.length > 0
+                            ? bookingData.payments[0].payment_method || 'N/A'
+                            : 'N/A'}
+                        </td>
+                        <td>
+                          <button className="btn btn-sm btn-primary">
+                            Add Payment
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Select Umrah Visa Shirka */}
             <div className="mb-4">
@@ -1831,8 +2060,17 @@ const VisaApplicationInterface = ({ onClose }) => {
                                 const newStatus = e.target.value;
                                 try {
                                   const token = localStorage.getItem("accessToken");
+
+                                  // Determine which API to use based on booking type
+                                  const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+                                  const apiEndpoint = isPublicBooking
+                                    ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+                                    : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+
+                                  console.log(`Updating visa status for ${isPublicBooking ? 'public' : 'agent'} booking`);
+
                                   const response = await axios.patch(
-                                    `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                                    apiEndpoint,
                                     {
                                       person_details: bookingData.person_details.map((p, idx) =>
                                         idx === index ? { ...p, visa_status: newStatus } : p
@@ -1896,8 +2134,17 @@ const VisaApplicationInterface = ({ onClose }) => {
 
                   try {
                     const token = localStorage.getItem("accessToken");
+
+                    // Determine which API to use based on booking type
+                    const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+                    const apiEndpoint = isPublicBooking
+                      ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+                      : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+
+                    console.log(`Approving visa for ${isPublicBooking ? 'public' : 'agent'} booking`);
+
                     const response = await axios.patch(
-                      `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                      apiEndpoint,
                       {
                         person_details: bookingData.person_details.map((p, idx) =>
                           selectedPassengers[idx] ? { ...p, visa_status: 'Approved' } : p
@@ -2004,13 +2251,54 @@ const OrderList = () => {
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
 
-        const response = await axios.get(`http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          }
+        // Fetch from both APIs in parallel
+        const [agentResponse, publicResponse] = await Promise.all([
+          // Agent bookings (excludes public bookings)
+          axios.get(`http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          }),
+          // Public bookings (filtered by organization)
+          axios.get(`http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          }).catch(err => {
+            console.warn("Failed to fetch public bookings:", err);
+            return { data: { results: [] } }; // Fallback to empty array if API fails
+          })
+        ]);
+
+        // Combine agent bookings and public bookings
+        const agentBookings = agentResponse.data || [];
+        // Handle both array response and paginated response
+        const publicBookings = Array.isArray(publicResponse.data)
+          ? publicResponse.data
+          : (publicResponse.data?.results || []);
+
+        console.log('=== BOOKINGS FETCH DEBUG ===');
+        console.log('Agent bookings count:', agentBookings.length);
+        console.log('Public bookings count:', publicBookings.length);
+        console.log('Public bookings data:', publicBookings);
+
+        // Log each public booking details
+        publicBookings.forEach(booking => {
+          console.log(`Public Booking ${booking.booking_number}:`, {
+            id: booking.id,
+            status: booking.status,
+            is_public_booking: booking.is_public_booking,
+            booking_type: booking.booking_type
+          });
         });
-        setOrders(response.data);
+
+        // Combine both arrays
+        const combinedOrders = [...agentBookings, ...publicBookings];
+        console.log('Combined orders count:', combinedOrders.length);
+
+        setOrders(combinedOrders);
         setError(null);
       } catch (err) {
         setError("Failed to fetch orders. Please try again later.");
@@ -2031,6 +2319,8 @@ const OrderList = () => {
   // Handle tab switching
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    // Reset payment filter when switching tabs
+    setPaymentFilter("all");
   };
 
   // For order link navigation based on activeTab and status
@@ -2041,7 +2331,8 @@ const OrderList = () => {
       navigate(`/order-delivery/visa/${order.booking_number}`);
     } else if (order.status === "under-process") {
       navigate(`/order-delivery/visa/${order.booking_number}`);
-    } else if (activeTab === "Umrah Package" && (order.booking_type === "Umrah Package" || order.booking_type === "Custom Package")) {
+    } else if (activeTab === "Umrah Package" && (order.booking_type === "Umrah Package" || order.booking_type === "Custom Package" || order.booking_type === "Public Umrah Package")) {
+      // Navigate to order delivery page for all Umrah package types including public bookings
       navigate(`/order-delivery/${order.booking_number}`);
     } else if (activeTab === "Ticketing" && order.booking_type === "Group Ticket") {
       navigate(`/order-delivery/ticketing/${order.booking_number}`);
@@ -2056,18 +2347,39 @@ const OrderList = () => {
     try {
       const token = localStorage.getItem("accessToken");
 
-      const response = await axios.patch(
-        `http://127.0.0.1:8000/api/bookings/${order.id}/`,
-        {
-          status: 'Confirmed',
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+      // Determine which API to use based on booking type
+      const isPublicBooking = order.booking_type === "Public Umrah Package" || order.is_public_booking;
+
+      let response;
+      if (isPublicBooking) {
+        // Use dedicated confirm action for public bookings
+        console.log('Confirming public booking:', order.booking_number);
+        response = await axios.post(
+          `http://127.0.0.1:8000/api/admin/public-bookings/${order.id}/confirm/`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } else {
+        // Use PATCH for agent bookings
+        console.log('Confirming agent booking:', order.booking_number);
+        response = await axios.patch(
+          `http://127.0.0.1:8000/api/bookings/${order.id}/`,
+          {
+            status: 'Confirmed',
           },
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
 
       if (response.status === 200) {
         // Update local state to reflect the change
@@ -2082,13 +2394,14 @@ const OrderList = () => {
     }
   };
 
-
   // Filter orders based on active tab, payment status, and other filters
   const filteredOrders = orders.filter((order) => {
-    // Filter by tab (booking_type) - accept both Umrah Package and Custom Package
+    // Filter by tab (booking_type)
     const matchesTab =
-      (activeTab === "Umrah Package" && (order.booking_type === "Umrah Package" || order.booking_type === "Custom Package")) ||
-      (activeTab === "Ticketing" && order.booking_type === "Group Ticket");
+      (activeTab === "Umrah Package" && order.booking_type === "Umrah Package" && !order.is_public_booking) ||
+      (activeTab === "Custom Package" && order.booking_type === "Custom Package" && !order.is_public_booking) ||
+      (activeTab === "Ticketing" && order.booking_type === "Group Ticket") ||
+      (activeTab === "Customer Orders" && order.is_public_booking === true);
 
     // Filter by payment status (now based on booking status)
     const matchesPayment =
@@ -2106,6 +2419,23 @@ const OrderList = () => {
     const matchesSearch =
       searchTerm === "" ||
       (order.booking_number && order.booking_number.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Debug logging for public bookings
+    if (order.is_public_booking === true) {
+      console.log('Public booking filter check:', {
+        booking_number: order.booking_number,
+        booking_type: order.booking_type,
+        is_public_booking: order.is_public_booking,
+        status: order.status,
+        activeTab,
+        paymentFilter,
+        matchesTab,
+        matchesPayment,
+        matchesStatus,
+        matchesSearch,
+        willShow: matchesTab && matchesPayment && matchesStatus && matchesSearch
+      });
+    }
 
     return matchesTab && matchesPayment && matchesStatus && matchesSearch;
   });
@@ -2162,24 +2492,54 @@ const OrderList = () => {
         <div className="bg-white rounded shadow-sm p-4">
           {/* Payment Status Filter Tabs */}
           <div className="mb-4">
-            <div className="d-flex gap-2">
-              <button
-                className={`btn ${activeTab === "Umrah Package" ? "btn-primary" : "btn-outline-secondary"}`}
-                onClick={() => handleTabChange("Umrah Package")}
-              >
-                Umrah Package
-              </button>
+            <div className="d-flex justify-content-between align-items-center">
+              {/* Main tabs on the left */}
+              <div className="d-flex gap-2">
+                <button
+                  className={`btn ${activeTab === "Umrah Package" ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => handleTabChange("Umrah Package")}
+                >
+                  Umrah Package
+                </button>
 
-              <button
-                className={`btn ${activeTab === "Ticketing" ? "btn-primary" : "btn-outline-secondary"}`}
-                onClick={() => handleTabChange("Ticketing")}
-              >
-                Ticketing
-              </button>
+                <button
+                  className={`btn ${activeTab === "Custom Package" ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => handleTabChange("Custom Package")}
+                >
+                  Custom Package
+                </button>
+
+                <button
+                  className={`btn ${activeTab === "Ticketing" ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => handleTabChange("Ticketing")}
+                >
+                  Ticketing
+                </button>
+
+                <button
+                  className={`btn ${activeTab === "Customer Orders" ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => handleTabChange("Customer Orders")}
+                >
+                  Customer Orders
+                </button>
+              </div>
+
+              {/* Paid/Unpaid display buttons - only show for Customer Orders */}
+              {activeTab === "Customer Orders" && (
+                <div className="d-flex gap-2">
+                  <button className="btn btn-outline-secondary">
+                    Paid
+                  </button>
+                  <button className="btn btn-outline-secondary">
+                    Unpaid
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+            {/* Show filters for all tabs */}
             <div className="d-flex gap-2 flex-wrap">
               {/* Show dropdown filters only for unpaid orders */}
               {paymentFilter === "unpaid" ? (
@@ -2219,43 +2579,43 @@ const OrderList = () => {
                       }`}
                     onClick={() => setStatusFilter("un-approve")}
                   >
-                    Un Approved
+                    Un-Approved
                   </button>
                   <button
                     className={`btn ${statusFilter === "under-process"
-                      ? "btn-outline-primary"
+                      ? "btn-primary"
                       : "btn-outline-secondary"
                       }`}
                     onClick={() => setStatusFilter("under-process")}
                   >
-                    Under-Process
+                    Under Process
                   </button>
                   <button
-                    className={`btn ${statusFilter === "delivered"
-                      ? "btn-outline-primary"
+                    className={`btn ${statusFilter === "Delivered"
+                      ? "btn-primary"
                       : "btn-outline-secondary"
                       }`}
-                    onClick={() => setStatusFilter("delivered")}
+                    onClick={() => setStatusFilter("Delivered")}
                   >
                     Delivered
                   </button>
                   <button
-                    className={`btn ${statusFilter === "confirm"
-                      ? "btn-outline-primary"
+                    className={`btn ${statusFilter === "Confirmed"
+                      ? "btn-primary"
                       : "btn-outline-secondary"
                       }`}
-                    onClick={() => setStatusFilter("confirm")}
+                    onClick={() => setStatusFilter("Confirmed")}
                   >
-                    Confirm Orders
+                    Confirmed
                   </button>
                   <button
-                    className={`btn ${statusFilter === "cancelled"
-                      ? "btn-outline-primary"
+                    className={`btn ${statusFilter === "Canceled"
+                      ? "btn-primary"
                       : "btn-outline-secondary"
                       }`}
-                    onClick={() => setStatusFilter("cancelled")}
+                    onClick={() => setStatusFilter("Canceled")}
                   >
-                    Cancelled
+                    Canceled
                   </button>
                 </>
               )}
