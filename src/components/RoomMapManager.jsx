@@ -115,7 +115,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await axios.get('http://127.0.0.1:8000/api/hotels/room-map/', {
+      const response = await axios.get('https://api.saer.pk/api/hotels/room-map/', {
         params: { hotel_id: hotelId },
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -232,7 +232,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       if (editingFloor && editingFloor.id) {
         // Update existing floor
         await axios.patch(
-          `http://127.0.0.1:8000/api/hotel-floors/${editingFloor.id}/`,
+          `https://api.saer.pk/api/hotel-floors/${editingFloor.id}/`,
           floorPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -240,7 +240,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       } else {
         // Create new floor
         await axios.post(
-          'http://127.0.0.1:8000/api/hotel-floors/',
+          'https://api.saer.pk/api/hotel-floors/',
           floorPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -298,7 +298,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       if (editingRoom && editingRoom.id) {
         // Update existing room
         await axios.patch(
-          `http://127.0.0.1:8000/api/hotel-rooms/${editingRoom.id}/`,
+          `https://api.saer.pk/api/hotel-rooms/${editingRoom.id}/`,
           roomPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -306,7 +306,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       } else {
         // Create new room
         await axios.post(
-          'http://127.0.0.1:8000/api/hotel-rooms/',
+          'https://api.saer.pk/api/hotel-rooms/',
           roomPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -455,7 +455,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       };
 
       const token = localStorage.getItem("accessToken");
-      await axios.post("http://127.0.0.1:8000/api/hotels/room-map", payload, {
+      await axios.post("https://api.saer.pk/api/hotels/room-map", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

@@ -79,7 +79,7 @@ const PaxMovementTracking = () => {
 
       // Fetch all bookings with Approved or Delivered status
       const response = await fetch(
-        `http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`,
+        `https://api.saer.pk/api/bookings/?organization=${organizationId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -211,7 +211,7 @@ const PaxMovementTracking = () => {
 
         try {
           const agencyResponse = await fetch(
-            `http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${agencyId}`,
+            `https://api.saer.pk/api/agencies/?organization_id=${organizationId}&id=${agencyId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

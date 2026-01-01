@@ -55,7 +55,7 @@ const EditHotelPricing = () => {
         setLoading(true);
         try {
             const storedOrgId = localStorage.getItem('organizationId') || '11';
-            const res = await axios.get(`http://127.0.0.1:8000/api/hotels/${id}/?organization=${storedOrgId}`, {
+            const res = await axios.get(`https://api.saer.pk/api/hotels/${id}/?organization=${storedOrgId}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const hotel = res.data;
@@ -170,8 +170,8 @@ const EditHotelPricing = () => {
 
             const storedOrgId = localStorage.getItem('organizationId') || '11';
             const url = organizationId
-                ? `http://127.0.0.1:8000/api/hotels/${id}/?organization=${organizationId}`
-                : `http://127.0.0.1:8000/api/hotels/${id}/?organization=${storedOrgId}`;
+                ? `https://api.saer.pk/api/hotels/${id}/?organization=${organizationId}`
+                : `https://api.saer.pk/api/hotels/${id}/?organization=${storedOrgId}`;
 
             await axios.patch(url, payload, {
                 headers: {

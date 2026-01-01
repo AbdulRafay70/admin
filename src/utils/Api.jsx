@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Use Vite env variable when available, otherwise fall back to production backend.
 // Ensure the baseURL includes the `/api` prefix so `api.get('/agencies/')` => `${baseURL}/agencies/` targets `/api/agencies/`.
-const rawBase = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const rawBase = import.meta.env.VITE_API_BASE || "https://api.saer.pk";
 const baseURL = rawBase.endsWith("/api") ? rawBase : rawBase.replace(/\/$/, "") + "/api";
 
 const api = axios.create({

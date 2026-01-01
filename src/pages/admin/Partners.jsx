@@ -116,7 +116,7 @@ const Partners = ({ embed = false }) => {
         );
       } else {
             const orgId = getCurrentOrgId();
-            const usersUrl = orgId ? `http://127.0.0.1:8000/api/users/?organization=${orgId}` : `http://127.0.0.1:8000/api/users/`;
+            const usersUrl = orgId ? `https://api.saer.pk/api/users/?organization=${orgId}` : `https://api.saer.pk/api/users/`;
             const response = await axios.get(usersUrl, axiosConfig);
         const data = response.data || [];
         setPartners(data);
@@ -153,8 +153,8 @@ const Partners = ({ embed = false }) => {
       } else {
         const orgId = getCurrentOrgId();
         const agenciesUrl = orgId
-          ? `http://127.0.0.1:8000/api/agencies/?organization=${orgId}`
-          : `http://127.0.0.1:8000/api/agencies/`;
+          ? `https://api.saer.pk/api/agencies/?organization=${orgId}`
+          : `https://api.saer.pk/api/agencies/`;
         const response = await axios.get(agenciesUrl, axiosConfig);
         const data = response.data || [];
         setAgencies(data);
@@ -190,7 +190,7 @@ const Partners = ({ embed = false }) => {
         // filtering determine which groups to show for the current org.
         console.debug("fetchGroups: calling /api/groups/");
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/groups/`,
+          `https://api.saer.pk/api/groups/`,
           axiosConfig
         );
         // Support both direct array responses and paginated { results: [] } responses
@@ -221,8 +221,8 @@ const Partners = ({ embed = false }) => {
       } else {
         const orgId = getCurrentOrgId();
         const branchesUrl = orgId
-          ? `http://127.0.0.1:8000/api/branches/?organization=${orgId}`
-          : `http://127.0.0.1:8000/api/branches/`;
+          ? `https://api.saer.pk/api/branches/?organization=${orgId}`
+          : `https://api.saer.pk/api/branches/`;
         const response = await axios.get(branchesUrl, axiosConfig);
         const data = response.data || [];
         setBranches(data);
@@ -245,7 +245,7 @@ const Partners = ({ embed = false }) => {
       if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME) {
         setOrganizations(JSON.parse(cachedData));
       } else {
-        const response = await axios.get(`http://127.0.0.1:8000/api/organizations/`, axiosConfig);
+        const response = await axios.get(`https://api.saer.pk/api/organizations/`, axiosConfig);
         const data = response.data || [];
         setOrganizations(data);
 
@@ -478,13 +478,13 @@ const Partners = ({ embed = false }) => {
       const primaryOrgId = orgsToUse[0] || getCurrentOrgId();
       if (editingId) {
         response = await axios.put(
-          `http://127.0.0.1:8000/api/users/${editingId}/?organization=${primaryOrgId}`,
+          `https://api.saer.pk/api/users/${editingId}/?organization=${primaryOrgId}`,
           userPayload,
           axiosConfig
         );
       } else {
         response = await axios.post(
-          `http://127.0.0.1:8000/api/users/?organization=${primaryOrgId}`,
+          `https://api.saer.pk/api/users/?organization=${primaryOrgId}`,
           userPayload,
           axiosConfig
         );
@@ -507,7 +507,7 @@ const Partners = ({ embed = false }) => {
     if (window.confirm("Are you sure you want to delete this partner?")) {
       setIsLoading(true);
       try {
-        await axios.delete(`http://127.0.0.1:8000/api/users/${id}/?organization=${getCurrentOrgId()}`, axiosConfig);
+        await axios.delete(`https://api.saer.pk/api/users/${id}/?organization=${getCurrentOrgId()}`, axiosConfig);
 
         // Clear the partners cache since we've made changes
         localStorage.removeItem(PARTNERS_CACHE_KEY);
@@ -528,7 +528,7 @@ const Partners = ({ embed = false }) => {
     setIsLoading(true);
     try {
       await axios.patch(
-        `http://127.0.0.1:8000/api/users/${id}/?organization=${getCurrentOrgId()}`,
+        `https://api.saer.pk/api/users/${id}/?organization=${getCurrentOrgId()}`,
         { is_active: newStatus === "Active" },
         axiosConfig
       );
@@ -567,7 +567,7 @@ const Partners = ({ embed = false }) => {
         const userId = decoded.user_id || decoded.id;
 
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/users/${userId}/`,
+          `https://api.saer.pk/api/users/${userId}/`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }

@@ -52,7 +52,7 @@ const MarkupAssignValues = () => {
 
   const fetchGroups = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/markups/', {
+      const res = await axios.get('https://api.saer.pk/api/markups/', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.results) ? res.data.results : [];
@@ -67,7 +67,7 @@ const MarkupAssignValues = () => {
     if (!groupId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/markups/${groupId}/`, {
+      const res = await axios.get(`https://api.saer.pk/api/markups/${groupId}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = res.data || {};
@@ -101,7 +101,7 @@ const MarkupAssignValues = () => {
     };
 
     try {
-      await axios.patch(`http://127.0.0.1:8000/api/markups/${selectedGroupId}/`, payload, {
+      await axios.patch(`https://api.saer.pk/api/markups/${selectedGroupId}/`, payload, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       showAlert('success', 'Markup values updated successfully');

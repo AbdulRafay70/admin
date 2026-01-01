@@ -63,7 +63,7 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                 try {
                     console.log('🔍 Hotel Voucher: Trying agent bookings API...');
                     const bookingResponse = await axios.get(
-                        `http://127.0.0.1:8000/api/bookings/`,
+                        `https://api.saer.pk/api/bookings/`,
                         {
                             params: {
                                 booking_number: orderNo,
@@ -96,7 +96,7 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                     try {
                         console.log('🔍 Hotel Voucher: Trying public bookings API...');
                         const publicResponse = await axios.get(
-                            `http://127.0.0.1:8000/api/admin/public-bookings/`,
+                            `https://api.saer.pk/api/admin/public-bookings/`,
                             {
                                 params: {
                                     booking_number: orderNo,
@@ -168,7 +168,7 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                 if (booking.agency) {
                     try {
                         const agencyResponse = await axios.get(
-                            `http://127.0.0.1:8000/api/agencies/?organization=${organizationId}&id=${booking.agency}`,
+                            `https://api.saer.pk/api/agencies/?organization=${organizationId}&id=${booking.agency}`,
                             {
                                 headers: {
                                     Authorization: `Bearer ${token}`,
@@ -268,7 +268,7 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
 
             // Make API call to update booking
             const response = await axios.patch(
-                `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                `https://api.saer.pk/api/bookings/${bookingData.id}/`,
                 updateData,
                 {
                     headers: {

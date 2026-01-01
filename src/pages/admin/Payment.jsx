@@ -62,7 +62,7 @@ const Payment = () => {
         console.log("🔍 Fetching ledger for organization:", organizationId);
 
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/ledger/organization/${organizationId}/`,
+          `https://api.saer.pk/api/ledger/organization/${organizationId}/`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 

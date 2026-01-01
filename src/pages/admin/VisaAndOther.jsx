@@ -101,7 +101,7 @@ const Visa = () => {
       const orgId = getOrgId();
       try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
+          `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -145,7 +145,7 @@ const Visa = () => {
     try {
       // First try to fetch existing rate to determine if we should update
       const existingResponse = await axios.get(
-        `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
+        `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -156,7 +156,7 @@ const Visa = () => {
       if (existingResponse.data && existingResponse.data.length > 0) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -172,7 +172,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          "http://127.0.0.1:8000/api/riyal-rates/",
+          "https://api.saer.pk/api/riyal-rates/",
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -246,7 +246,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/shirkas/?organization=${orgId}`,
+        `https://api.saer.pk/api/shirkas/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -276,7 +276,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "http://127.0.0.1:8000/api/shirkas/",
+        "https://api.saer.pk/api/shirkas/",
         {
           name: shirkaName,
           organization: orgId,
@@ -312,7 +312,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `http://127.0.0.1:8000/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
         {
           name: shirkaName,
           organization: orgId,
@@ -349,7 +349,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/shirkas/${removeShirka}/?organization=${orgId}`,
+        `https://api.saer.pk/api/shirkas/${removeShirka}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -402,7 +402,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -428,7 +428,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/small-sectors/?organization=${orgId}`,
+        `https://api.saer.pk/api/small-sectors/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -463,7 +463,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "http://127.0.0.1:8000/api/small-sectors/",
+        "https://api.saer.pk/api/small-sectors/",
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
@@ -532,7 +532,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `http://127.0.0.1:8000/api/small-sectors/${editingSectorId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/small-sectors/${editingSectorId}/?organization=${orgId}`,
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
@@ -584,7 +584,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/small-sectors/${removeSector}/?organization=${orgId}`,
+        `https://api.saer.pk/api/small-sectors/${removeSector}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -650,7 +650,7 @@ const Visa = () => {
     try {
       const orgId = getOrgId();
       const res = await axios.get(
-        `http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`,
+        `https://api.saer.pk/api/big-sectors/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setBigSectors(res.data);
@@ -667,7 +667,7 @@ const Visa = () => {
     try {
       const orgId = getOrgId();
       const res = await axios.get(
-        `http://127.0.0.1:8000/api/small-sectors/?organization=${orgId}`,
+        `https://api.saer.pk/api/small-sectors/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSmallSectors(res.data);
@@ -979,7 +979,7 @@ const Visa = () => {
       setIsVisaTypeLoading(true);
       const orgId = selectedOrg?.id || selectedOrg;
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`,
+        `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -1029,8 +1029,8 @@ const Visa = () => {
       };
 
       const url = visaTypeId
-        ? `http://127.0.0.1:8000/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
-        : `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`;
+        ? `https://api.saer.pk/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
+        : `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`;
 
       const method = visaTypeId ? "put" : "post";
 
@@ -1085,7 +1085,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1156,13 +1156,13 @@ const Visa = () => {
     try {
       if (editingVisaPriceId) {
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
           visaPriceData
         );
         toast.success("Visa prices updated successfully!");
       } else {
         const response = await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData
         );
         setEditingVisaPriceId(response.data.id); // Store the new ID
@@ -1202,7 +1202,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1283,7 +1283,7 @@ const Visa = () => {
       if (editingVisaLongPriceId) {
         // Update existing price
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1296,7 +1296,7 @@ const Visa = () => {
       } else {
         // Create new price
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1342,7 +1342,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1406,7 +1406,7 @@ const Visa = () => {
     try {
       if (editingVisa28OnlyPriceId) {
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1418,7 +1418,7 @@ const Visa = () => {
         toast.success("Visa prices updated successfully!");
       } else {
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1466,7 +1466,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1531,7 +1531,7 @@ const Visa = () => {
       if (editingVisaLongOnlyId) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1544,7 +1544,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1597,7 +1597,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1664,7 +1664,7 @@ const Visa = () => {
       if (editingTransportId) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1677,7 +1677,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1741,7 +1741,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1806,7 +1806,7 @@ const Visa = () => {
     try {
       const orgId = getOrgId();
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/transport-prices?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-prices?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1885,7 +1885,7 @@ const Visa = () => {
         // Verify the visa exists by trying to fetch it first
         try {
           await axios.get(
-            `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+            `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1898,7 +1898,7 @@ const Visa = () => {
 
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -1911,7 +1911,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
+          `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -2090,7 +2090,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2167,7 +2167,7 @@ const Visa = () => {
   //       // Verify the visa exists by trying to fetch it first
   //       try {
   //         await axios.get(
-  //           `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //           `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //           {
   //             headers: {
   //               Authorization: `Bearer ${token}`,
@@ -2182,7 +2182,7 @@ const Visa = () => {
 
   //       // Update existing
   //       await axios.put(
-  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //         `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2195,7 +2195,7 @@ const Visa = () => {
   //     } else {
   //       // Create new
   //       await axios.post(
-  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
+  //         `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2228,7 +2228,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/hotels/?organization=${orgId}`,
+        `https://api.saer.pk/api/hotels/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2325,7 +2325,7 @@ const Visa = () => {
       const orgId =
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       await axios.delete(
-        `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2448,7 +2448,7 @@ const Visa = () => {
         // Check if selectedVisaPrice exists first
         // Update existing visa price
         response = await axios.put(
-          `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2461,7 +2461,7 @@ const Visa = () => {
       } else {
         // Create new visa price
         response = await axios.post(
-          `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2524,7 +2524,7 @@ const Visa = () => {
     setIsDeleting(true);
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+        `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Visa price deleted successfully");
@@ -2544,7 +2544,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // console.log("API Response:", response.data);
@@ -2683,7 +2683,7 @@ const Visa = () => {
   // Fetch vehicle types with proper sector data
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`, {
+  //     const response = await axios.get(`https://api.saer.pk/api/transport-prices/?organization=${orgId}`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       },
@@ -2752,7 +2752,7 @@ const Visa = () => {
       if (editingVehicleTypeId) {
         // Update existing vehicle type
         await axios.put(
-          `http://127.0.0.1:8000/api/transport-prices/${editingVehicleTypeId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-prices/${editingVehicleTypeId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2765,7 +2765,7 @@ const Visa = () => {
       } else {
         // Create new vehicle type
         await axios.post(
-          `http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/transport-prices/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2790,7 +2790,7 @@ const Visa = () => {
   // ✅ Enhanced fetchVehicleTypes to handle API response structure
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`, {
+      const response = await axios.get(`https://api.saer.pk/api/transport-prices/?organization=${orgId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -2873,7 +2873,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/transport-prices/${selectedVehicleTypeId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/transport-prices/${selectedVehicleTypeId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2920,7 +2920,7 @@ const Visa = () => {
   // const fetchAllSectors = async () => {
   //   try {
   //     // Fetch small sectors using axios
-  //     const smallResponse = await axios.get(`http://127.0.0.1:8000/api/sectors/?organization=${orgId}`);
+  //     const smallResponse = await axios.get(`https://api.saer.pk/api/sectors/?organization=${orgId}`);
   //     const smallData = smallResponse.data;
   //     const smallSectors = (smallData.results || smallData).map(sector => ({
   //       ...sector,
@@ -2929,7 +2929,7 @@ const Visa = () => {
   //     }));
 
   //     // Fetch big sectors using axios
-  //     const bigResponse = await axios.get(`http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`);
+  //     const bigResponse = await axios.get(`https://api.saer.pk/api/big-sectors/?organization=${orgId}`);
   //     const bigData = bigResponse.data;
   //     const bigSectors = (bigData.results || bigData).map(sector => ({
   //       ...sector,
@@ -2947,7 +2947,7 @@ const Visa = () => {
   // Fetch vehicle types with axios
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`);
+  //     const response = await axios.get(`https://api.saer.pk/api/transport-prices/?organization=${orgId}`);
   //     const data = response.data;
   //     setVehicleTypes(data.results || data);
   //   } catch (error) {
@@ -3009,8 +3009,8 @@ const Visa = () => {
   const orgId = getOrgId();
 
   // API base URLs
-  const FOOD_PRICES_API_URL = `http://127.0.0.1:8000/api/food-prices/?organization=${orgId}`;
-  const CITIES_API_URL = `http://127.0.0.1:8000/api/cities/?organization=${orgId}`;
+  const FOOD_PRICES_API_URL = `https://api.saer.pk/api/food-prices/?organization=${orgId}`;
+  const CITIES_API_URL = `https://api.saer.pk/api/cities/?organization=${orgId}`;
 
   // Fetch food prices and cities on component mount
   useEffect(() => {
@@ -3086,7 +3086,7 @@ const Visa = () => {
       if (isEditing && currentId) {
         // Update existing record
         await axios.put(
-          `http://127.0.0.1:8000/api/food-prices/${currentId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/food-prices/${currentId}/?organization=${orgId}`,
           dataToSend,
           {
             headers: {
@@ -3162,7 +3162,7 @@ const Visa = () => {
       try {
         setLoading(true);
         await axios.delete(
-          `http://127.0.0.1:8000/api/food-prices/${id}/?organization=${orgId}`,
+          `https://api.saer.pk/api/food-prices/${id}/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3216,7 +3216,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
+        `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3237,7 +3237,7 @@ const Visa = () => {
     const orgId = getOrgId();
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3295,7 +3295,7 @@ const Visa = () => {
       if (editingZiaratId) {
         // Update existing
         await axios.put(
-          `http://127.0.0.1:8000/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3308,7 +3308,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
+          `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3339,7 +3339,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/ziarat-prices/${id}/?organization=${orgId}`,
+        `https://api.saer.pk/api/ziarat-prices/${id}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3453,7 +3453,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/airlines/?organization=${orgId}`,
+        `https://api.saer.pk/api/airlines/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3506,7 +3506,7 @@ const Visa = () => {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/airlines/",
+        "https://api.saer.pk/api/airlines/",
         formData,
         {
           headers: {
@@ -3541,7 +3541,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/airlines/${removeFlight}/?organization=${orgId}`,
+        `https://api.saer.pk/api/airlines/${removeFlight}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3580,7 +3580,7 @@ const Visa = () => {
       }
 
       await axios.put(
-        `http://127.0.0.1:8000/api/airlines/${editingFlightId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/airlines/${editingFlightId}/?organization=${orgId}`,
         formData,
         {
           headers: {
@@ -3610,7 +3610,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
       await axios.put(
-        `http://127.0.0.1:8000/api/cities/${editingCityId}/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/${editingCityId}/?organization=${orgId}`,
         {
           name: cityName,
           code: cityCode,
@@ -3650,7 +3650,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3682,7 +3682,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "http://127.0.0.1:8000/api/cities/",
+        "https://api.saer.pk/api/cities/",
         {
           name: cityName,
           code: cityCode,
@@ -3716,7 +3716,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `http://127.0.0.1:8000/api/cities/${removeCity}/?organization=${orgId}`,
+        `https://api.saer.pk/api/cities/${removeCity}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3746,7 +3746,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/booking-expiry/?organization=${orgId}`,
+          `https://api.saer.pk/api/booking-expiry/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3790,7 +3790,7 @@ const Visa = () => {
       if (expiryId) {
         // Update existing record
         await axios.put(
-          `http://127.0.0.1:8000/api/booking-expiry/${expiryId}/?organization=${orgId}`,
+          `https://api.saer.pk/api/booking-expiry/${expiryId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -3803,7 +3803,7 @@ const Visa = () => {
       } else {
         // Create new record
         const response = await axios.post(
-          "http://127.0.0.1:8000/api/booking-expiry/",
+          "https://api.saer.pk/api/booking-expiry/",
           payload,
           {
             headers: {

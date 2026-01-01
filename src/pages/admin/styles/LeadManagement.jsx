@@ -408,7 +408,7 @@ const LeadManagement = () => {
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://127.0.0.1:8000/api/leads/`, {
+      const response = await axios.get(`https://api.saer.pk/api/leads/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -424,7 +424,7 @@ const LeadManagement = () => {
   // Fetch branches
   const fetchBranches = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
+      const response = await axios.get(`https://api.saer.pk/api/branches/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -518,7 +518,7 @@ const LeadManagement = () => {
         branch_id: getUserBranchId(), // send user's branch id even though branch field removed from UI
       };
 
-      await axios.post(`http://127.0.0.1:8000/api/leads/`, payload, {
+      await axios.post(`https://api.saer.pk/api/leads/`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -542,7 +542,7 @@ const LeadManagement = () => {
 
     try {
       await axios.put(
-        `http://127.0.0.1:8000/api/leads/${selectedLead.id}/`,
+        `https://api.saer.pk/api/leads/${selectedLead.id}/`,
         leadForm,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -561,7 +561,7 @@ const LeadManagement = () => {
   // Handle delete lead
   const handleDeleteLead = async () => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/leads/${selectedLead.id}/`, {
+      await axios.delete(`https://api.saer.pk/api/leads/${selectedLead.id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

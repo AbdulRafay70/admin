@@ -48,7 +48,7 @@ const HotelAvailability = () => {
 
     const fetchHotels = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/hotels/', {
+            const res = await axios.get('https://api.saer.pk/api/hotels/', {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -62,7 +62,7 @@ const HotelAvailability = () => {
 
     const fetchBedTypes = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/bed-types/', {
+            const res = await axios.get('https://api.saer.pk/api/bed-types/', {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -86,7 +86,7 @@ const HotelAvailability = () => {
 
         setLoading(true);
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/hotels/availability/', {
+            const res = await axios.get('https://api.saer.pk/api/hotels/availability/', {
                 params: {
                     hotel_id: selectedHotelId,
                     date_from: dateFrom,

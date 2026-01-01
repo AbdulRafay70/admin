@@ -49,7 +49,7 @@ const MarkupManagement = () => {
   const fetchMarkups = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/markups/', {
+      const res = await axios.get('https://api.saer.pk/api/markups/', {
         params: organizationId ? { organization_id: organizationId } : {},
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -101,13 +101,13 @@ const MarkupManagement = () => {
     try {
       if (editing && editing.id) {
         await axios.patch(
-          `http://127.0.0.1:8000/api/markups/${editing.id}/`,
+          `https://api.saer.pk/api/markups/${editing.id}/`,
           payload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         showAlert('success', 'Markup group updated successfully');
       } else {
-        await axios.post('http://127.0.0.1:8000/api/markups/', payload, {
+        await axios.post('https://api.saer.pk/api/markups/', payload, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         showAlert('success', 'Markup group created successfully');
@@ -123,7 +123,7 @@ const MarkupManagement = () => {
   const removeMarkup = async (id) => {
     if (!window.confirm('Delete this markup group?')) return;
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/markups/${id}/`, {
+      await axios.delete(`https://api.saer.pk/api/markups/${id}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       showAlert('success', 'Markup group deleted successfully');

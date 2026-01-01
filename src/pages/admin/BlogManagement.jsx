@@ -56,7 +56,7 @@ const BlogManagement = () => {
       // Don't filter by organization - let backend handle permissions
       // Staff users can see all blogs, non-staff only see published ones
 
-      const response = await axios.get('http://127.0.0.1:8000/api/blog/blogs/', {
+      const response = await axios.get('https://api.saer.pk/api/blog/blogs/', {
         params,
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -171,7 +171,7 @@ const BlogManagement = () => {
 
       if (selectedBlog) {
         // Update existing blog
-        await axios.patch(`http://127.0.0.1:8000/api/blog/blogs/${selectedBlog.id}/`, formData, {
+        await axios.patch(`https://api.saer.pk/api/blog/blogs/${selectedBlog.id}/`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'multipart/form-data'
@@ -180,7 +180,7 @@ const BlogManagement = () => {
         showAlert('success', 'Blog updated successfully');
       } else {
         // Create new blog
-        await axios.post('http://127.0.0.1:8000/api/blog/blogs/', formData, {
+        await axios.post('https://api.saer.pk/api/blog/blogs/', formData, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'multipart/form-data'
@@ -219,7 +219,7 @@ const BlogManagement = () => {
   const handleDeleteBlog = async (id) => {
     if (window.confirm('Are you sure you want to delete this blog?')) {
       try {
-        await axios.delete(`http://127.0.0.1:8000/api/blog/blogs/${id}/`, {
+        await axios.delete(`https://api.saer.pk/api/blog/blogs/${id}/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         showAlert('success', 'Blog deleted successfully');
@@ -246,7 +246,7 @@ const BlogManagement = () => {
   // Change Blog Status
   const handleChangeStatus = async (id, newStatus) => {
     try {
-      await axios.patch(`http://127.0.0.1:8000/api/blog/blogs/${id}/`,
+      await axios.patch(`https://api.saer.pk/api/blog/blogs/${id}/`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );

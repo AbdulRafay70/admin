@@ -340,14 +340,14 @@ const LeadManagement = () => {
 
       if (editingLoanId) {
         // Update existing loan (use PATCH to update only provided fields)
-        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${editingLoanId}/`, payload, {
+        await axios.patch(`https://api.saer.pk/api/leads/update/${editingLoanId}/`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         showAlert("success", "Loan updated successfully");
       } else {
         // Create new loan
-        await axios.post(`http://127.0.0.1:8000/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
+        await axios.post(`https://api.saer.pk/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -431,7 +431,7 @@ const LeadManagement = () => {
         recovered_amount: total,
         loan_status: 'cleared',
       };
-      await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.patch(`https://api.saer.pk/api/leads/update/${loan.id}/`, payload, { headers: { Authorization: `Bearer ${token}` } });
 
       const followupPayload = {
         lead: loan.id,
@@ -442,7 +442,7 @@ const LeadManagement = () => {
         branch: loan.branch_id || loan.branch || (userBranchId || getUserBranchId()),
         followup_result: 'loan_cleared',
       };
-      await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`https://api.saer.pk/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
 
       showAlert('success', 'Loan cleared in full');
       setShowClearLoanModal(false);
@@ -465,7 +465,7 @@ const LeadManagement = () => {
         branch: loan.branch_id || loan.branch || (userBranchId || getUserBranchId()),
         loan_promise_date: newDate,
       };
-      await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.patch(`https://api.saer.pk/api/leads/update/${loan.id}/`, payload, { headers: { Authorization: `Bearer ${token}` } });
 
       const followupPayload = {
         lead: loan.id,
@@ -476,7 +476,7 @@ const LeadManagement = () => {
         branch: loan.branch_id || loan.branch || (userBranchId || getUserBranchId()),
         followup_result: 'loan_rescheduled',
       };
-      await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`https://api.saer.pk/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
 
       showAlert('success', 'Loan rescheduled');
       setShowRescheduleLoanModal(false);
@@ -502,7 +502,7 @@ const LeadManagement = () => {
         recovered_amount: newRecovered,
         loan_status: newRecovered >= loanAmount ? 'cleared' : (loan.loan_status || loan.status || 'pending'),
       };
-      await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.patch(`https://api.saer.pk/api/leads/update/${loan.id}/`, payload, { headers: { Authorization: `Bearer ${token}` } });
 
       const followupPayload = {
         lead: loan.id,
@@ -513,7 +513,7 @@ const LeadManagement = () => {
         branch: loan.branch_id || loan.branch || (userBranchId || getUserBranchId()),
         followup_result: 'loan_collection',
       };
-      await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`https://api.saer.pk/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
 
       showAlert('success', 'Recovered amount recorded');
       setShowAddBalanceModal(false);
@@ -544,7 +544,7 @@ const LeadManagement = () => {
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://127.0.0.1:8000/api/leads/list/`, {
+      const response = await axios.get(`https://api.saer.pk/api/leads/list/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -685,7 +685,7 @@ const LeadManagement = () => {
   // Fetch branches
   const fetchBranches = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
+      const response = await axios.get(`https://api.saer.pk/api/branches/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -704,7 +704,7 @@ const LeadManagement = () => {
         const decoded = decodeJwt(token);
         const userId = decoded.user_id || decoded.id;
         if (!userId) return;
-        const resp = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
+        const resp = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCurrentUser(resp.data);
@@ -927,7 +927,7 @@ const LeadManagement = () => {
         if (leadForm.loan_remarks) payload.loan_remarks = leadForm.loan_remarks;
       }
 
-      const createResp = await axios.post(`http://127.0.0.1:8000/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
+      const createResp = await axios.post(`https://api.saer.pk/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -948,7 +948,7 @@ const LeadManagement = () => {
             branch: leadForm.branch_id ? Number(leadForm.branch_id) : (userBranchId || getUserBranchId()),
           };
 
-          await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, followupPayload, {
+          await axios.post(`https://api.saer.pk/api/leads/followup/`, followupPayload, {
             headers: { Authorization: `Bearer ${token}` },
           });
         }
@@ -986,7 +986,7 @@ const LeadManagement = () => {
       };
 
       await axios.put(
-        `http://127.0.0.1:8000/api/leads/update/${selectedLead.id}/`,
+        `https://api.saer.pk/api/leads/update/${selectedLead.id}/`,
         payload,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -1038,7 +1038,7 @@ const LeadManagement = () => {
         // Map 'converted' to 'confirmed' as that's the valid choice in the backend Lead model
         let leadStatus = closeLeadOption === 'converted' ? 'confirmed' : closeLeadOption === 'lost' ? 'lost' : 'confirmed';
         const taskPayload = { ...basePayload, lead_status: leadStatus };
-        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${selectedLead.id}/`, taskPayload, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.patch(`https://api.saer.pk/api/leads/update/${selectedLead.id}/`, taskPayload, { headers: { Authorization: `Bearer ${token}` } });
       } else {
         // For leads, preserve existing close options
         const updatePayload = { ...basePayload };
@@ -1048,7 +1048,7 @@ const LeadManagement = () => {
           updatePayload.conversion_status = 'converted_to_booking';
           updatePayload.lead_status = 'confirmed';
         }
-        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${selectedLead.id}/`, updatePayload, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.patch(`https://api.saer.pk/api/leads/update/${selectedLead.id}/`, updatePayload, { headers: { Authorization: `Bearer ${token}` } });
       }
 
       // Save a followup/remark documenting the close action
@@ -1064,7 +1064,7 @@ const LeadManagement = () => {
         followup_result: followupResult,
       };
 
-      await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`https://api.saer.pk/api/leads/followup/`, followupPayload, { headers: { Authorization: `Bearer ${token}` } });
 
       showAlert('success', isTaskRecord(selectedLead) ? 'Task closed' : 'Lead closed');
       setShowCloseLeadModal(false);
@@ -1073,7 +1073,7 @@ const LeadManagement = () => {
       fetchLoans();
       fetchTasks();
       try {
-        const resp = await axios.get(`http://127.0.0.1:8000/api/leads/${selectedLead.id}/`, { headers: { Authorization: `Bearer ${token}` }, params: { organization: organizationId } });
+        const resp = await axios.get(`https://api.saer.pk/api/leads/${selectedLead.id}/`, { headers: { Authorization: `Bearer ${token}` }, params: { organization: organizationId } });
         setSelectedLead(resp.data || selectedLead);
       } catch (e) { }
     } catch (err) {
@@ -1088,7 +1088,7 @@ const LeadManagement = () => {
     (async () => {
       try {
         setLoading(true);
-        const resp = await axios.get(`http://127.0.0.1:8000/api/leads/${lead.id}/`, {
+        const resp = await axios.get(`https://api.saer.pk/api/leads/${lead.id}/`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { organization: organizationId },
         });
@@ -1119,7 +1119,7 @@ const LeadManagement = () => {
         branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()),
       };
 
-      await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`https://api.saer.pk/api/leads/followup/`, payload, { headers: { Authorization: `Bearer ${token}` } });
 
       showAlert('success', 'Remark saved');
       setShowAddRemarksModal(false);
@@ -1128,7 +1128,7 @@ const LeadManagement = () => {
       // Refresh lists and refetch selected lead so history updates immediately
       fetchLeads();
       try {
-        const resp = await axios.get(`http://127.0.0.1:8000/api/leads/${selectedLead.id}/`, { headers: { Authorization: `Bearer ${token}` }, params: { organization: organizationId } });
+        const resp = await axios.get(`https://api.saer.pk/api/leads/${selectedLead.id}/`, { headers: { Authorization: `Bearer ${token}` }, params: { organization: organizationId } });
         setSelectedLead(resp.data || selectedLead);
       } catch (e) {
         // ignore
@@ -1167,7 +1167,7 @@ const LeadManagement = () => {
         organization: organizationId,
         branch: selectedLead.branch || selectedLead.branch_id || (userBranchId || getUserBranchId()),
       };
-      await axios.post(`http://127.0.0.1:8000/api/leads/followup/`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post(`https://api.saer.pk/api/leads/followup/`, payload, { headers: { Authorization: `Bearer ${token}` } });
       showAlert('success', 'Next follow-up scheduled');
       setShowNextFollowupModal(false);
       setFollowupDate('');
@@ -1184,7 +1184,7 @@ const LeadManagement = () => {
   // Handle delete lead
   const handleDeleteLead = async () => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/leads/${selectedLead.id}/`, {
+      await axios.delete(`https://api.saer.pk/api/leads/${selectedLead.id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -1236,14 +1236,14 @@ const LeadManagement = () => {
 
       if (editingTaskId) {
         // Update existing task (use PATCH to avoid overwriting fields)
-        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${editingTaskId}/`, payload, {
+        await axios.patch(`https://api.saer.pk/api/leads/update/${editingTaskId}/`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         showAlert('success', 'Task updated');
       } else {
         // Create new task
-        await axios.post(`http://127.0.0.1:8000/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
+        await axios.post(`https://api.saer.pk/api/leads/create/`, { ...payload, created_by_user: getCurrentUserId() }, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -1327,7 +1327,7 @@ const LeadManagement = () => {
     (async () => {
       try {
         setLoading(true);
-        const resp = await axios.get(`http://127.0.0.1:8000/api/leads/${lead.id}/`, {
+        const resp = await axios.get(`https://api.saer.pk/api/leads/${lead.id}/`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { organization: organizationId },
         });
@@ -1337,7 +1337,7 @@ const LeadManagement = () => {
           if (data && data.created_by_user && (typeof data.created_by_user === 'number' || typeof data.created_by_user === 'string')) {
             const uid = Number(data.created_by_user);
             if (!isNaN(uid)) {
-              const uresp = await axios.get(`http://127.0.0.1:8000/api/users/${uid}/`, { headers: { Authorization: `Bearer ${token}` } });
+              const uresp = await axios.get(`https://api.saer.pk/api/users/${uid}/`, { headers: { Authorization: `Bearer ${token}` } });
               data.created_by_user = uresp.data || data.created_by_user;
               data.created_by_username = data.created_by_username || (uresp.data && (uresp.data.username || uresp.data.name));
             }
@@ -1358,7 +1358,7 @@ const LeadManagement = () => {
           if (l && l.created_by_user && (typeof l.created_by_user === 'number' || typeof l.created_by_user === 'string')) {
             const uid = Number(l.created_by_user);
             if (!isNaN(uid)) {
-              const uresp = await axios.get(`http://127.0.0.1:8000/api/users/${uid}/`, { headers: { Authorization: `Bearer ${token}` } });
+              const uresp = await axios.get(`https://api.saer.pk/api/users/${uid}/`, { headers: { Authorization: `Bearer ${token}` } });
               l.created_by_user = uresp.data || l.created_by_user;
               l.created_by_username = l.created_by_username || (uresp.data && (uresp.data.username || uresp.data.name));
             }
@@ -1378,7 +1378,7 @@ const LeadManagement = () => {
     (async () => {
       try {
         setLoading(true);
-        const resp = await axios.get(`http://127.0.0.1:8000/api/leads/${task.id}/`, {
+        const resp = await axios.get(`https://api.saer.pk/api/leads/${task.id}/`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { organization: organizationId },
         });
@@ -1388,7 +1388,7 @@ const LeadManagement = () => {
           if (data && data.created_by_user && (typeof data.created_by_user === 'number' || typeof data.created_by_user === 'string')) {
             const uid = Number(data.created_by_user);
             if (!isNaN(uid)) {
-              const uresp = await axios.get(`http://127.0.0.1:8000/api/users/${uid}/`, { headers: { Authorization: `Bearer ${token}` } });
+              const uresp = await axios.get(`https://api.saer.pk/api/users/${uid}/`, { headers: { Authorization: `Bearer ${token}` } });
               data.created_by_user = uresp.data || data.created_by_user;
               data.created_by_username = data.created_by_username || (uresp.data && (uresp.data.username || uresp.data.name));
             }
@@ -2085,7 +2085,7 @@ const LeadManagement = () => {
                                         </Dropdown.Item>
                                         <Dropdown.Item onClick={async () => {
                                           try {
-                                            await axios.patch(`http://127.0.0.1:8000/api/leads/update/${lead.id}/`, { is_instant: !lead.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                            await axios.patch(`https://api.saer.pk/api/leads/update/${lead.id}/`, { is_instant: !lead.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
                                             showAlert('success', `Lead marked as ${!lead.is_instant ? 'Instant' : 'Not Instant'}`);
                                             fetchLeads();
                                             fetchLoans();
@@ -2499,7 +2499,7 @@ const LeadManagement = () => {
                                         <Dropdown.Item onClick={() => openNextFollowupModal(item)}>Next Follow Up</Dropdown.Item>
                                         <Dropdown.Item onClick={async () => {
                                           try {
-                                            await axios.patch(`http://127.0.0.1:8000/api/leads/update/${item.id}/`, { is_instant: !item.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                            await axios.patch(`https://api.saer.pk/api/leads/update/${item.id}/`, { is_instant: !item.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
                                             showAlert('success', `Lead marked as ${!item.is_instant ? 'Instant' : 'Not Instant'}`);
                                             fetchLeads();
                                             fetchLoans();
@@ -2617,7 +2617,7 @@ const LeadManagement = () => {
                                           onClick={async () => {
                                             try {
                                               await axios.patch(
-                                                `http://127.0.0.1:8000/api/leads/update/${item.id}/`,
+                                                `https://api.saer.pk/api/leads/update/${item.id}/`,
                                                 { is_instant: false },
                                                 { headers: { Authorization: `Bearer ${token}` } }
                                               );
@@ -2798,7 +2798,7 @@ const LeadManagement = () => {
                                   <Dropdown.Menu align="end">
                                     <Dropdown.Item onClick={async () => {
                                       try {
-                                        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, { is_instant: !loan.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                        await axios.patch(`https://api.saer.pk/api/leads/update/${loan.id}/`, { is_instant: !loan.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
                                         showAlert('success', `Loan marked as ${!loan.is_instant ? 'Instant' : 'Not Instant'}`);
                                         fetchLeads();
                                         fetchLoans();
@@ -2985,7 +2985,7 @@ const LeadManagement = () => {
                                   <Dropdown.Menu align="end">
                                     <Dropdown.Item onClick={async () => {
                                       try {
-                                        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${task.id}/`, { is_instant: !task.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                        await axios.patch(`https://api.saer.pk/api/leads/update/${task.id}/`, { is_instant: !task.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
                                         showAlert('success', `Task marked as ${!task.is_instant ? 'Instant' : 'Not Instant'}`);
                                         fetchLeads();
                                         fetchLoans();

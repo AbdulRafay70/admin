@@ -36,13 +36,13 @@ const PackageDetails = () => {
                         const headers = { Authorization: `Bearer ${useToken}`, "Content-Type": "application/json" };
 
                         // Fetch package details (use main packages API)
-                        const packageReq = axios.get(`http://127.0.0.1:8000/api/packages/${id}/`, {
+                        const packageReq = axios.get(`https://api.saer.pk/api/packages/${id}/`, {
                             params: { organization: orgId },
                             headers,
                         });
 
                         // Use the generic bookings list endpoint directly to avoid 404s
-                        const bookingsReq = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
+                        const bookingsReq = await axios.get(`https://api.saer.pk/api/bookings/`, {
                             params: { umrah_package_id: id, organization: orgId },
                             headers,
                         });
@@ -93,7 +93,7 @@ const PackageDetails = () => {
                     if (ownerOrg && ownerOrg !== orgId) {
                         try {
                             console.debug('No bookings for selected org; trying owner org (generic endpoint):', ownerOrg);
-                            const fallbackRes = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
+                            const fallbackRes = await axios.get(`https://api.saer.pk/api/bookings/`, {
                                 params: { umrah_package_id: id, organization: ownerOrg },
                                 headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
                             });
@@ -111,7 +111,7 @@ const PackageDetails = () => {
                 if ((bookingsRes.data || []).length === 0) {
                     try {
                         console.debug('No bookings found with org filters; trying without organization filter');
-                        const allRes = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
+                        const allRes = await axios.get(`https://api.saer.pk/api/bookings/`, {
                             params: { umrah_package_id: id },
                             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
                         });

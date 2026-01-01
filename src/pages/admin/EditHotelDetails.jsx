@@ -61,7 +61,7 @@ const EditHotelDetails = () => {
 
     const fetchCities = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/cities/', {
+            const res = await axios.get('https://api.saer.pk/api/cities/', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
@@ -73,7 +73,7 @@ const EditHotelDetails = () => {
 
     const fetchCategories = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/hotel-categories/', {
+            const res = await axios.get('https://api.saer.pk/api/hotel-categories/', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
@@ -95,7 +95,7 @@ const EditHotelDetails = () => {
         try {
             const storedOrgId = localStorage.getItem('organizationId') || '11'; // Default to 11 for testing
             console.log('Fetching hotel with organization:', storedOrgId);
-            const url = `http://127.0.0.1:8000/api/hotels/${id}/?organization=${storedOrgId}`;
+            const url = `https://api.saer.pk/api/hotels/${id}/?organization=${storedOrgId}`;
             
             const res = await axios.get(url, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -220,8 +220,8 @@ const EditHotelDetails = () => {
             });
 
             const url = organizationId
-                ? `http://127.0.0.1:8000/api/hotels/${id}/?organization=${organizationId}`
-                : `http://127.0.0.1:8000/api/hotels/${id}/`;
+                ? `https://api.saer.pk/api/hotels/${id}/?organization=${organizationId}`
+                : `https://api.saer.pk/api/hotels/${id}/`;
             
             await axios.patch(url, formDataToSend, {
                 headers: {

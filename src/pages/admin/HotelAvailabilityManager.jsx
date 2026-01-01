@@ -242,7 +242,7 @@ const HotelAvailabilityManager = () => {
   const organizationId = parsedOrg?.id ?? defaultOrgFromEnv ?? null;
 
   // API base used to normalize media URLs (keep consistent across gallery + table thumbnails)
-  const apiBaseGlobal = (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, '')) || 'http://127.0.0.1:8000';
+  const apiBaseGlobal = (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, '')) || 'https://api.saer.pk';
   const normalizeMediaUrlGlobal = (rawUrl) => {
     if (!rawUrl) return '';
     try {

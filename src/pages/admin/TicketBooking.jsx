@@ -246,7 +246,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     candidateIds.forEach((id) => {
       (async () => {
         try {
-          const res = await axios.get(`http://127.0.0.1:8000/api/cities/${id}/`, {
+          const res = await axios.get(`https://api.saer.pk/api/cities/${id}/`, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -377,7 +377,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     candidateIds.forEach((id) => {
       (async () => {
         try {
-          const url = `http://127.0.0.1:8000/api/airlines/${encodeURIComponent(id)}/`;
+          const url = `https://api.saer.pk/api/airlines/${encodeURIComponent(id)}/`;
           const res = await axios.get(url, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
@@ -400,7 +400,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // If single fetch failed or returned no name/logo, try the owner's airlines list
         try {
-          const listRes = await axios.get(`http://127.0.0.1:8000/api/airlines/`, {
+          const listRes = await axios.get(`https://api.saer.pk/api/airlines/`, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -419,7 +419,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // Try fetching the airline without organization (global single)
         try {
-          const res2 = await axios.get(`http://127.0.0.1:8000/api/airlines/${encodeURIComponent(id)}/`, {
+          const res2 = await axios.get(`https://api.saer.pk/api/airlines/${encodeURIComponent(id)}/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data2 = res2?.data || {};
@@ -436,7 +436,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // Finally, try fetching the global airlines list and match id
         try {
-          const globalListRes = await axios.get(`http://127.0.0.1:8000/api/airlines/`, {
+          const globalListRes = await axios.get(`https://api.saer.pk/api/airlines/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const globalList = Array.isArray(globalListRes?.data) ? globalListRes.data : (Array.isArray(globalListRes?.data?.results) ? globalListRes.data.results : []);

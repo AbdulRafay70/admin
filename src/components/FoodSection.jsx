@@ -24,7 +24,7 @@ const FoodSection = () => {
     setError(null);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await axios.get('http://127.0.0.1:8000/api/daily-operations/', {
+      const response = await axios.get('https://api.saer.pk/api/daily-operations/', {
         params: { date: selectedDate },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -110,7 +110,7 @@ const FoodSection = () => {
       const token = localStorage.getItem('accessToken');
       const cleanPaxId = paxId.replace('PAX-', '');
 
-      await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
+      await axios.patch('https://api.saer.pk/api/daily-operations/update-status/', {
         model_type: 'pax',
         item_id: cleanPaxId,
         status: status,

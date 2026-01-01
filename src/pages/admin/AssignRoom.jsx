@@ -88,7 +88,7 @@ const AssignRoom = () => {
 
     const fetchHotels = async () => {
         try {
-            const res = await axios.get('http://127.0.0.1:8000/api/hotels/', {
+            const res = await axios.get('https://api.saer.pk/api/hotels/', {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -102,7 +102,7 @@ const AssignRoom = () => {
 
     const fetchSingleHotel = async (hotelId) => {
         try {
-            const res = await axios.get(`http://127.0.0.1:8000/api/hotels/${hotelId}/`, {
+            const res = await axios.get(`https://api.saer.pk/api/hotels/${hotelId}/`, {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -117,7 +117,7 @@ const AssignRoom = () => {
 
     const fetchFloors = async (hotelId) => {
         try {
-            const res = await axios.get(`http://127.0.0.1:8000/api/hotel-floors/`, {
+            const res = await axios.get(`https://api.saer.pk/api/hotel-floors/`, {
                 params: { 
                     hotel: hotelId,
                     organization: organizationId
@@ -163,7 +163,7 @@ const AssignRoom = () => {
     const fetchExistingRoomsForFloors = async (floors, hotelId) => {
         try {
             // Fetch all rooms for this hotel
-            const res = await axios.get(`http://127.0.0.1:8000/api/hotel-rooms/`, {
+            const res = await axios.get(`https://api.saer.pk/api/hotel-rooms/`, {
                 params: { 
                     hotel: hotelId,
                     hotel_id: hotelId
@@ -238,7 +238,7 @@ const AssignRoom = () => {
     const fetchRoomTypesForHotel = async (hotelId) => {
         try {
             // Fetch bed types using organization parameter
-            const res = await axios.get(`http://127.0.0.1:8000/api/bed-types/`, {
+            const res = await axios.get(`https://api.saer.pk/api/bed-types/`, {
                 params: { organization: organizationId },
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -293,7 +293,7 @@ const AssignRoom = () => {
             
             // Update floor details
             await axios.patch(
-                `http://127.0.0.1:8000/api/hotel-floors/${floorId}/`,
+                `https://api.saer.pk/api/hotel-floors/${floorId}/`,
                 { 
                     floor_title: editFloorTitle,
                     floor_no: newFloorNo
@@ -307,7 +307,7 @@ const AssignRoom = () => {
                 for (const room of roomsOnFloor) {
                     if (room.id) {
                         await axios.patch(
-                            `http://127.0.0.1:8000/api/hotel-rooms/${room.id}/`,
+                            `https://api.saer.pk/api/hotel-rooms/${room.id}/`,
                             { floor: String(newFloorNo) },
                             { headers: token ? { Authorization: `Bearer ${token}` } : {} }
                         );
@@ -346,7 +346,7 @@ const AssignRoom = () => {
         }
         
         try {
-            await axios.delete(`http://127.0.0.1:8000/api/hotel-floors/${floorId}/`, {
+            await axios.delete(`https://api.saer.pk/api/hotel-floors/${floorId}/`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             
@@ -407,7 +407,7 @@ const AssignRoom = () => {
             }
             
             try {
-                await axios.delete(`http://127.0.0.1:8000/api/hotel-rooms/${room.id}/`, {
+                await axios.delete(`https://api.saer.pk/api/hotel-rooms/${room.id}/`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 showAlert('success', `Room ${room.room_no} deleted successfully`);
@@ -541,13 +541,13 @@ const AssignRoom = () => {
                     // Check if this is an existing room (has ID) or a new room
                     if (room.id) {
                         // Update existing room
-                        await axios.patch(`http://127.0.0.1:8000/api/hotel-rooms/${room.id}/`, roomPayload, {
+                        await axios.patch(`https://api.saer.pk/api/hotel-rooms/${room.id}/`, roomPayload, {
                             headers: token ? { Authorization: `Bearer ${token}` } : {},
                         });
                         console.log(`Updated existing room ${room.id}`);
                     } else {
                         // Create new room
-                        await axios.post('http://127.0.0.1:8000/api/hotel-rooms/', roomPayload, {
+                        await axios.post('https://api.saer.pk/api/hotel-rooms/', roomPayload, {
                             headers: token ? { Authorization: `Bearer ${token}` } : {},
                         });
                         console.log(`Created new room ${room.room_no}`);

@@ -45,7 +45,7 @@ const BlogBuilder = () => {
     const fetchBlog = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`http://127.0.0.1:8000/api/blog/blogs/${id}/`, {
+            const response = await axios.get(`https://api.saer.pk/api/blog/blogs/${id}/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setBlog(response.data);
@@ -193,7 +193,7 @@ const BlogBuilder = () => {
                 imageFormData.append('cover_image', blog.cover_image);
 
                 if (id) {
-                    await axios.patch(`http://127.0.0.1:8000/api/blog/blogs/${id}/`, imageFormData, {
+                    await axios.patch(`https://api.saer.pk/api/blog/blogs/${id}/`, imageFormData, {
                         headers: {
                             Authorization: `Bearer ${token}`,
                             'Content-Type': 'multipart/form-data'
@@ -204,7 +204,7 @@ const BlogBuilder = () => {
 
             // Save blog data with sections as JSON
             if (id) {
-                await axios.patch(`http://127.0.0.1:8000/api/blog/blogs/${id}/`, blogData, {
+                await axios.patch(`https://api.saer.pk/api/blog/blogs/${id}/`, blogData, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -213,7 +213,7 @@ const BlogBuilder = () => {
                 showAlert('success', 'Blog updated successfully');
                 fetchBlog(); // Reload to get saved sections
             } else {
-                const response = await axios.post('http://127.0.0.1:8000/api/blog/blogs/', blogData, {
+                const response = await axios.post('https://api.saer.pk/api/blog/blogs/', blogData, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'application/json'
