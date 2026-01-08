@@ -1,5 +1,6 @@
 import { ArrowBigLeft, ArrowLeft, ChevronLeft, ChevronRight, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import ReactDOM from "react-dom";
 import {
   Routes,
   Route,
@@ -16,11 +17,13 @@ import { Dropdown } from 'react-bootstrap';
 import { Funnel, Gear } from 'react-bootstrap-icons';
 import TicketTravelBookingInvoice from './TicketOrderList';
 import HotelVoucherInterfaceNew from '../../components/HotelVoucherNew';
+import RejectNoteModal from '../../components/RejectNoteModal';
 
 
 
 const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
   const [showRejectNote, setShowRejectNote] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
   const [showVisaInterface, setShowVisaInterface] = useState(false);
   const [bookingData, setBookingData] = useState(null);
   const [agencyData, setAgencyData] = useState(null);
@@ -48,7 +51,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         try {
           console.log("🔍 Trying agent bookings API...");
           const response = await fetch(
-            `https://api.saer.pk/api/bookings/?booking_number=${orderNo}`, {
+            `http://127.0.0.1:8000/api/bookings/?booking_number=${orderNo}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -75,7 +78,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
           try {
             console.log("🔍 Trying public bookings API...");
             const publicResponse = await fetch(
-              `https://api.saer.pk/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`, {
+              `http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
@@ -116,7 +119,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
           console.log("🏢 Fetching agency for ID:", agencyId);
 
           const agencyResponse = await fetch(
-            `https://api.saer.pk/api/agencies/?organization_id=${organizationId}&id=${agencyId}`, {
+            `http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${agencyId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -162,7 +165,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         // Use dedicated approve action for public bookings
         console.log('Approving public booking:', bookingData.booking_number);
         response = await axios.post(
-          `https://api.saer.pk/api/admin/public-bookings/${bookingData.id}/approve/`,
+          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/approve/`,
           {},
           {
             headers: {
@@ -175,7 +178,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         // Use PATCH for agent bookings
         console.log('Approving agent booking:', bookingData.booking_number);
         response = await axios.patch(
-          `https://api.saer.pk/api/bookings/${bookingData.id}/`,
+          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
           {
             status: 'Approved',
           },
@@ -202,6 +205,93 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
       alert('Error approving order. Please try again.');
     }
   };
+
+  // Handle rejecting an order with notes
+  const handleRejectOrder = async () => {
+    if (!rejectNote.trim()) {
+      alert('Please enter a rejection note');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const userData = JSON.parse(localStorage.getItem("user"));
+      const adminUserId = userData?.id;
+
+      // Determine which API to use based on booking type
+      const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+
+      let response;
+      if (isPublicBooking) {
+        // Use dedicated reject action for public bookings
+        console.log('Rejecting public booking:', bookingData.booking_number);
+        response = await axios.patch(
+          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`,
+          {
+            status: 'Rejected',
+            rejected_notes: rejectNote,
+            rejected_at: new Date().toISOString(),
+            rejected_employer: adminUserId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } else {
+        // Use PATCH for agent bookings
+        console.log('Rejecting agent booking:', bookingData.booking_number);
+        response = await axios.patch(
+          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+          {
+            status: 'Rejected',
+            rejected_notes: rejectNote,
+            rejected_at: new Date().toISOString(),
+            rejected_employer: adminUserId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      if (response.status === 200) {
+        // Update local state to reflect the change
+        setBookingData({
+          ...bookingData,
+          status: 'Rejected',
+          rejected_notes: rejectNote,
+          rejected_at: new Date().toISOString(),
+          rejected_employer: adminUserId,
+        });
+        setShowRejectNote(false);
+        setRejectNote('');
+        alert('Order rejected successfully!');
+        // Navigate back to order list
+        navigate('/order-delivery');
+      } else {
+        throw new Error('Failed to reject order');
+      }
+    } catch (err) {
+      console.error('Error rejecting order:', err);
+      alert('Error rejecting order. Please try again.');
+    }
+  };
+
+  // Stable modal handlers to prevent re-renders
+  const handleCloseModal = useCallback(() => {
+    setShowRejectNote(false);
+    setRejectNote('');
+  }, []);
+
+  const handleRejectNoteChange = useCallback((value) => {
+    setRejectNote(value);
+  }, []);
 
   // Render Visa Interface if needed
   // if (showVisaInterface) {
@@ -308,97 +398,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
     return bookingData.person_details.filter(person => person.age_group === type).length;
   };
 
-  // Separate component for the reject note modal
-  const RejectNoteModal = ({ onClose, onReject }) => {
-    return (
-      <>
-        <div
-          className="modal-backdrop fade show"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 1040,
-          }}
-        ></div>
 
-        <div
-          className="modal d-block"
-          tabIndex="-1"
-          role="dialog"
-          style={{
-            zIndex: 1045,
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
-        >
-          <div
-            className="modal-dialog modal-dialog-centered"
-            role="document"
-          >
-            <div className="modal-content">
-              <div className="modal-header text-center">
-                <h5 className="modal-title fw-bold w-100">Add Notes</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={onClose}
-                ></button>
-              </div>
-
-              <div className="modal-body">
-                <fieldset className="border rounded p-3 mb-4 bg-light position-relative">
-                  <legend className="float-none w-auto px-2 fs-6 fw-bold mb-0">
-                    Notes
-                  </legend>
-                  <div className="text-muted">
-                    Call 92 world tour tomorrow and he will pay all the money
-                  </div>
-                  <div className="mt-2">
-                    <strong>Date Reminder</strong>
-                    <div className="text-muted">{new Date().toLocaleDateString()}</div>
-                  </div>
-                  <div className="mt-2">
-                    <strong>Employer name</strong>
-                    <div className="text-muted">id/name</div>
-                  </div>
-                  <div className="position-absolute top-0 end-0 mt-2 me-3">
-                    <Gear size={16} className="text-muted" />
-                  </div>
-                </fieldset>
-
-                <fieldset className="border border-black p-2 rounded mb-4">
-                  <legend className="float-none w-auto px-1 fs-6">
-                    Notes
-                  </legend>
-                  <textarea
-                    className="form-control shadow-none"
-                    rows={4}
-                    placeholder="Enter Notes"
-                  ></textarea>
-                </fieldset>
-              </div>
-
-              <div className="modal-footer">
-                <button className="btn btn-primary" onClick={onReject}>Reject Order</button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  };
 
   return (
     <div className="container-fluid py-4">
@@ -568,6 +568,8 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                   <tr>
                     <th className="fw-normal">Order No</th>
                     <th className="fw-normal">Agency Code</th>
+                    <th className="fw-normal">Credit Remaining</th>
+                    <th className="fw-normal">Credit Days</th>
                     <th className="fw-normal">Agreement Status</th>
                     <th className="fw-normal">Package No</th>
                     <th className="fw-normal">Total Pax</th>
@@ -592,6 +594,20 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                   <tr>
                     <td>{orderNo}</td>
                     <td>{getAgencyCode()}</td>
+                    <td>
+                      {agencyData ? (
+                        <span className="text-success fw-bold">
+                          PKR {((parseFloat(agencyData.credit_limit || 0) - parseFloat(agencyData.credit_used || 0))).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      ) : 'N/A'}
+                    </td>
+                    <td>
+                      {agencyData?.credit_limit_days ? (
+                        <span className="badge bg-info">
+                          {agencyData.credit_limit_days} Days
+                        </span>
+                      ) : 'N/A'}
+                    </td>
                     <td>{agencyData?.agreement_status ? "Active" : "Inactive"}</td>
                     <td>N/A</td>
                     <td>{bookingData.total_pax}</td>
@@ -1050,15 +1066,75 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
           )}
 
           {/* Reject Note Modal */}
-          {showRejectNote && (
-            <RejectNoteModal
-              onClose={() => setShowRejectNote(false)}
-              onReject={() => {
-                // Handle reject logic here
-                setShowRejectNote(false);
-              }}
-            />
-          )}
+          <RejectNoteModal
+            isOpen={showRejectNote}
+            onClose={() => setShowRejectNote(false)}
+            onReject={async (note) => {
+              // Set the note first
+              setRejectNote(note);
+              // Then call reject with the note
+              try {
+                const token = localStorage.getItem("accessToken");
+                const userData = JSON.parse(localStorage.getItem("user"));
+                const adminUserId = userData?.id;
+
+                const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+
+                let response;
+                if (isPublicBooking) {
+                  response = await axios.patch(
+                    `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`,
+                    {
+                      status: 'Rejected',
+                      rejected_notes: note,
+                      rejected_at: new Date().toISOString(),
+                      rejected_employer: adminUserId,
+                    },
+                    {
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                    }
+                  );
+                } else {
+                  response = await axios.patch(
+                    `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                    {
+                      status: 'Rejected',
+                      rejected_notes: note,
+                      rejected_at: new Date().toISOString(),
+                      rejected_employer: adminUserId,
+                    },
+                    {
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                    }
+                  );
+                }
+
+                if (response.status === 200) {
+                  setBookingData({
+                    ...bookingData,
+                    status: 'Rejected',
+                    rejected_notes: note,
+                    rejected_at: new Date().toISOString(),
+                    rejected_employer: adminUserId,
+                  });
+                  setShowRejectNote(false);
+                  setRejectNote('');
+                  alert('Order rejected successfully!');
+                  navigate('/order-delivery');
+                }
+              } catch (err) {
+                console.error('Error rejecting order:', err);
+                alert('Error rejecting order. Please try again.');
+              }
+            }}
+            bookingData={bookingData}
+          />
         </div>
       </div>
     </div >
@@ -1082,7 +1158,7 @@ const TicketsInterface = ({ orderNo }) => {
         setLoading(true);
 
         // Fetch booking data
-        const bookingResponse = await fetch(`https://api.saer.pk/api/bookings/?organization_id&booking_number=${orderNo}`);
+        const bookingResponse = await fetch(`http://127.0.0.1:8000/api/bookings/?organization_id&booking_number=${orderNo}`);
         if (!bookingResponse.ok) {
           throw new Error('Failed to fetch booking data');
         }
@@ -1097,7 +1173,7 @@ const TicketsInterface = ({ orderNo }) => {
 
         if (booking && booking.agency) {
           // Fetch agency data
-          const agencyResponse = await fetch(`https://api.saer.pk/api/agencies/?organization_id&id=${booking.agency}`);
+          const agencyResponse = await fetch(`http://127.0.0.1:8000/api/agencies/?organization_id&id=${booking.agency}`);
           if (!agencyResponse.ok) {
             throw new Error('Failed to fetch agency data');
           }
@@ -1548,7 +1624,7 @@ const VisaApplicationInterface = ({ onClose }) => {
         try {
           console.log('🔍 Trying agent bookings API for visa page...');
           const bookingResponse = await axios.get(
-            `https://api.saer.pk/api/bookings/`,
+            `http://127.0.0.1:8000/api/bookings/`,
             {
               params: {
                 booking_number: orderNo,
@@ -1583,7 +1659,7 @@ const VisaApplicationInterface = ({ onClose }) => {
           try {
             console.log('🔍 Trying public bookings API for visa page...');
             const publicResponse = await axios.get(
-              `https://api.saer.pk/api/admin/public-bookings/`,
+              `http://127.0.0.1:8000/api/admin/public-bookings/`,
               {
                 params: {
                   booking_number: orderNo,
@@ -1626,7 +1702,7 @@ const VisaApplicationInterface = ({ onClose }) => {
         try {
           setShirkaLoading(true);
           const shirkaResponse = await axios.get(
-            `https://api.saer.pk/api/shirkas/`,
+            `http://127.0.0.1:8000/api/shirkas/`,
             {
               params: {
                 organization: organizationId,
@@ -1662,7 +1738,7 @@ const VisaApplicationInterface = ({ onClose }) => {
         // Fetch agency data
         if (booking.agency) {
           try {
-            const agencyResponse = await axios.get(`https://api.saer.pk/api/agencies/?organization=${organizationId}&id=${booking.agency}`, {
+            const agencyResponse = await axios.get(`http://127.0.0.1:8000/api/agencies/?organization=${organizationId}&id=${booking.agency}`, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
@@ -2064,8 +2140,8 @@ const VisaApplicationInterface = ({ onClose }) => {
                                   // Determine which API to use based on booking type
                                   const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
                                   const apiEndpoint = isPublicBooking
-                                    ? `https://api.saer.pk/api/admin/public-bookings/${bookingData.id}/`
-                                    : `https://api.saer.pk/api/bookings/${bookingData.id}/`;
+                                    ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+                                    : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
 
                                   console.log(`Updating visa status for ${isPublicBooking ? 'public' : 'agent'} booking`);
 
@@ -2138,8 +2214,8 @@ const VisaApplicationInterface = ({ onClose }) => {
                     // Determine which API to use based on booking type
                     const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
                     const apiEndpoint = isPublicBooking
-                      ? `https://api.saer.pk/api/admin/public-bookings/${bookingData.id}/`
-                      : `https://api.saer.pk/api/bookings/${bookingData.id}/`;
+                      ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+                      : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
 
                     console.log(`Approving visa for ${isPublicBooking ? 'public' : 'agent'} booking`);
 
@@ -2254,14 +2330,14 @@ const OrderList = () => {
         // Fetch from both APIs in parallel
         const [agentResponse, publicResponse] = await Promise.all([
           // Agent bookings (excludes public bookings)
-          axios.get(`https://api.saer.pk/api/bookings/?organization=${organizationId}`, {
+          axios.get(`http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             }
           }),
           // Public bookings (filtered by organization)
-          axios.get(`https://api.saer.pk/api/admin/public-bookings/?organization=${organizationId}`, {
+          axios.get(`http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -2355,7 +2431,7 @@ const OrderList = () => {
         // Use dedicated confirm action for public bookings
         console.log('Confirming public booking:', order.booking_number);
         response = await axios.post(
-          `https://api.saer.pk/api/admin/public-bookings/${order.id}/confirm/`,
+          `http://127.0.0.1:8000/api/admin/public-bookings/${order.id}/confirm/`,
           {},
           {
             headers: {
@@ -2368,7 +2444,7 @@ const OrderList = () => {
         // Use PATCH for agent bookings
         console.log('Confirming agent booking:', order.booking_number);
         response = await axios.patch(
-          `https://api.saer.pk/api/bookings/${order.id}/`,
+          `http://127.0.0.1:8000/api/bookings/${order.id}/`,
           {
             status: 'Confirmed',
           },
@@ -2671,10 +2747,60 @@ const OrderList = () => {
                         </span>
                       </td>
                       <td>{order.total_pax}</td>
-                      <td>
-                        <span className={`badge bg-${order.status === 'Approved' ? 'success' : order.status === 'Confirmed' ? 'primary' : 'secondary'}`}>
+                      <td style={{ position: 'relative' }}>
+                        <span
+                          className={`badge bg-${order.status === 'Approved' ? 'success' : order.status === 'Confirmed' ? 'primary' : order.status === 'Rejected' ? 'danger' : 'secondary'}`}
+                          style={{
+                            cursor: order.status === 'Rejected' && order.rejected_notes ? 'help' : 'default',
+                            position: 'relative',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (order.status === 'Rejected' && order.rejected_notes) {
+                              const popup = document.getElementById(`rejection-popup-${order.id}`);
+                              if (popup) {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                popup.style.display = 'block';
+                                popup.style.left = `${rect.left + rect.width / 2 - 150}px`;
+                                popup.style.top = `${rect.top - 130}px`;
+                              }
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (order.status === 'Rejected' && order.rejected_notes) {
+                              const popup = document.getElementById(`rejection-popup-${order.id}`);
+                              if (popup) popup.style.display = 'none';
+                            }
+                          }}
+                        >
                           {order.status || 'N/A'}
                         </span>
+                        {order.status === 'Rejected' && order.rejected_notes && ReactDOM.createPortal(
+                          <div
+                            id={`rejection-popup-${order.id}`}
+                            style={{
+                              display: 'none',
+                              position: 'fixed',
+                              backgroundColor: '#fff',
+                              border: '2px solid #dc3545',
+                              borderRadius: '8px',
+                              padding: '16px',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                              zIndex: 99999,
+                              minWidth: '300px',
+                              maxWidth: '500px',
+                              whiteSpace: 'normal',
+                              pointerEvents: 'none',
+                            }}
+                          >
+                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#dc3545', marginBottom: '8px', borderBottom: '1px solid #ddd', paddingBottom: '6px' }}>
+                              📝 Rejection Note
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
+                              {order.rejected_notes}
+                            </div>
+                          </div>,
+                          document.body
+                        )}
                       </td>
                       {/* Add Action column with dropdown for unpaid orders */}
                       {paymentFilter === "unpaid" && (

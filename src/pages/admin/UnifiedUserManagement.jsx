@@ -56,7 +56,12 @@ const UnifiedUserManagement = () => {
     status: "active",
     entityName: "",
     entityType: "individual",
+    branch: "",
+    agency: "",
   });
+  const [branches, setBranches] = useState([]);
+  const [agencies, setAgencies] = useState([]);
+  const [filteredAgencies, setFilteredAgencies] = useState([]);
 
   const itemsPerPage = 10;
 
@@ -151,7 +156,50 @@ const UnifiedUserManagement = () => {
     };
 
     fetchData();
+    fetchBranchesAndAgencies();
   }, []);
+
+  // Fetch branches and agencies
+  const fetchBranchesAndAgencies = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const orgId = localStorage.getItem('organizationId');
+
+      console.log('🔍 Fetching branches and agencies for org:', orgId);
+
+      // Fetch branches
+      const branchesRes = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { organization_id: orgId }
+      });
+      console.log('✅ Branches response:', branchesRes.data);
+      setBranches(branchesRes.data.results || branchesRes.data || []);
+
+      // Fetch all agencies
+      const agenciesRes = await axios.get(`http://127.0.0.1:8000/api/agencies/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { organization_id: orgId }
+      });
+      console.log('✅ Agencies response:', agenciesRes.data);
+      setAgencies(agenciesRes.data.results || agenciesRes.data || []);
+    } catch (err) {
+      console.error("❌ Error fetching branches/agencies:", err);
+      setAlert({ show: true, type: "warning", message: "Could not load branches/agencies. Please refresh." });
+    }
+  };
+
+  // Filter agencies when branch changes
+  useEffect(() => {
+    if (newUser.branch) {
+      const filtered = agencies.filter(agency =>
+        agency.branch === parseInt(newUser.branch) ||
+        agency.branch_id === parseInt(newUser.branch)
+      );
+      setFilteredAgencies(filtered);
+    } else {
+      setFilteredAgencies([]);
+    }
+  }, [newUser.branch, agencies]);
 
   // ============ FILTERING & SEARCHING ============
   useEffect(() => {
@@ -267,6 +315,8 @@ const UnifiedUserManagement = () => {
         status: "active",
         entityName: "",
         entityType: "individual",
+        branch: "",
+        agency: "",
       });
       setShowModal(false);
     } catch (err) {
@@ -277,7 +327,20 @@ const UnifiedUserManagement = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewUser({ ...newUser, [name]: value });
+
+    // If branch changes, reset agency
+    if (name === 'branch') {
+      setNewUser({ ...newUser, [name]: value, agency: "" });
+    } else if (name === 'role') {
+      // If role changes away from agent/subagent, reset branch and agency
+      if (value !== 'agent' && value !== 'subagent') {
+        setNewUser({ ...newUser, [name]: value, branch: "", agency: "" });
+      } else {
+        setNewUser({ ...newUser, [name]: value });
+      }
+    } else {
+      setNewUser({ ...newUser, [name]: value });
+    }
   };
 
   // ============ RENDER USERS TABLE ============
@@ -828,6 +891,54 @@ const UnifiedUserManagement = () => {
                     onChange={handleInputChange}
                   />
                 </Form.Group>
+
+                {/* Branch and Agency Selection - Only for Agents */}
+                {(newUser.role === 'agent' || newUser.role === 'subagent') && (
+                  <Row className="mb-3">
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-bold">Branch *</Form.Label>
+                        <Form.Select
+                          name="branch"
+                          value={newUser.branch}
+                          onChange={handleInputChange}
+                          required
+                        >
+                          <option value="">Select Branch First</option>
+                          {branches.map((branch) => (
+                            <option key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-bold">Agency *</Form.Label>
+                        <Form.Select
+                          name="agency"
+                          value={newUser.agency}
+                          onChange={handleInputChange}
+                          required
+                          disabled={!newUser.branch}
+                        >
+                          <option value="">Select Agency</option>
+                          {filteredAgencies.map((agency) => (
+                            <option key={agency.id} value={agency.id}>
+                              {agency.name}
+                            </option>
+                          ))}
+                        </Form.Select>
+                        {!newUser.branch && (
+                          <Form.Text className="text-muted">
+                            Please select a branch first
+                          </Form.Text>
+                        )}
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                )}
 
                 <div className="bg-light p-3 rounded mb-3">
                   <small className="text-muted">

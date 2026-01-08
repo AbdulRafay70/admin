@@ -53,7 +53,7 @@ const UpdateGroupPermissions = () => {
     const fetchHotels = async () => {
         try {
             // request hotels filtered by organization
-            const res = await axios.get("https://api.saer.pk/api/hotels/", {
+            const res = await axios.get("http://127.0.0.1:8000/api/hotels/", {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -69,9 +69,20 @@ const UpdateGroupPermissions = () => {
 
     const fetchGroups = async () => {
         try {
-            const res = await axios.get("https://api.saer.pk/api/discount-groups/", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+            const res = await axios.get("http://127.0.0.1:8000/api/discount-groups/", {
+                params: organizationId ? { organization: organizationId } : {},
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.results) ? res.data.results : []);
-            setGroups(data);
+            // Filter by organization to show only groups belonging to the logged-in user's organization
+            const scoped = organizationId ? data.filter((g) => {
+                const org = g.organization;
+                if (org == null) return false;
+                if (typeof org === 'number') return org === organizationId;
+                if (typeof org === 'object') return (org.id === organizationId) || (org === organizationId);
+                return false;
+            }) : data;
+            setGroups(scoped);
         } catch (e) {
             console.error("Failed to load groups", e);
             setGroups([]);
@@ -81,28 +92,31 @@ const UpdateGroupPermissions = () => {
     const loadGroupDetails = async (groupId) => {
         if (!groupId) return;
         try {
-            const res = await axios.get(`https://api.saer.pk/api/discount-groups/${groupId}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+            const res = await axios.get(`http://127.0.0.1:8000/api/discount-groups/${groupId}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
             const data = res.data || {};
             // If the backend already stores these properties, prefill them. Otherwise leave defaults.
-            setFormData((prev) => ({
-                ...prev,
-                group_type: data.group_type ?? prev.group_type,
+            // IMPORTANT: Replace hotel_night_discounts entirely, don't merge with existing array
+            const loadedHotelDiscounts = data.hotel_night_discounts && data.hotel_night_discounts.length > 0
+                ? data.hotel_night_discounts
+                : [{ quint_per_night_discount: "", quad_per_night_discount: "", triple_per_night_discount: "", double_per_night_discount: "", sharing_per_night_discount: "", other_per_night_discount: "", discounted_hotels: [] }];
+
+            setFormData({
+                group_type: data.group_type ?? "",
                 discounts: {
-                    group_ticket_discount_amount: data.discounts?.group_ticket_discount_amount ?? prev.discounts.group_ticket_discount_amount,
-                    umrah_package_discount_amount: data.discounts?.umrah_package_discount_amount ?? prev.discounts.umrah_package_discount_amount,
+                    group_ticket_discount_amount: data.discounts?.group_ticket_discount_amount ?? "",
+                    umrah_package_discount_amount: data.discounts?.umrah_package_discount_amount ?? "",
                 },
-                hotel_night_discounts: data.hotel_night_discounts && data.hotel_night_discounts.length > 0 ? data.hotel_night_discounts : prev.hotel_night_discounts,
-            }));
-            // hotel_night_discounts are set above; discounted_hotels are part of those entries
+                hotel_night_discounts: loadedHotelDiscounts,
+            });
         } catch (e) {
             console.error("Failed to load group details", e);
         }
     };
 
-    
 
-    
-        return (
+
+
+    return (
         <div
             className="container-fluid"
             style={{ fontFamily: "Poppins, sans-serif" }}
@@ -140,7 +154,7 @@ const UpdateGroupPermissions = () => {
                                                 hotel_night_discounts: hd,
                                             };
                                             try {
-                                                await axios.patch(`https://api.saer.pk/api/discount-groups/${selectedGroupId}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+                                                await axios.patch(`http://127.0.0.1:8000/api/discount-groups/${selectedGroupId}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
                                                 alert('Updated successfully');
                                                 fetchGroups();
                                             } catch (e) {

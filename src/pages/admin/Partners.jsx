@@ -63,6 +63,9 @@ const Partners = ({ embed = false }) => {
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [organizations, setOrganizations] = useState([]);
+  const [formErrors, setFormErrors] = useState({});
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [selectedBranchForAgency, setSelectedBranchForAgency] = useState(null);
 
   const [partnerForm, setPartnerForm] = useState({
     first_name: "",
@@ -100,34 +103,35 @@ const Partners = ({ embed = false }) => {
     setIsLoading(true);
 
     try {
-      const cachedData = localStorage.getItem(PARTNERS_CACHE_KEY);
-      const cacheTimestamp = localStorage.getItem(
-        `${PARTNERS_CACHE_KEY}_timestamp`
-      );
+      // TEMPORARY: Disable cache to always fetch fresh data
+      // const cachedData = localStorage.getItem(PARTNERS_CACHE_KEY);
+      // const cacheTimestamp = localStorage.getItem(
+      //   `${PARTNERS_CACHE_KEY}_timestamp`
+      // );
 
-      if (
-        cachedData &&
-        cacheTimestamp &&
-        Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
-      ) {
-        setPartners(JSON.parse(cachedData));
-        setTotalPages(
-          Math.ceil(JSON.parse(cachedData).length / PAGE_SIZE) || 1
-        );
-      } else {
-            const orgId = getCurrentOrgId();
-            const usersUrl = orgId ? `https://api.saer.pk/api/users/?organization=${orgId}` : `https://api.saer.pk/api/users/`;
-            const response = await axios.get(usersUrl, axiosConfig);
-        const data = response.data || [];
-        setPartners(data);
-        setTotalPages(Math.ceil(data.length / PAGE_SIZE) || 1);
+      // if (
+      //   cachedData &&
+      //   cacheTimestamp &&
+      //   Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
+      // ) {
+      //   setPartners(JSON.parse(cachedData));
+      //   setTotalPages(
+      //     Math.ceil(JSON.parse(cachedData).length / PAGE_SIZE) || 1
+      //   );
+      // } else {
+      // Fetch all users without organization filter (since we disabled org filtering)
+      const usersUrl = `http://127.0.0.1:8000/api/users/`;
+      console.log('Fetching users from:', usersUrl);
+      const response = await axios.get(usersUrl, axiosConfig);
+      const data = response.data || [];
+      console.log('Received users:', data.length, data);
+      setPartners(data);
+      setTotalPages(Math.ceil(data.length / PAGE_SIZE) || 1);
 
-        localStorage.setItem(PARTNERS_CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(
-          `${PARTNERS_CACHE_KEY}_timestamp`,
-          Date.now().toString()
-        );
-      }
+      // Clear old cache
+      localStorage.removeItem(PARTNERS_CACHE_KEY);
+      localStorage.removeItem(`${PARTNERS_CACHE_KEY}_timestamp`);
+      // }
     } catch (error) {
       console.error("Error fetching partners:", error);
       setPartners([]);
@@ -139,32 +143,31 @@ const Partners = ({ embed = false }) => {
   // Fetch agencies data
   const fetchAgencies = async () => {
     try {
-      const cachedData = localStorage.getItem(AGENCIES_CACHE_KEY);
-      const cacheTimestamp = localStorage.getItem(
-        `${AGENCIES_CACHE_KEY}_timestamp`
-      );
+      // TEMPORARY: Disable cache to always fetch fresh agencies
+      // const cachedData = localStorage.getItem(AGENCIES_CACHE_KEY);
+      // const cacheTimestamp = localStorage.getItem(
+      //   `${AGENCIES_CACHE_KEY}_timestamp`
+      // );
 
-      if (
-        cachedData &&
-        cacheTimestamp &&
-        Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
-      ) {
-        setAgencies(JSON.parse(cachedData));
-      } else {
-        const orgId = getCurrentOrgId();
-        const agenciesUrl = orgId
-          ? `https://api.saer.pk/api/agencies/?organization=${orgId}`
-          : `https://api.saer.pk/api/agencies/`;
-        const response = await axios.get(agenciesUrl, axiosConfig);
-        const data = response.data || [];
-        setAgencies(data);
+      // if (
+      //   cachedData &&
+      //   cacheTimestamp &&
+      //   Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
+      // ) {
+      //   setAgencies(JSON.parse(cachedData));
+      // } else {
+      const orgId = getCurrentOrgId();
+      const agenciesUrl = orgId
+        ? `http://127.0.0.1:8000/api/agencies/?organization=${orgId}`
+        : `http://127.0.0.1:8000/api/agencies/`;
+      const response = await axios.get(agenciesUrl, axiosConfig);
+      const data = response.data || [];
+      setAgencies(data);
 
-        localStorage.setItem(AGENCIES_CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(
-          `${AGENCIES_CACHE_KEY}_timestamp`,
-          Date.now().toString()
-        );
-      }
+      // Clear old cache
+      localStorage.removeItem(AGENCIES_CACHE_KEY);
+      localStorage.removeItem(`${AGENCIES_CACHE_KEY}_timestamp`);
+      // }
     } catch (error) {
       console.error("Error fetching agencies:", error);
       setAgencies([]);
@@ -174,36 +177,38 @@ const Partners = ({ embed = false }) => {
   // Fetch groups data
   const fetchGroups = async () => {
     try {
-      const cachedData = localStorage.getItem(GROUPS_CACHE_KEY);
-      const cacheTimestamp = localStorage.getItem(
-        `${GROUPS_CACHE_KEY}_timestamp`
+      // TEMPORARY: Disable cache to always fetch fresh groups
+      // const cachedData = localStorage.getItem(GROUPS_CACHE_KEY);
+      // const cacheTimestamp = localStorage.getItem(
+      //   `${GROUPS_CACHE_KEY}_timestamp`
+      // );
+
+      // if (
+      //   cachedData &&
+      //   cacheTimestamp &&
+      //   Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
+      // ) {
+      //   setGroups(JSON.parse(cachedData));
+      // } else {
+      // Always fetch all groups (global + org-scoped) and let client-side
+      // filtering determine which groups to show for the current org.
+      console.debug("fetchGroups: calling /api/groups/");
+      const response = await axios.get(
+        `http://127.0.0.1:8000/api/groups/`,
+        axiosConfig
       );
-
-      if (
-        cachedData &&
-        cacheTimestamp &&
-        Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
-      ) {
-        setGroups(JSON.parse(cachedData));
-      } else {
-        // Always fetch all groups (global + org-scoped) and let client-side
-        // filtering determine which groups to show for the current org.
-        console.debug("fetchGroups: calling /api/groups/");
-        const response = await axios.get(
-          `https://api.saer.pk/api/groups/`,
-          axiosConfig
-        );
-        // Support both direct array responses and paginated { results: [] } responses
-        let data = response.data || [];
-        if (data && typeof data === "object" && Array.isArray(data.results)) {
-          data = data.results;
-        }
-        console.debug("fetchGroups: received", data);
-        setGroups(data);
-
-        localStorage.setItem(GROUPS_CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(`${GROUPS_CACHE_KEY}_timestamp`, Date.now().toString());
+      // Support both direct array responses and paginated { results: [] } responses
+      let data = response.data || [];
+      if (data && typeof data === "object" && Array.isArray(data.results)) {
+        data = data.results;
       }
+      console.debug("fetchGroups: received", data);
+      setGroups(data);
+
+      // Clear old cache
+      localStorage.removeItem(GROUPS_CACHE_KEY);
+      localStorage.removeItem(`${GROUPS_CACHE_KEY}_timestamp`);
+      // }
     } catch (error) {
       console.error("Error fetching groups:", error);
       setGroups([]);
@@ -213,23 +218,25 @@ const Partners = ({ embed = false }) => {
   // Fetch branches for selected organization (used in partner modal)
   const fetchBranches = async () => {
     try {
-      const cachedData = localStorage.getItem(BRANCHES_CACHE_KEY);
-      const cacheTimestamp = localStorage.getItem(`${BRANCHES_CACHE_KEY}_timestamp`);
+      // TEMPORARY: Disable cache to always fetch fresh branches
+      // const cachedData = localStorage.getItem(BRANCHES_CACHE_KEY);
+      // const cacheTimestamp = localStorage.getItem(`${BRANCHES_CACHE_KEY}_timestamp`);
 
-      if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME) {
-        setBranches(JSON.parse(cachedData));
-      } else {
-        const orgId = getCurrentOrgId();
-        const branchesUrl = orgId
-          ? `https://api.saer.pk/api/branches/?organization=${orgId}`
-          : `https://api.saer.pk/api/branches/`;
-        const response = await axios.get(branchesUrl, axiosConfig);
-        const data = response.data || [];
-        setBranches(data);
+      // if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME) {
+      //   setBranches(JSON.parse(cachedData));
+      // } else {
+      const orgId = getCurrentOrgId();
+      const branchesUrl = orgId
+        ? `http://127.0.0.1:8000/api/branches/?organization=${orgId}`
+        : `http://127.0.0.1:8000/api/branches/`;
+      const response = await axios.get(branchesUrl, axiosConfig);
+      const data = response.data || [];
+      setBranches(data);
 
-        localStorage.setItem(BRANCHES_CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(`${BRANCHES_CACHE_KEY}_timestamp`, Date.now().toString());
-      }
+      // Clear old cache
+      localStorage.removeItem(BRANCHES_CACHE_KEY);
+      localStorage.removeItem(`${BRANCHES_CACHE_KEY}_timestamp`);
+      // }
     } catch (error) {
       console.error("Error fetching branches:", error);
       setBranches([]);
@@ -245,7 +252,7 @@ const Partners = ({ embed = false }) => {
       if (cachedData && cacheTimestamp && Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME) {
         setOrganizations(JSON.parse(cachedData));
       } else {
-        const response = await axios.get(`https://api.saer.pk/api/organizations/`, axiosConfig);
+        const response = await axios.get(`http://127.0.0.1:8000/api/organizations/`, axiosConfig);
         const data = response.data || [];
         setOrganizations(data);
 
@@ -284,11 +291,17 @@ const Partners = ({ embed = false }) => {
 
     const orgId = getCurrentOrgId();
 
+    console.log('Filtering partners:', {
+      totalPartners: partners.length,
+      orgId: orgId,
+      statusFilter: statusFilter,
+      searchTerm: searchTerm,
+      filter: filter
+    });
+
     return partners.filter((partner) => {
-      // Filter by current organization (logged-in user's org) if available
-      const matchesOrganization = orgId
-        ? (partner.organization_details?.some((org) => org.id === orgId) || partner.organizations?.includes(orgId))
-        : true;
+      // TEMPORARY: Disable organization filtering to debug
+      const matchesOrganization = true;
 
       const matchesStatus =
         statusFilter === "All" ||
@@ -379,33 +392,65 @@ const Partners = ({ embed = false }) => {
         type: "",
       },
     });
+    setSelectedBranchForAgency(null);
     setShowModal(true);
   };
 
   // Show edit partner modal
   const handleShowEdit = (partner) => {
+    console.log('Editing partner:', partner);
     setEditingId(partner.id);
 
-    setPartnerForm({
+    // Extract IDs from detail objects
+    const groupIds = partner.group_details?.map(g => g.id) || partner.groups || [];
+    const branchIds = partner.branch_details?.map(b => b.id) || partner.branches || [];
+    const agencyIds = partner.agency_details?.map(a => a.id) || partner.agencies || [];
+    const organizationIds = partner.organization_details?.map(o => o.id) || partner.organizations || [];
+
+    // Determine user type from profile or Django flags
+    let userType = partner.profile?.type || "";
+    if (!userType) {
+      // Fallback to Django user flags
+      if (partner.is_superuser) {
+        userType = "superadmin";
+      } else if (partner.is_staff) {
+        userType = "admin";
+      }
+    }
+
+    const formData = {
       first_name: partner.first_name || "",
       last_name: partner.last_name || "",
       email: partner.email || "",
       username: partner.username || "",
       password: "",
       is_active: partner.is_active,
-      groups: partner.groups || [],
-      branches: partner.branches || [],
-      agencies: partner.agencies || [],
-      organizations: partner.organizations || [],
+      groups: groupIds,
+      branches: branchIds,
+      agencies: agencyIds,
+      organizations: organizationIds,
       profile: {
-        type: partner.profile?.type || "",
+        type: userType,
       },
-    });
+    };
+
+    console.log('Setting form data:', formData);
+    setPartnerForm(formData);
 
     // Set agent type if editing an agent or area-agent
-    setIsAgentType(partner.profile?.type === "agent" || partner.profile?.type === "area-agent");
-    // Set admin type if editing an admin or superadmin
-    setIsAdminType(partner.profile?.type === "admin" || partner.profile?.type === "superadmin");
+    const isAgent = userType === "agent" || userType === "area-agent";
+    const isAdmin = userType === "admin" || userType === "superadmin";
+
+    setIsAgentType(isAgent);
+    setIsAdminType(isAdmin);
+
+    // Set selected branch for agency filtering if user is an agent
+    if (isAgent) {
+      setSelectedBranchForAgency(branchIds.length > 0 ? branchIds[0] : null);
+    } else {
+      setSelectedBranchForAgency(null);
+    }
+
     setShowModal(true);
   };
 
@@ -414,6 +459,9 @@ const Partners = ({ embed = false }) => {
     setShowModal(false);
     setLogoFile(null);
     setLogoPreview("");
+    setFormErrors({});
+    setShowErrorAlert(false);
+    setSelectedBranchForAgency(null);
   };
 
   // Add this function to your Partners component
@@ -446,13 +494,16 @@ const Partners = ({ embed = false }) => {
   // Handle form submission
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setFormErrors({});
+    setShowErrorAlert(false);
+
     try {
       const selectedBranch = localStorage.getItem("selectedBranchId");
       const Branch = selectedBranch ? [selectedBranch] : [];
 
       // If organizations not selected, use current organization
-      const orgsToUse = (partnerForm.organizations && partnerForm.organizations.length > 0) 
-        ? partnerForm.organizations 
+      const orgsToUse = (partnerForm.organizations && partnerForm.organizations.length > 0)
+        ? partnerForm.organizations
         : (getCurrentOrgId() ? [getCurrentOrgId()] : []);
 
       const userPayload = {
@@ -475,16 +526,15 @@ const Partners = ({ embed = false }) => {
 
       // Make the API call
       let response;
-      const primaryOrgId = orgsToUse[0] || getCurrentOrgId();
       if (editingId) {
         response = await axios.put(
-          `https://api.saer.pk/api/users/${editingId}/?organization=${primaryOrgId}`,
+          `http://127.0.0.1:8000/api/users/${editingId}/`,
           userPayload,
           axiosConfig
         );
       } else {
         response = await axios.post(
-          `https://api.saer.pk/api/users/?organization=${primaryOrgId}`,
+          `http://127.0.0.1:8000/api/users/`,
           userPayload,
           axiosConfig
         );
@@ -497,7 +547,38 @@ const Partners = ({ embed = false }) => {
       handleClose();
     } catch (error) {
       console.error("Error saving partner:", error);
-      alert(`Error: ${error.response?.data?.detail || error.message}`);
+
+      // Parse error response for user-friendly messages
+      if (error.response?.data) {
+        const errorData = error.response.data;
+
+        // Handle {success: false, errors: {...}} format
+        if (errorData.errors && typeof errorData.errors === 'object') {
+          setFormErrors(errorData.errors);
+          setShowErrorAlert(true);
+        }
+        // Handle direct field errors format
+        else if (typeof errorData === 'object' && !errorData.detail) {
+          // Check if it's a group error and provide helpful message
+          if (errorData.groups) {
+            const groupError = Array.isArray(errorData.groups) ? errorData.groups.join(', ') : errorData.groups;
+            setFormErrors({ groups: [`${groupError}. Please refresh the page and try again.`] });
+          } else {
+            setFormErrors(errorData);
+          }
+          setShowErrorAlert(true);
+        }
+        // Handle detail message format
+        else if (errorData.detail) {
+          setFormErrors({ general: [errorData.detail] });
+          setShowErrorAlert(true);
+        }
+        else {
+          alert(`Error: ${error.message}`);
+        }
+      } else {
+        alert(`Error: ${error.message}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -507,7 +588,7 @@ const Partners = ({ embed = false }) => {
     if (window.confirm("Are you sure you want to delete this partner?")) {
       setIsLoading(true);
       try {
-        await axios.delete(`https://api.saer.pk/api/users/${id}/?organization=${getCurrentOrgId()}`, axiosConfig);
+        await axios.delete(`http://127.0.0.1:8000/api/users/${id}/`, axiosConfig);
 
         // Clear the partners cache since we've made changes
         localStorage.removeItem(PARTNERS_CACHE_KEY);
@@ -528,7 +609,7 @@ const Partners = ({ embed = false }) => {
     setIsLoading(true);
     try {
       await axios.patch(
-        `https://api.saer.pk/api/users/${id}/?organization=${getCurrentOrgId()}`,
+        `http://127.0.0.1:8000/api/users/${id}/`,
         { is_active: newStatus === "Active" },
         axiosConfig
       );
@@ -558,6 +639,29 @@ const Partners = ({ embed = false }) => {
     return sel && sel.id ? sel.id : null;
   }
 
+  // Helper to get user type display text
+  const getUserType = (partner) => {
+    // Check profile type first
+    if (partner.profile?.type) {
+      const type = partner.profile.type;
+      // Special case: display "Branch" instead of "Subagent"
+      if (type === 'subagent') {
+        return 'Branch';
+      }
+      return type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ');
+    }
+
+    // Fallback to Django user flags
+    if (partner.is_superuser) {
+      return 'Superadmin';
+    }
+    if (partner.is_staff) {
+      return 'Admin';
+    }
+
+    return 'User';
+  };
+
   // Fetch current user data
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -567,7 +671,7 @@ const Partners = ({ embed = false }) => {
         const userId = decoded.user_id || decoded.id;
 
         const response = await axios.get(
-          `https://api.saer.pk/api/users/${userId}/`,
+          `http://127.0.0.1:8000/api/users/${userId}/`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -653,89 +757,89 @@ const Partners = ({ embed = false }) => {
             }
           `}
       </style>
-     <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
-      <div className="row g-0">
-        {/* Sidebar */}
-        {!embed && (
-          <div className="col-12 col-lg-2">
-            <Sidebar />
-          </div>
-        )}
-        {/* Main Content */}
-        <div className={`col-12 ${!embed ? 'col-lg-10' : ''}`}>
-          <div className={embed ? '' : 'container'}>
-            {!embed && <Header />}
-            <div className="px-3 px-lg-4 my-3">
-              {/* Navigation Tabs */}
-              {!embed && <PartnersTabs />}
+      <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
+        <div className="row g-0">
+          {/* Sidebar */}
+          {!embed && (
+            <div className="col-12 col-lg-2">
+              <Sidebar />
+            </div>
+          )}
+          {/* Main Content */}
+          <div className={`col-12 ${!embed ? 'col-lg-10' : ''}`}>
+            <div className={embed ? '' : 'container'}>
+              {!embed && <Header />}
+              <div className="px-3 px-lg-4 my-3">
+                {/* Navigation Tabs */}
+                {!embed && <PartnersTabs />}
 
-              <div className="p-3 my-3 rounded-4 shadow-sm">
-                <div className="d-flex flex-wrap gap-2 justify-content-between">
-                  <div>
-                    <h5 className="fw-semibold mb-0">All User's</h5>
+                <div className="p-3 my-3 rounded-4 shadow-sm">
+                  <div className="d-flex flex-wrap gap-2 justify-content-between">
+                    <div>
+                      <h5 className="fw-semibold mb-0">All User's</h5>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleShowCreate}
+                        disabled={isLoading || isSubmitting}
+                      >
+                        {isLoading ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          "Add User's"
+                        )}
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        disabled={isLoading || isSubmitting}
+                      >
+                        {isLoading ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          "Print"
+                        )}
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        disabled={isLoading || isSubmitting}
+                      >
+                        {isLoading ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          "Download"
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleShowCreate}
-                      disabled={isLoading || isSubmitting}
-                    >
-                      {isLoading ? (
-                        <Spinner size="sm" animation="border" />
-                      ) : (
-                        "Add User's"
-                      )}
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      disabled={isLoading || isSubmitting}
-                    >
-                      {isLoading ? (
-                        <Spinner size="sm" animation="border" />
-                      ) : (
-                        "Print"
-                      )}
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      disabled={isLoading || isSubmitting}
-                    >
-                      {isLoading ? (
-                        <Spinner size="sm" animation="border" />
-                      ) : (
-                        "Download"
-                      )}
-                    </button>
-                  </div>
-                </div>
 
-                <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                  <div className="d-flex gap-3 mt-3 flex-wrap">
-                    <button
-                      className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"
-                        }`}
-                      onClick={() => setFilter("all")}
-                    >
-                      All
-                    </button>
-                    <button
-                      className={`btn ${filter === "employee"
-                        ? "btn-primary"
-                        : "btn-outline-secondary"
-                        }`}
-                      onClick={() => setFilter("employees")}
-                    >
-                      Employees
-                    </button>
-                    <button
-                      className={`btn ${filter === "agents"
-                        ? "btn-primary"
-                        : "btn-outline-secondary"
-                        }`}
-                      onClick={() => setFilter("agents")}
-                    >
-                      Agents
-                    </button>
+                  <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div className="d-flex gap-3 mt-3 flex-wrap">
+                      <button
+                        className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"
+                          }`}
+                        onClick={() => setFilter("all")}
+                      >
+                        All
+                      </button>
+                      <button
+                        className={`btn ${filter === "employee"
+                          ? "btn-primary"
+                          : "btn-outline-secondary"
+                          }`}
+                        onClick={() => setFilter("employees")}
+                      >
+                        Employees
+                      </button>
+                      <button
+                        className={`btn ${filter === "agents"
+                          ? "btn-primary"
+                          : "btn-outline-secondary"
+                          }`}
+                        onClick={() => setFilter("agents")}
+                      >
+                        Agents
+                      </button>
                       {/* Group select filter */}
                       <div style={{ minWidth: 220 }}>
                         <Select
@@ -755,215 +859,223 @@ const Partners = ({ embed = false }) => {
                           classNamePrefix="select"
                         />
                       </div>
+                    </div>
+                    <Dropdown>
+                      <Dropdown.Toggle
+                        variant=""
+                        disabled={isLoading || isSubmitting}
+                      >
+                        <Funnel size={16} className="me-1" />
+                        Filters
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {statusOptions.map((status, idx) => (
+                          <Dropdown.Item
+                            key={idx}
+                            onClick={() => setStatusFilter(status)}
+                            active={statusFilter === status}
+                          >
+                            {status}
+                          </Dropdown.Item>
+                        ))}
+                      </Dropdown.Menu>
+                    </Dropdown>
                   </div>
-                  <Dropdown>
-                    <Dropdown.Toggle
-                      variant=""
-                      disabled={isLoading || isSubmitting}
-                    >
-                      <Funnel size={16} className="me-1" />
-                      Filters
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
-                      {statusOptions.map((status, idx) => (
-                        <Dropdown.Item
-                          key={idx}
-                          onClick={() => setStatusFilter(status)}
-                          active={statusFilter === status}
-                        >
-                          {status}
-                        </Dropdown.Item>
-                      ))}
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </div>
 
-                {isLoading ? (
-                  <div className="p-3">
-                    <ShimmerLoader />
-                  </div>
-                ) : (
-                  <>
-                    {filteredPartners.length === 0 ? (
-                      <div className="text-center py-5">
-                        <p>No partners found</p>
-                        <Button
-                          variant="primary"
-                          onClick={() => setRefreshTrigger((prev) => prev + 1)}
-                        >
-                          Refresh
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <Table
-                          hover
-                          responsive
-                          className="align-middle text-center"
-                        >
-                          <thead>
-                            <tr>
-                              <th>ID</th>
-                              <th>Name</th>
-                              <th>Email</th>
-                              <th>Status</th>
-                              <th>Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {paginatedPartners.map((partner) => {
-                              const agency = getPartnerAgency(partner);
-                              const phoneNumber =
-                                agency?.phone_number ||
-                                partner.profile?.phone_number ||
-                                "N/A";
-                              const address =
-                                agency?.address ||
-                                partner.profile?.address ||
-                                "N/A";
+                  {isLoading ? (
+                    <div className="p-3">
+                      <ShimmerLoader />
+                    </div>
+                  ) : (
+                    <>
+                      {filteredPartners.length === 0 ? (
+                        <div className="text-center py-5">
+                          <p>No partners found</p>
+                          <Button
+                            variant="primary"
+                            onClick={() => setRefreshTrigger((prev) => prev + 1)}
+                          >
+                            Refresh
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Table
+                            hover
+                            responsive
+                            className="align-middle text-center"
+                          >
+                            <thead>
+                              <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>User Type</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paginatedPartners.map((partner) => {
+                                const agency = getPartnerAgency(partner);
+                                const phoneNumber =
+                                  agency?.phone_number ||
+                                  partner.profile?.phone_number ||
+                                  "N/A";
+                                const address =
+                                  agency?.address ||
+                                  partner.profile?.address ||
+                                  "N/A";
 
-                              return (
-                                <tr key={partner.id}>
-                                  <td>{partner.id}</td>
-                                  <td>{partner.first_name || "N/A"}</td>
-                                  <td>{partner.email || "N/A"}</td>
-                                  <td
-                                    className="fw-bold"
-                                    style={{
-                                      color: partner.is_active
-                                        ? "#0EE924"
-                                        : "#FF0000",
-                                    }}
-                                  >
-                                    {partner.is_active ? "Active" : "Inactive"}
-                                  </td>
-                                  <td>
-                                    <Dropdown>
-                                      <Dropdown.Toggle
-                                        variant="link"
-                                        className="text-decoration-none p-0"
-                                        disabled={isSubmitting}
-                                      >
-                                        <Gear size={18} />
-                                      </Dropdown.Toggle>
-                                      <Dropdown.Menu>
-                                        <Dropdown.Item
-                                          className="text-primary"
-                                          onClick={() => handleShowEdit(partner)}
+                                return (
+                                  <tr key={partner.id}>
+                                    <td>{partner.id}</td>
+                                    <td>{partner.username || "N/A"}</td>
+                                    <td>{(partner.first_name && partner.last_name) ? `${partner.first_name} ${partner.last_name}` : (partner.first_name || partner.last_name || "N/A")}</td>
+                                    <td>{partner.email || "N/A"}</td>
+                                    <td>
+                                      <span className="badge bg-primary">
+                                        {getUserType(partner)}
+                                      </span>
+                                    </td>
+                                    <td
+                                      className="fw-bold"
+                                      style={{
+                                        color: partner.is_active
+                                          ? "#0EE924"
+                                          : "#FF0000",
+                                      }}
+                                    >
+                                      {partner.is_active ? "Active" : "Inactive"}
+                                    </td>
+                                    <td>
+                                      <Dropdown>
+                                        <Dropdown.Toggle
+                                          variant="link"
+                                          className="text-decoration-none p-0"
                                           disabled={isSubmitting}
                                         >
-                                          Edit
-                                        </Dropdown.Item>
-                                        <Dropdown.Item
-                                          className="text-success"
-                                          onClick={() =>
-                                            handleStatusChange(
-                                              partner.id,
-                                              "Active"
-                                            )
-                                          }
-                                          disabled={
-                                            partner.is_active || isSubmitting
-                                          }
-                                        >
-                                          Activate
-                                        </Dropdown.Item>
-                                        <Dropdown.Item
-                                          className="text-danger"
-                                          onClick={() =>
-                                            handleStatusChange(
-                                              partner.id,
-                                              "Inactive"
-                                            )
-                                          }
-                                          disabled={
-                                            !partner.is_active || isSubmitting
-                                          }
-                                        >
-                                          Block
-                                        </Dropdown.Item>
-                                        <Dropdown.Item
-                                          onClick={() => handleDelete(partner.id)}
-                                          className="text-danger"
-                                          disabled={isSubmitting}
-                                        >
-                                          Delete
-                                        </Dropdown.Item>
-                                      </Dropdown.Menu>
-                                    </Dropdown>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </Table>
+                                          <Gear size={18} />
+                                        </Dropdown.Toggle>
+                                        <Dropdown.Menu>
+                                          <Dropdown.Item
+                                            className="text-primary"
+                                            onClick={() => handleShowEdit(partner)}
+                                            disabled={isSubmitting}
+                                          >
+                                            Edit
+                                          </Dropdown.Item>
+                                          <Dropdown.Item
+                                            className="text-success"
+                                            onClick={() =>
+                                              handleStatusChange(
+                                                partner.id,
+                                                "Active"
+                                              )
+                                            }
+                                            disabled={
+                                              partner.is_active || isSubmitting
+                                            }
+                                          >
+                                            Activate
+                                          </Dropdown.Item>
+                                          <Dropdown.Item
+                                            className="text-danger"
+                                            onClick={() =>
+                                              handleStatusChange(
+                                                partner.id,
+                                                "Inactive"
+                                              )
+                                            }
+                                            disabled={
+                                              !partner.is_active || isSubmitting
+                                            }
+                                          >
+                                            Block
+                                          </Dropdown.Item>
+                                          <Dropdown.Item
+                                            onClick={() => handleDelete(partner.id)}
+                                            className="text-danger"
+                                            disabled={isSubmitting}
+                                          >
+                                            Delete
+                                          </Dropdown.Item>
+                                        </Dropdown.Menu>
+                                      </Dropdown>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </Table>
 
-                        <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
-                          <div className="d-flex flex-wrap align-items-center">
-                            <span className="me-2">
-                              Showing {paginatedPartners.length} of{" "}
-                              {filteredPartners.length} partners
-                            </span>
-                          </div>
-                          <nav>
-                            <ul className="pagination pagination-sm mb-0">
-                              <li
-                                className={`page-item ${currentPage === 1 ? "disabled" : ""
-                                  }`}
-                              >
-                                <button
-                                  className="page-link"
-                                  onClick={() =>
-                                    handlePageChange(currentPage - 1)
-                                  }
-                                  disabled={currentPage === 1}
-                                >
-                                  Previous
-                                </button>
-                              </li>
-                              {Array.from(
-                                { length: totalPages },
-                                (_, i) => i + 1
-                              ).map((page) => (
+                          <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+                            <div className="d-flex flex-wrap align-items-center">
+                              <span className="me-2">
+                                Showing {paginatedPartners.length} of{" "}
+                                {filteredPartners.length} partners
+                              </span>
+                            </div>
+                            <nav>
+                              <ul className="pagination pagination-sm mb-0">
                                 <li
-                                  key={page}
-                                  className={`page-item ${currentPage === page ? "active" : ""
+                                  className={`page-item ${currentPage === 1 ? "disabled" : ""
                                     }`}
                                 >
                                   <button
                                     className="page-link"
-                                    onClick={() => handlePageChange(page)}
+                                    onClick={() =>
+                                      handlePageChange(currentPage - 1)
+                                    }
+                                    disabled={currentPage === 1}
                                   >
-                                    {page}
+                                    Previous
                                   </button>
                                 </li>
-                              ))}
-                              <li
-                                className={`page-item ${currentPage === totalPages ? "disabled" : ""
-                                  }`}
-                              >
-                                <button
-                                  className="page-link"
-                                  onClick={() =>
-                                    handlePageChange(currentPage + 1)
-                                  }
-                                  disabled={currentPage === totalPages}
+                                {Array.from(
+                                  { length: totalPages },
+                                  (_, i) => i + 1
+                                ).map((page) => (
+                                  <li
+                                    key={page}
+                                    className={`page-item ${currentPage === page ? "active" : ""
+                                      }`}
+                                  >
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handlePageChange(page)}
+                                    >
+                                      {page}
+                                    </button>
+                                  </li>
+                                ))}
+                                <li
+                                  className={`page-item ${currentPage === totalPages ? "disabled" : ""
+                                    }`}
                                 >
-                                  Next
-                                </button>
-                              </li>
-                            </ul>
-                          </nav>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
+                                  <button
+                                    className="page-link"
+                                    onClick={() =>
+                                      handlePageChange(currentPage + 1)
+                                    }
+                                    disabled={currentPage === totalPages}
+                                  >
+                                    Next
+                                  </button>
+                                </li>
+                              </ul>
+                            </nav>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div>
+                  <AdminFooter />
+                </div>
               </div>
-              <div>
-                <AdminFooter />
-              </div>
-            </div>
             </div>
           </div>
         </div>
@@ -982,6 +1094,26 @@ const Partners = ({ embed = false }) => {
             </h4>
             <hr />
             <Form className="p-4">
+              {/* Error Alert */}
+              {showErrorAlert && Object.keys(formErrors).length > 0 && (
+                <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                  <strong>Error:</strong>
+                  <ul className="mb-0 mt-2">
+                    {Object.entries(formErrors).map(([field, messages]) => (
+                      <li key={field}>
+                        {field === 'general' ? '' : `${field}: `}
+                        {Array.isArray(messages) ? messages.join(', ') : messages}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowErrorAlert(false)}
+                    aria-label="Close"
+                  ></button>
+                </div>
+              )}
               {/* Type Dropdown */}
               <div className="mb-3">
                 <label htmlFor="" className="Control-label">Type</label>
@@ -1049,7 +1181,12 @@ const Partners = ({ embed = false }) => {
                   placeholder="Username"
                   value={partnerForm.username}
                   onChange={handleChange}
+                  disabled={editingId !== null}
+                  style={editingId !== null ? { backgroundColor: '#e9ecef', cursor: 'not-allowed' } : {}}
                 />
+                {editingId !== null && (
+                  <small className="text-muted">Username cannot be changed</small>
+                )}
               </div>
 
               <div className="mb-3">
@@ -1061,10 +1198,13 @@ const Partners = ({ embed = false }) => {
                   name="password"
                   className="form-control rounded shadow-none  px-1 py-2"
                   required={!editingId}
-                  placeholder="Password"
+                  placeholder={editingId ? "****" : "Password"}
                   value={partnerForm.password}
                   onChange={handleChange}
                 />
+                {editingId && (
+                  <small className="text-muted">Leave blank to use same password</small>
+                )}
               </div>
 
               {/* Organization Dropdown - Only shown for admin/superadmin */}
@@ -1128,18 +1268,190 @@ const Partners = ({ embed = false }) => {
                 />
               </div>
 
+              {/* Branch Selection for Employees */}
+              {partnerForm.profile.type === "employee" && (
+                <div className="mb-3">
+                  <label htmlFor="" className="Control-label">
+                    Branch <span className="text-danger">*</span>
+                  </label>
+                  <Select
+                    options={branches.map((b) => ({
+                      value: b.id,
+                      label: `${b.name} (${b.branch_code || b.id})`
+                    }))}
+                    value={
+                      partnerForm.branches && partnerForm.branches.length > 0
+                        ? {
+                          value: partnerForm.branches[0],
+                          label: branches.find(b => b.id === partnerForm.branches[0])?.name || `Branch ID: ${partnerForm.branches[0]}`
+                        }
+                        : null
+                    }
+                    onChange={(selected) => {
+                      const branchId = selected ? selected.value : null;
+
+                      // Auto-populate organization based on selected branch
+                      let organizationId = null;
+                      if (branchId) {
+                        const selectedBranch = branches.find(b => b.id === branchId);
+                        if (selectedBranch && selectedBranch.organization) {
+                          organizationId = selectedBranch.organization;
+                        }
+                      }
+
+                      // Update branch and organization
+                      setPartnerForm((prev) => ({
+                        ...prev,
+                        branches: branchId ? [branchId] : [],
+                        organizations: organizationId ? [organizationId] : [],
+                      }));
+                    }}
+                    placeholder="Select a branch"
+                    isClearable
+                    className="basic-single"
+                    classNamePrefix="select"
+                  />
+                  <small className="text-muted">
+                    Select the branch this employee belongs to
+                  </small>
+                </div>
+              )}
+
+              {/* Branch Selection for Branch Users (Subagents) */}
+              {partnerForm.profile.type === "subagent" && (
+                <div className="mb-3">
+                  <label htmlFor="" className="Control-label">
+                    Branch <span className="text-danger">*</span>
+                  </label>
+                  <Select
+                    options={branches.map((b) => ({
+                      value: b.id,
+                      label: `${b.name} (${b.branch_code || b.id})`
+                    }))}
+                    value={
+                      partnerForm.branches && partnerForm.branches.length > 0
+                        ? {
+                          value: partnerForm.branches[0],
+                          label: branches.find(b => b.id === partnerForm.branches[0])?.name || `Branch ID: ${partnerForm.branches[0]}`
+                        }
+                        : null
+                    }
+                    onChange={(selected) => {
+                      const branchId = selected ? selected.value : null;
+
+                      // Auto-populate organization based on selected branch
+                      let organizationId = null;
+                      if (branchId) {
+                        const selectedBranch = branches.find(b => b.id === branchId);
+                        if (selectedBranch && selectedBranch.organization) {
+                          organizationId = selectedBranch.organization;
+                        }
+                      }
+
+                      // Update branch and organization
+                      setPartnerForm((prev) => ({
+                        ...prev,
+                        branches: branchId ? [branchId] : [],
+                        organizations: organizationId ? [organizationId] : [],
+                      }));
+                    }}
+                    placeholder="Select a branch"
+                    isClearable
+                    className="basic-single"
+                    classNamePrefix="select"
+                  />
+                  <small className="text-muted">
+                    Organization will be automatically set based on selected branch
+                  </small>
+                </div>
+              )}
+
               {/* Agency Fields (only shown when type is agent) */}
               {isAgentType && (
                 <>
+                  {/* Display current branch and agency when editing */}
+                  {editingId && (
+                    <div className="mb-3 p-3 bg-light rounded">
+                      <h6 className="fw-semibold mb-2">Current Assignment</h6>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <p className="mb-1">
+                            <strong>Branch:</strong>{" "}
+                            {partnerForm.branches && partnerForm.branches.length > 0
+                              ? branches.find(b => b.id === partnerForm.branches[0])?.name ||
+                              `Branch ID: ${partnerForm.branches[0]}`
+                              : "Not assigned"}
+                            {partnerForm.branches && partnerForm.branches.length > 0 && (
+                              <span className="text-muted ms-1">
+                                ({branches.find(b => b.id === partnerForm.branches[0])?.branch_code || "N/A"})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="col-md-6">
+                          <p className="mb-1">
+                            <strong>Agency:</strong>{" "}
+                            {partnerForm.agencies && partnerForm.agencies.length > 0
+                              ? agencies.find(a => a.id === partnerForm.agencies[0])?.name ||
+                              `Agency ID: ${partnerForm.agencies[0]}`
+                              : "Not assigned"}
+                          </p>
+                        </div>
+                      </div>
+                      <small className="text-muted">You can change the assignment below</small>
+                    </div>
+                  )}
+
+                  {/* Branch select FIRST for agents */}
                   <div className="mb-3">
                     <label htmlFor="" className="form-label">
-                      Select Agency
+                      Select Branch <span className="text-danger">*</span>
                     </label>
                     <Select
-                      options={agencies.map((agency) => ({
-                        value: agency.id,
-                        label: agency.name,
-                      }))}
+                      options={branches.map((b) => ({ value: b.id, label: `${b.name} (${b.branch_code || b.id})` }))}
+                      value={
+                        selectedBranchForAgency
+                          ? { value: selectedBranchForAgency, label: branches.find(x => x.id === selectedBranchForAgency)?.name }
+                          : null
+                      }
+                      onChange={(selected) => {
+                        const branchId = selected ? selected.value : null;
+                        setSelectedBranchForAgency(branchId);
+
+                        // Auto-populate organization based on selected branch
+                        let organizationId = null;
+                        if (branchId) {
+                          const selectedBranch = branches.find(b => b.id === branchId);
+                          if (selectedBranch && selectedBranch.organization) {
+                            organizationId = selectedBranch.organization;
+                          }
+                        }
+
+                        // Clear agency selection and update branch + organization
+                        setPartnerForm((prev) => ({
+                          ...prev,
+                          agencies: [],
+                          branches: branchId ? [branchId] : [],
+                          organizations: organizationId ? [organizationId] : [],
+                        }));
+                      }}
+                      placeholder="Select a branch first"
+                      isClearable
+                    />
+                  </div>
+
+                  {/* Agency select SECOND - only show if branch is selected */}
+                  <div className="mb-3">
+                    <label htmlFor="" className="form-label">
+                      Select Agency {selectedBranchForAgency && <span className="text-danger">*</span>}
+                    </label>
+                    <Select
+                      options={agencies
+                        .filter(agency => agency.branch === selectedBranchForAgency)
+                        .map((agency) => ({
+                          value: agency.id,
+                          label: agency.name,
+                        }))}
                       value={
                         partnerForm.agencies &&
                           partnerForm.agencies.length > 0
@@ -1157,28 +1469,23 @@ const Partners = ({ embed = false }) => {
                           agencies: selected ? [selected.value] : [],
                         }));
                       }}
+                      isDisabled={!selectedBranchForAgency}
+                      placeholder={selectedBranchForAgency ? "Select an agency" : "Please select a branch first"}
+                      isClearable
                     />
+                    {!selectedBranchForAgency && (
+                      <small className="text-muted">
+                        Please select a branch first to see available agencies
+                      </small>
+                    )}
+                    {selectedBranchForAgency && agencies.filter(a => a.branch === selectedBranchForAgency).length === 0 && (
+                      <small className="text-warning">
+                        No agencies found for this branch
+                      </small>
+                    )}
                   </div>
                 </>
               )}
-              {/* Branch select (optional) */}
-              <div className="mb-3">
-                <label htmlFor="" className="form-label">
-                  Select Branch
-                </label>
-                <Select
-                  options={branches.map((b) => ({ value: b.id, label: b.name }))}
-                  value={
-                    partnerForm.branches && partnerForm.branches.length > 0
-                      ? { value: partnerForm.branches[0], label: branches.find(x => x.id === partnerForm.branches[0])?.name }
-                      : null
-                  }
-                  onChange={(selected) => setPartnerForm((prev) => ({
-                    ...prev,
-                    branches: selected ? [selected.value] : [],
-                  }))}
-                />
-              </div>
 
               <div className="row">
                 <div className="col-md-6 d-flex align-items-center mb-3">
@@ -1225,4 +1532,3 @@ const Partners = ({ embed = false }) => {
 };
 
 export default Partners;
-  

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Container, Row, Col, Card, Table, Form, Button, Badge, Modal, Alert, Tabs, Tab, Spinner } from "react-bootstrap";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
-import { 
-  Building2, Phone, Mail, Calendar, MessageSquare, TrendingUp, 
+import {
+  Building2, Phone, Mail, Calendar, MessageSquare, TrendingUp,
   AlertTriangle, CheckCircle, XCircle, Clock, Users, Briefcase,
   FileText, Edit, Trash2, Plus, Search, Filter, Eye, Star,
   ThumbsUp, ThumbsDown, BarChart3, PieChart, Activity
@@ -52,6 +52,8 @@ const AgencyProfile = () => {
   const [profileAgency, setProfileAgency] = useState(null); // Agency for which we're creating/updating profile
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
   const [activeTab, setActiveTab] = useState("overview");
+  const [showEditAgencyModal, setShowEditAgencyModal] = useState(false);
+  const [editingAgencyId, setEditingAgencyId] = useState(null);
 
   // Form states
   const [historyForm, setHistoryForm] = useState({
@@ -106,7 +108,9 @@ const AgencyProfile = () => {
     logo: null,
     agency_type: "Area Agency",
     commission_group: "",
-    discount_group: ""
+    discount_group: "",
+    credit_limit: "",
+    credit_limit_days: ""
   });
 
   const [agencyTypeFilter, setAgencyTypeFilter] = useState("");
@@ -142,26 +146,31 @@ const AgencyProfile = () => {
         // Get logged-in user's branch IDs from user API
         let userBranchIds = [];
         let userOrgId = null;
-        
+
         try {
           // First try to get user ID from token or localStorage
           const token = localStorage.getItem('accessToken');
           const decoded = decodeJwt(token || "");
           const userId = decoded?.user_id || decoded?.id;
-          
+
           if (userId) {
             // Fetch user details from API to get branch_details
-            const userResp = await api.get(`/users/${userId}/`);
+            // Add timestamp to URL to bypass cache (no custom headers to avoid CORS)
+            const userResp = await api.get(`/users/${userId}/`, {
+              params: {
+                _t: Date.now() // Cache buster
+              }
+            });
             const userData = userResp.data;
-            
+
             console.log('User API response:', userData);
-            
+
             // Extract branch IDs from branch_details array
             if (userData.branch_details && Array.isArray(userData.branch_details)) {
               userBranchIds = userData.branch_details.map(b => b.id);
               console.log('User branch IDs from API:', userBranchIds);
             }
-            
+
             // Extract organization IDs from organization_details array
             if (userData.organization_details && Array.isArray(userData.organization_details)) {
               // For now, we'll use the first organization
@@ -169,7 +178,7 @@ const AgencyProfile = () => {
               console.log('User organization ID from API:', userOrgId);
             }
           }
-          
+
           // Fallback to localStorage if API call failed
           if (userBranchIds.length === 0) {
             const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null');
@@ -201,17 +210,17 @@ const AgencyProfile = () => {
         // eslint-disable-next-line no-console
         console.debug("getAgencies response:", agencyData);
         let agenciesList = Array.isArray(agencyData) ? agencyData : agencyData.results || [];
-        
+
         console.log('Before filtering - Total agencies:', agenciesList.length);
         console.log('User organization ID:', userOrgId);
         console.log('User branch IDs:', userBranchIds);
-        
+
         // Filter agencies by logged-in user's branch(es) only
         if (userBranchIds.length > 0) {
           agenciesList = agenciesList.filter(agency => {
             const agencyBranchId = agency.branch || agency.branch_id;
             const matches = userBranchIds.some(branchId => String(agencyBranchId) === String(branchId));
-            
+
             if (!matches) {
               console.log('Agency filtered out (branch mismatch):', {
                 agencyId: agency.id,
@@ -220,28 +229,28 @@ const AgencyProfile = () => {
                 userBranchIds
               });
             }
-            
+
             return matches;
           });
-          
+
           console.log('After branch filter - Remaining agencies:', agenciesList.length);
         } else {
           console.warn('No branch IDs found for user - showing all agencies');
         }
-        
+
         console.log('Final filtered agencies:', agenciesList.length);
         setAgencies(agenciesList);
-        
+
         // Fetch branches for dropdown
         const branchesData = await api.get("/branches/").then(r => r.data);
         if (!mounted) return;
         setBranches(Array.isArray(branchesData) ? branchesData : branchesData.results || []);
-        
+
         // Fetch commission groups and filter by organization
         try {
           const commResp = await api.get("/commissions/rules");
           let commData = Array.isArray(commResp.data) ? commResp.data : commResp.data.results || [];
-          
+
           // Filter by organization if available
           if (userOrgId) {
             commData = commData.filter(group => {
@@ -249,18 +258,18 @@ const AgencyProfile = () => {
               return String(groupOrgId) === String(userOrgId);
             });
           }
-          
+
           setCommissionGroups(commData);
         } catch (err) {
           console.warn('Failed to load commission groups', err);
           setCommissionGroups([]);
         }
-        
+
         // Fetch discount groups and filter by organization
         try {
           const discResp = await api.get("/discount-groups/");
           let discData = Array.isArray(discResp.data) ? discResp.data : discResp.data.results || [];
-          
+
           // Filter by organization if available
           if (userOrgId) {
             discData = discData.filter(group => {
@@ -268,7 +277,7 @@ const AgencyProfile = () => {
               return String(groupOrgId) === String(userOrgId);
             });
           }
-          
+
           setDiscountGroups(discData);
         } catch (err) {
           console.warn('Failed to load discount groups', err);
@@ -317,7 +326,7 @@ const AgencyProfile = () => {
         // ignore; loadAgencyProfile handles alerts
       } finally {
         // clear navigation state so it doesn't re-trigger on refresh
-        try { navigate(location.pathname, { replace: true, state: null }); } catch (e) {}
+        try { navigate(location.pathname, { replace: true, state: null }); } catch (e) { }
       }
     })();
   }, [location, agencies]);
@@ -337,7 +346,7 @@ const AgencyProfile = () => {
       // Step 2: Fetch detailed profile from second API
       const profileData = await getAgencyProfile(agencyId);
       console.debug('loadAgencyProfile - profileData received:', profileData);
-      
+
       // Step 3: Fetch agency users based on user IDs in agency data
       let usersData = [];
       if (agency.user && agency.user.length > 0) {
@@ -345,16 +354,16 @@ const AgencyProfile = () => {
           // Fetch all users from the API
           const usersResponse = await api.get("/users/");
           const allUsers = Array.isArray(usersResponse.data) ? usersResponse.data : usersResponse.data.results || [];
-          
+
           // Filter users whose ID is in the agency's user array
           usersData = allUsers.filter(user => agency.user.includes(user.id));
-          
+
           console.log(`Found ${usersData.length} users for agency ${agencyId}`);
         } catch (error) {
           console.error("Failed to fetch users:", error.message);
         }
       }
-      
+
       // Step 4: Merge all responses
       // Spread the profileData so we display whatever the API returns in the main content.
       // Provide safe defaults for nested fields the UI expects.
@@ -393,7 +402,7 @@ const AgencyProfile = () => {
         conflict_history: (profileData && profileData.conflict_history) || [],
         users: (profileData && profileData.users) || usersData
       });
-      
+
       showAlert("success", "Agency profile loaded successfully!");
       // If a query param 'action=edit' is present, open the edit modal for this agency
       try {
@@ -440,7 +449,7 @@ const AgencyProfile = () => {
             const agencyObj = agencies.find(a => Number(a.id) === Number(agencyId)) || { id: agencyId };
             openProfileModal(agencyObj, 'update');
           }
-        } catch (e) {}
+        } catch (e) { }
         showAlert("warning", "Agency profile not found — showing basic agency info. Please create the profile.");
       } else {
         showAlert("danger", `Failed to load agency profile: ${error.message || 'Unknown error'}`);
@@ -501,10 +510,10 @@ const AgencyProfile = () => {
       showAlert("success", "Relationship history added and saved successfully!");
     } catch (error) {
       console.error("Error adding history:", error);
-      const errorMsg = error.response?.data?.message 
+      const errorMsg = error.response?.data?.message
         || error.response?.data?.error
         || (error.response?.data && JSON.stringify(error.response.data))
-        || error.message 
+        || error.message
         || "Failed to add history";
       showAlert("danger", `Failed to add history: ${errorMsg}`);
     } finally {
@@ -562,10 +571,10 @@ const AgencyProfile = () => {
       showAlert("success", "Conflict record added and saved successfully!");
     } catch (error) {
       console.error("Error adding conflict:", error);
-      const errorMsg = error.response?.data?.message 
+      const errorMsg = error.response?.data?.message
         || error.response?.data?.error
         || (error.response?.data && JSON.stringify(error.response.data))
-        || error.message 
+        || error.message
         || "Failed to add conflict";
       showAlert("danger", `Failed to add conflict: ${errorMsg}`);
     } finally {
@@ -629,10 +638,10 @@ const AgencyProfile = () => {
       showAlert("success", "Communication added and saved successfully!");
     } catch (error) {
       console.error("Error adding communication:", error);
-      const errorMsg = error.response?.data?.message 
+      const errorMsg = error.response?.data?.message
         || error.response?.data?.error
         || (error.response?.data && JSON.stringify(error.response.data))
-        || error.message 
+        || error.message
         || "Failed to add communication";
       showAlert("danger", `Failed to add communication: ${errorMsg}`);
     } finally {
@@ -696,10 +705,10 @@ const AgencyProfile = () => {
       showAlert("success", "Company added and saved successfully!");
     } catch (error) {
       console.error("Error adding company:", error);
-      const errorMsg = error.response?.data?.message 
+      const errorMsg = error.response?.data?.message
         || error.response?.data?.error
         || (error.response?.data && JSON.stringify(error.response.data))
-        || error.message 
+        || error.message
         || "Failed to add company";
       showAlert("danger", `Failed to add company: ${errorMsg}`);
     } finally {
@@ -715,10 +724,10 @@ const AgencyProfile = () => {
 
     try {
       setLoading(true);
-      
+
       // Use FormData for file upload support
       const formData = new FormData();
-      
+
       // Required fields
       formData.append("name", newAgencyForm.name);
       // Determine branch from multiple possible places (selectedBranch, selectedOrganization, token)
@@ -799,7 +808,7 @@ const AgencyProfile = () => {
         }
       }
 
-     
+
 
       formData.append("branch", selectedBranchId);
 
@@ -821,7 +830,7 @@ const AgencyProfile = () => {
         } catch (e) { return 0; }
       };
       // do not include `user` in payload (backend will associate by branch/user context)
-      
+
       // Optional fields - only append if they have values
       if (newAgencyForm.ageny_name) formData.append("ageny_name", newAgencyForm.ageny_name);
       if (newAgencyForm.phone_number) formData.append("phone_number", newAgencyForm.phone_number);
@@ -835,7 +844,7 @@ const AgencyProfile = () => {
       if (newAgencyForm.agency_type) {
         formData.append("agency_type", newAgencyForm.agency_type);
       }
-      
+
       // commission_group for Area Agency or discount_group for Full Agency
       if (newAgencyForm.agency_type === "Area Agency" && newAgencyForm.commission_group) {
         formData.append("commission_group", newAgencyForm.commission_group);
@@ -843,29 +852,37 @@ const AgencyProfile = () => {
       if (newAgencyForm.agency_type === "Full Agency" && newAgencyForm.discount_group) {
         formData.append("discount_group", newAgencyForm.discount_group);
       }
-      
+
+      // Credit limit fields
+      if (newAgencyForm.credit_limit) {
+        formData.append("credit_limit", newAgencyForm.credit_limit);
+      }
+      if (newAgencyForm.credit_limit_days) {
+        formData.append("credit_limit_days", newAgencyForm.credit_limit_days);
+      }
+
       // File upload - append logo if selected
       if (newAgencyForm.logo) {
         formData.append("logo", newAgencyForm.logo);
       }
-      
+
       console.log("Sending FormData with fields:"); // Debug log
       for (let [key, value] of formData.entries()) {
         console.log(`${key}:`, value);
       }
-      
+
       // Use api directly with FormData - axios will set Content-Type automatically
       const response = await api.post("/agencies/", formData, {
         headers: {
           "Content-Type": "multipart/form-data"
         }
       });
-      
+
       const newAgency = response.data;
       setAgencies([newAgency, ...agencies]);
-      
+
       showAlert("success", "Agency added successfully!");
-      
+
       // Reset form
       setNewAgencyForm({
         name: "",
@@ -884,13 +901,78 @@ const AgencyProfile = () => {
     } catch (error) {
       console.error("Error adding agency:", error);
       console.error("Error response:", error.response?.data); // More detailed error log
-      
-      const errorMsg = error.response?.data?.message 
+
+      const errorMsg = error.response?.data?.message
         || error.response?.data?.error
         || (error.response?.data && JSON.stringify(error.response.data))
-        || error.message 
+        || error.message
         || "Failed to add agency";
       showAlert("danger", `Failed to add agency: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditAgency = (agency) => {
+    setNewAgencyForm({
+      name: agency.name || "",
+      ageny_name: agency.ageny_name || "",
+      phone_number: agency.phone_number || "",
+      email: agency.email || "",
+      address: agency.address || "",
+      branch: agency.branch || "",
+      agreement_status: agency.agreement_status !== undefined ? agency.agreement_status : true,
+      logo: agency.logo || null,
+      agency_type: agency.agency_type || "Area Agency",
+      commission_group: agency.commission_group || "",
+      discount_group: agency.discount_group || "",
+      credit_limit: agency.credit_limit || "",
+      credit_limit_days: agency.credit_limit_days || ""
+    });
+    setEditingAgencyId(agency.id);
+    setShowEditAgencyModal(true);
+  };
+
+  const handleUpdateAgency = async () => {
+    if (!newAgencyForm.name || !newAgencyForm.ageny_name || !newAgencyForm.phone_number) {
+      showAlert("warning", "Please fill all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append("name", newAgencyForm.name);
+      formData.append("ageny_name", newAgencyForm.ageny_name);
+      formData.append("phone_number", newAgencyForm.phone_number);
+      formData.append("email", newAgencyForm.email);
+      formData.append("address", newAgencyForm.address);
+      formData.append("agreement_status", newAgencyForm.agreement_status);
+      if (newAgencyForm.branch) formData.append("branch", newAgencyForm.branch);
+      if (newAgencyForm.agency_type) formData.append("agency_type", newAgencyForm.agency_type);
+      if (newAgencyForm.commission_group) formData.append("commission_group", newAgencyForm.commission_group);
+      if (newAgencyForm.discount_group) formData.append("discount_group", newAgencyForm.discount_group);
+      if (newAgencyForm.credit_limit) formData.append("credit_limit", newAgencyForm.credit_limit);
+      if (newAgencyForm.credit_limit_days) formData.append("credit_limit_days", newAgencyForm.credit_limit_days);
+      if (newAgencyForm.logo && typeof newAgencyForm.logo !== "string") formData.append("logo", newAgencyForm.logo);
+
+      await api.put(`/agencies/${editingAgencyId}/`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      showAlert("success", "Agency updated successfully!");
+      setShowEditAgencyModal(false);
+      setEditingAgencyId(null);
+      setNewAgencyForm({
+        name: "", ageny_name: "", phone_number: "", email: "", address: "", branch: "",
+        agreement_status: true, logo: null, agency_type: "Area Agency", commission_group: "",
+        discount_group: "", credit_limit: "", credit_limit_days: ""
+      });
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error("Error updating agency:", error);
+      showAlert("danger", `Failed to update agency: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -906,7 +988,7 @@ const AgencyProfile = () => {
   const openProfileModal = (agency, mode = "create") => {
     setProfileAgency(agency);
     setProfileModalMode(mode);
-    
+
     // If updating, pre-fill form with existing data
     if (mode === "update" && selectedAgency && selectedAgency.id === agency.id) {
       setProfileForm({
@@ -940,7 +1022,7 @@ const AgencyProfile = () => {
         conflict_history: []
       });
     }
-    
+
     setShowProfileModal(true);
   };
 
@@ -952,7 +1034,7 @@ const AgencyProfile = () => {
 
     try {
       setLoading(true);
-      
+
       // Determine canonical agency id for save
       const targetAgencyId_save = Number(selectedAgency?.agency || selectedAgency?.agency_id || selectedAgency?.id || profileAgency?.agency || profileAgency?.id || 0) || 0;
       const profileData = {
@@ -966,7 +1048,7 @@ const AgencyProfile = () => {
       };
 
       console.log("Saving agency profile (targetAgencyId):", targetAgencyId_save, profileData, { selectedAgency, profileAgency });
-      
+
       // Check if token exists before making request
       const token = localStorage.getItem("accessToken");
       if (!token) {
@@ -979,10 +1061,10 @@ const AgencyProfile = () => {
       const response = await api.post("/agency/profile", profileData);
 
       console.log("Profile saved:", response.data);
-      
+
       showAlert("success", `Agency profile ${profileModalMode === "create" ? "created" : "updated"} successfully!`);
       setShowProfileModal(false);
-      
+
       // Reload the agency profile
       if (selectedAgency && selectedAgency.id === profileAgency.id) {
         await loadAgencyProfile(profileAgency.id);
@@ -990,11 +1072,11 @@ const AgencyProfile = () => {
     } catch (error) {
       console.error("Error saving profile:", error);
       console.error("Error response:", error.response?.data);
-      
-      const errorMsg = error.response?.data?.message 
+
+      const errorMsg = error.response?.data?.message
         || error.response?.data?.error
         || (error.response?.data && JSON.stringify(error.response.data))
-        || error.message 
+        || error.message
         || "Failed to save profile";
       showAlert("danger", `Failed to save profile: ${errorMsg}`);
     } finally {
@@ -1006,9 +1088,9 @@ const AgencyProfile = () => {
     const statusInfo = statusColors[status] || statusColors.active;
     const Icon = statusInfo.icon;
     return (
-      <Badge 
-        style={{ 
-          backgroundColor: statusInfo.bg, 
+      <Badge
+        style={{
+          backgroundColor: statusInfo.bg,
           color: statusInfo.text,
           padding: "8px 16px",
           fontWeight: 500,
@@ -1035,20 +1117,20 @@ const AgencyProfile = () => {
       (agency.email && agency.email.toLowerCase().includes(searchLower)) ||
       (agency.phone_number && agency.phone_number.toLowerCase().includes(searchLower))
     );
-    
+
     // Filter by agency type if filter is set
     const matchesType = !agencyTypeFilter || agency.agency_type === agencyTypeFilter;
-    
+
     return matchesSearch && matchesType;
   });
 
   return (
     <>
-    <div className="page-container" style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
-      <Sidebar />
-      <div className="content-wrapper" style={{ flex: 1, overflow: "auto" }}>
+      <div className="page-container" style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
+        <Sidebar />
+        <div className="content-wrapper" style={{ flex: 1, overflow: "auto" }}>
           <Header />
-          
+
           <Container fluid className="p-4">
             {/* Header */}
             <div className="d-flex justify-content-between align-items-center mb-4">
@@ -1157,21 +1239,36 @@ const AgencyProfile = () => {
                                 ) : (
                                   <Badge bg="secondary" style={{ fontSize: "11px" }}>Inactive</Badge>
                                 )}
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  className="p-0 mt-1"
-                                  style={{ fontSize: "11px", textDecoration: "none" }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openProfileModal(agency, selectedAgency?.id === agency.id ? "update" : "create");
-                                  }}
-                                >
-                                  <Edit size={12} className="me-1" />
-                                  {selectedAgency?.id === agency.id && selectedAgency.relation_history?.length > 0 
-                                    ? "Update Profile" 
-                                    : "Create Profile"}
-                                </Button>
+                                <div className="d-flex gap-1 mt-1">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    className="p-1"
+                                    style={{ fontSize: "11px" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditAgency(agency);
+                                    }}
+                                    title="Edit Agency Info"
+                                  >
+                                    <Edit size={14} />
+                                  </Button>
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="p-0"
+                                    style={{ fontSize: "11px", textDecoration: "none" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openProfileModal(agency, selectedAgency?.id === agency.id ? "update" : "create");
+                                    }}
+                                  >
+                                    <Edit size={12} className="me-1" />
+                                    {selectedAgency?.id === agency.id && selectedAgency.relation_history?.length > 0
+                                      ? "Update Profile"
+                                      : "Create Profile"}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                             <p className="mb-1 text-muted" style={{ fontSize: "14px" }}>
@@ -1346,9 +1443,9 @@ const AgencyProfile = () => {
                                     <Briefcase size={20} className="me-2" />
                                     Working With Companies
                                   </h5>
-                                  <Button 
-                                    variant="outline-primary" 
-                                    size="sm" 
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
                                     style={{ borderRadius: "8px" }}
                                     onClick={() => setShowCompanyModal(true)}
                                   >
@@ -1422,63 +1519,63 @@ const AgencyProfile = () => {
                               <div style={{ position: "relative", paddingLeft: "40px" }}>
                                 {selectedAgency.relation_history && selectedAgency.relation_history.length > 0 ? (
                                   selectedAgency.relation_history.map((entry, index) => (
-                                  <div key={index} className="mb-4" style={{ position: "relative" }}>
-                                    {/* Timeline dot */}
-                                    <div
-                                      style={{
-                                        position: "absolute",
-                                        left: "-32px",
-                                        top: "8px",
-                                        width: "32px",
-                                        height: "32px",
-                                        borderRadius: "50%",
-                                        backgroundColor: relationshipTypes[entry.type]?.color || "#6c757d",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center"
-                                      }}
-                                    >
-                                      {getRelationTypeIcon(entry.type)}
-                                    </div>
-
-                                    {/* Timeline line */}
-                                    {index !== selectedAgency.relation_history.length - 1 && (
+                                    <div key={index} className="mb-4" style={{ position: "relative" }}>
+                                      {/* Timeline dot */}
                                       <div
                                         style={{
                                           position: "absolute",
-                                          left: "-16px",
-                                          top: "40px",
-                                          width: "2px",
-                                          height: "calc(100% + 16px)",
-                                          backgroundColor: "#e9ecef"
+                                          left: "-32px",
+                                          top: "8px",
+                                          width: "32px",
+                                          height: "32px",
+                                          borderRadius: "50%",
+                                          backgroundColor: relationshipTypes[entry.type]?.color || "#6c757d",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center"
                                         }}
-                                      />
-                                    )}
+                                      >
+                                        {getRelationTypeIcon(entry.type)}
+                                      </div>
 
-                                    <Card style={{ border: "1px solid #e9ecef", borderRadius: "12px" }}>
-                                      <Card.Body>
-                                        <div className="d-flex justify-content-between align-items-start mb-2">
-                                          <Badge
-                                            style={{
-                                              backgroundColor: relationshipTypes[entry.type]?.color || "#6c757d",
-                                              fontWeight: 500
-                                            }}
-                                          >
-                                            {relationshipTypes[entry.type]?.label || entry.type}
-                                          </Badge>
-                                          <small className="text-muted">
-                                            <Calendar size={14} className="me-1" />
-                                            {new Date(entry.date).toLocaleDateString('en-US', {
-                                              year: 'numeric',
-                                              month: 'short',
-                                              day: 'numeric'
-                                            })}
-                                          </small>
-                                        </div>
-                                        <p className="mb-0" style={{ color: "#495057" }}>{entry.note}</p>
-                                      </Card.Body>
-                                    </Card>
-                                  </div>
+                                      {/* Timeline line */}
+                                      {index !== selectedAgency.relation_history.length - 1 && (
+                                        <div
+                                          style={{
+                                            position: "absolute",
+                                            left: "-16px",
+                                            top: "40px",
+                                            width: "2px",
+                                            height: "calc(100% + 16px)",
+                                            backgroundColor: "#e9ecef"
+                                          }}
+                                        />
+                                      )}
+
+                                      <Card style={{ border: "1px solid #e9ecef", borderRadius: "12px" }}>
+                                        <Card.Body>
+                                          <div className="d-flex justify-content-between align-items-start mb-2">
+                                            <Badge
+                                              style={{
+                                                backgroundColor: relationshipTypes[entry.type]?.color || "#6c757d",
+                                                fontWeight: 500
+                                              }}
+                                            >
+                                              {relationshipTypes[entry.type]?.label || entry.type}
+                                            </Badge>
+                                            <small className="text-muted">
+                                              <Calendar size={14} className="me-1" />
+                                              {new Date(entry.date).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                              })}
+                                            </small>
+                                          </div>
+                                          <p className="mb-0" style={{ color: "#495057" }}>{entry.note}</p>
+                                        </Card.Body>
+                                      </Card>
+                                    </div>
                                   ))
                                 ) : (
                                   <p className="text-muted text-center">No relationship history available.</p>
@@ -1602,11 +1699,11 @@ const AgencyProfile = () => {
                                         <Card.Body>
                                           <div className="d-flex align-items-start justify-content-between mb-2">
                                             <div className="d-flex align-items-center gap-3">
-                                              <div 
-                                                style={{ 
-                                                  width: "48px", 
-                                                  height: "48px", 
-                                                  borderRadius: "50%", 
+                                              <div
+                                                style={{
+                                                  width: "48px",
+                                                  height: "48px",
+                                                  borderRadius: "50%",
                                                   backgroundColor: "#e3f2fd",
                                                   display: "flex",
                                                   alignItems: "center",
@@ -1634,11 +1731,11 @@ const AgencyProfile = () => {
                                               <Badge bg="secondary" style={{ fontSize: "11px" }}>Inactive</Badge>
                                             )}
                                           </div>
-                                          
+
                                           {user.profile?.type && (
                                             <div className="mt-2">
-                                              <Badge 
-                                                bg={user.profile.type === "agent" ? "primary" : user.profile.type === "subagent" ? "info" : "warning"} 
+                                              <Badge
+                                                bg={user.profile.type === "agent" ? "primary" : user.profile.type === "subagent" ? "info" : "warning"}
                                                 className="me-2"
                                               >
                                                 <Briefcase size={12} className="me-1" />
@@ -1646,7 +1743,7 @@ const AgencyProfile = () => {
                                               </Badge>
                                             </div>
                                           )}
-                                          
+
                                           {user.branch_details && user.branch_details.length > 0 && (
                                             <div className="mt-2">
                                               <small className="text-muted">
@@ -1694,622 +1791,654 @@ const AgencyProfile = () => {
               </Col>
             </Row>
           </Container>
-      </div>
+        </div>
 
-      {/* Add Agency Modal */}
-      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <Building2 size={24} className="me-2" />
-            Add New Agency
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Agency Name *</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Enter agency name"
-                    value={newAgencyForm.ageny_name}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, ageny_name: e.target.value })}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Contact Person *</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Enter contact person name"
-                    value={newAgencyForm.name}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, name: e.target.value })}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Phone Number *</Form.Label>
-                  <Form.Control
-                    type="tel"
-                    placeholder="+92-3001234567"
-                    value={newAgencyForm.phone_number}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, phone_number: e.target.value })}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Email</Form.Label>
-                  <Form.Control
-                    type="email"
-                    placeholder="agency@example.com"
-                    value={newAgencyForm.email}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, email: e.target.value })}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Address</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                placeholder="Enter agency address"
-                value={newAgencyForm.address}
-                onChange={(e) => setNewAgencyForm({ ...newAgencyForm, address: e.target.value })}
-              />
-            </Form.Group>
-
-            <Row>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Branch *</Form.Label>
-                  <Form.Select
-                    value={newAgencyForm.branch}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, branch: e.target.value })}
-                    required
-                  >
-                    <option value="">Select Branch</option>
-                    {(function(){
-                      try {
-                        const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null') || {};
-                        const orgId = so?.id || so?.organization_id || so?.org || null;
-                        if (!orgId) return branches.map(b => (
-                          <option key={b.id} value={b.id}>{b.name || b.branch_name || `Branch ${b.id}`}</option>
-                        ));
-                        // filter branches belonging to this organization
-                        const filtered = (branches || []).filter(b => {
-                          if (!b) return false;
-                          if (b.organization && (b.organization === orgId || b.organization.id === orgId || b.organization.pk === orgId)) return true;
-                          if (b.organization_id && String(b.organization_id) === String(orgId)) return true;
-                          if (b.org && String(b.org) === String(orgId)) return true;
-                          if (b.branch && (b.branch.organization_id === orgId || b.branch.organization === orgId)) return true;
-                          return false;
-                        });
-                        return filtered.map(b => (
-                          <option key={b.id} value={b.id}>{b.name || b.branch_name || `Branch ${b.id}`}</option>
-                        ));
-                      } catch (e) { return branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name || b.branch_name || `Branch ${b.id}`}</option>
-                      )); }
-                    })()}
-                  </Form.Select>
-                  <Form.Text className="text-muted">Branches shown for your organization only</Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Agency Type</Form.Label>
-                  <Form.Select
-                    value={newAgencyForm.agency_type}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, agency_type: e.target.value })}
-                  >
-                    <option value="Full Agency">Full Agency</option>
-                    <option value="Area Agency">Area Agency</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Agreement Status</Form.Label>
-                  <Form.Select
-                    value={newAgencyForm.agreement_status}
-                    onChange={(e) => setNewAgencyForm({ ...newAgencyForm, agreement_status: e.target.value === "true" })}
-                  >
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            {/* Conditional Commission Group selector for Area Agency */}
-            {newAgencyForm.agency_type === "Area Agency" && (
+        {/* Add Agency Modal */}
+        <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <Building2 size={24} className="me-2" />
+              Add New Agency
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
               <Row>
-                <Col md={12}>
+                <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Commission Group</Form.Label>
-                    <Form.Select
-                      value={newAgencyForm.commission_group}
-                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, commission_group: e.target.value })}
-                    >
-                      <option value="">Select Commission Group</option>
-                      {commissionGroups.map(g => (
-                        <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
-                      ))}
-                    </Form.Select>
-                    <Form.Text className="text-muted">Select a commission group for this Area Agency</Form.Text>
+                    <Form.Label>Agency Name *</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Enter agency name"
+                      value={newAgencyForm.ageny_name}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, ageny_name: e.target.value })}
+                      required
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Contact Person *</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Enter contact person name"
+                      value={newAgencyForm.name}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, name: e.target.value })}
+                      required
+                    />
                   </Form.Group>
                 </Col>
               </Row>
-            )}
 
-            {/* Conditional Discount Group selector for Full Agency */}
-            {newAgencyForm.agency_type === "Full Agency" && (
               <Row>
-                <Col md={12}>
+                <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Discount Group</Form.Label>
-                    <Form.Select
-                      value={newAgencyForm.discount_group}
-                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, discount_group: e.target.value })}
-                    >
-                      <option value="">Select Discount Group</option>
-                      {discountGroups.map(g => (
-                        <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
-                      ))}
-                    </Form.Select>
-                    <Form.Text className="text-muted">Select a discount group for this Full Agency</Form.Text>
+                    <Form.Label>Phone Number *</Form.Label>
+                    <Form.Control
+                      type="tel"
+                      placeholder="+92-3001234567"
+                      value={newAgencyForm.phone_number}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, phone_number: e.target.value })}
+                      required
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Email</Form.Label>
+                    <Form.Control
+                      type="email"
+                      placeholder="agency@example.com"
+                      value={newAgencyForm.email}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, email: e.target.value })}
+                    />
                   </Form.Group>
                 </Col>
               </Row>
-            )}
 
-            <Form.Group className="mb-3">
-              <Form.Label>Logo</Form.Label>
-              <Form.Control
-                type="file"
-                accept="image/*"
-                onChange={(e) => setNewAgencyForm({ ...newAgencyForm, logo: e.target.files[0] })}
-              />
-              <Form.Text className="text-muted">
-                Upload agency logo (optional)
-              </Form.Text>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleAddAgency} disabled={loading}>
-            {loading ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-1" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus size={18} className="me-1" />
-                Add Agency
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Add History Modal */}
-      <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <Clock size={24} className="me-2" />
-            Add Relationship History
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={historyForm.date}
-                onChange={(e) => setHistoryForm({ ...historyForm, date: e.target.value })}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Type</Form.Label>
-              <Form.Select
-                value={historyForm.type}
-                onChange={(e) => setHistoryForm({ ...historyForm, type: e.target.value })}
-              >
-                {Object.entries(relationshipTypes).map(([key, value]) => (
-                  <option key={key} value={key}>{value.label}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Note *</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={4}
-                value={historyForm.note}
-                onChange={(e) => setHistoryForm({ ...historyForm, note: e.target.value })}
-                placeholder="Enter detailed note about this interaction..."
-                required
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowHistoryModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleAddHistory}>
-            <Plus size={18} className="me-1" />
-            Add Entry
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Add Conflict Modal */}
-      <Modal show={showConflictModal} onHide={() => setShowConflictModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <AlertTriangle size={24} className="me-2" />
-            Report Conflict
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={conflictForm.date}
-                onChange={(e) => setConflictForm({ ...conflictForm, date: e.target.value })}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Reason *</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={conflictForm.reason}
-                onChange={(e) => setConflictForm({ ...conflictForm, reason: e.target.value })}
-                placeholder="Describe the conflict..."
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                label="Conflict Resolved"
-                checked={conflictForm.resolved}
-                onChange={(e) => setConflictForm({ ...conflictForm, resolved: e.target.checked })}
-              />
-            </Form.Group>
-
-            {conflictForm.resolved && (
               <Form.Group className="mb-3">
-                <Form.Label>Resolution Note</Form.Label>
+                <Form.Label>Address</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  placeholder="Enter agency address"
+                  value={newAgencyForm.address}
+                  onChange={(e) => setNewAgencyForm({ ...newAgencyForm, address: e.target.value })}
+                />
+              </Form.Group>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Credit Limit</Form.Label>
+                    <Form.Control
+                      type="number"
+                      placeholder="50000"
+                      value={newAgencyForm.credit_limit}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, credit_limit: e.target.value })}
+                      min="0"
+                      step="0.01"
+                    />
+                    <Form.Text className="text-muted">Maximum credit amount allowed</Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Credit Limit Days</Form.Label>
+                    <Form.Control
+                      type="number"
+                      placeholder="30"
+                      value={newAgencyForm.credit_limit_days}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, credit_limit_days: e.target.value })}
+                      min="0"
+                    />
+                    <Form.Text className="text-muted">Credit period in days</Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Branch *</Form.Label>
+                    <Form.Select
+                      value={newAgencyForm.branch}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, branch: e.target.value })}
+                      required
+                    >
+                      <option value="">Select Branch</option>
+                      {(function () {
+                        try {
+                          const so = JSON.parse(localStorage.getItem('selectedOrganization') || 'null') || {};
+                          const orgId = so?.id || so?.organization_id || so?.org || null;
+                          if (!orgId) return branches.map(b => (
+                            <option key={b.id} value={b.id}>{b.name || b.branch_name || `Branch ${b.id}`}</option>
+                          ));
+                          // filter branches belonging to this organization
+                          const filtered = (branches || []).filter(b => {
+                            if (!b) return false;
+                            if (b.organization && (b.organization === orgId || b.organization.id === orgId || b.organization.pk === orgId)) return true;
+                            if (b.organization_id && String(b.organization_id) === String(orgId)) return true;
+                            if (b.org && String(b.org) === String(orgId)) return true;
+                            if (b.branch && (b.branch.organization_id === orgId || b.branch.organization === orgId)) return true;
+                            return false;
+                          });
+                          return filtered.map(b => (
+                            <option key={b.id} value={b.id}>{b.name || b.branch_name || `Branch ${b.id}`}</option>
+                          ));
+                        } catch (e) {
+                          return branches.map(b => (
+                            <option key={b.id} value={b.id}>{b.name || b.branch_name || `Branch ${b.id}`}</option>
+                          ));
+                        }
+                      })()}
+                    </Form.Select>
+                    <Form.Text className="text-muted">Branches shown for your organization only</Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Agency Type</Form.Label>
+                    <Form.Select
+                      value={newAgencyForm.agency_type}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, agency_type: e.target.value })}
+                    >
+                      <option value="Full Agency">Full Agency</option>
+                      <option value="Area Agency">Area Agency</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Agreement Status</Form.Label>
+                    <Form.Select
+                      value={newAgencyForm.agreement_status}
+                      onChange={(e) => setNewAgencyForm({ ...newAgencyForm, agreement_status: e.target.value === "true" })}
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {/* Conditional Commission Group selector for Area Agency */}
+              {newAgencyForm.agency_type === "Area Agency" && (
+                <Row>
+                  <Col md={12}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Commission Group</Form.Label>
+                      <Form.Select
+                        value={newAgencyForm.commission_group}
+                        onChange={(e) => setNewAgencyForm({ ...newAgencyForm, commission_group: e.target.value })}
+                      >
+                        <option value="">Select Commission Group</option>
+                        {commissionGroups.map(g => (
+                          <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
+                        ))}
+                      </Form.Select>
+                      <Form.Text className="text-muted">Select a commission group for this Area Agency</Form.Text>
+                    </Form.Group>
+                  </Col>
+                </Row>
+              )}
+
+              {/* Conditional Discount Group selector for Full Agency */}
+              {newAgencyForm.agency_type === "Full Agency" && (
+                <Row>
+                  <Col md={12}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Discount Group</Form.Label>
+                      <Form.Select
+                        value={newAgencyForm.discount_group}
+                        onChange={(e) => setNewAgencyForm({ ...newAgencyForm, discount_group: e.target.value })}
+                      >
+                        <option value="">Select Discount Group</option>
+                        {discountGroups.map(g => (
+                          <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
+                        ))}
+                      </Form.Select>
+                      <Form.Text className="text-muted">Select a discount group for this Full Agency</Form.Text>
+                    </Form.Group>
+                  </Col>
+                </Row>
+              )}
+
+              <Form.Group className="mb-3">
+                <Form.Label>Logo</Form.Label>
+                <Form.Control
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setNewAgencyForm({ ...newAgencyForm, logo: e.target.files[0] })}
+                />
+                <Form.Text className="text-muted">
+                  Upload agency logo (optional)
+                </Form.Text>
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleAddAgency} disabled={loading}>
+              {loading ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-1" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus size={18} className="me-1" />
+                  Add Agency
+                </>
+              )}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Add History Modal */}
+        <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <Clock size={24} className="me-2" />
+              Add Relationship History
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={historyForm.date}
+                  onChange={(e) => setHistoryForm({ ...historyForm, date: e.target.value })}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Type</Form.Label>
+                <Form.Select
+                  value={historyForm.type}
+                  onChange={(e) => setHistoryForm({ ...historyForm, type: e.target.value })}
+                >
+                  {Object.entries(relationshipTypes).map(([key, value]) => (
+                    <option key={key} value={key}>{value.label}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Note *</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  value={historyForm.note}
+                  onChange={(e) => setHistoryForm({ ...historyForm, note: e.target.value })}
+                  placeholder="Enter detailed note about this interaction..."
+                  required
+                />
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowHistoryModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleAddHistory}>
+              <Plus size={18} className="me-1" />
+              Add Entry
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Add Conflict Modal */}
+        <Modal show={showConflictModal} onHide={() => setShowConflictModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <AlertTriangle size={24} className="me-2" />
+              Report Conflict
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={conflictForm.date}
+                  onChange={(e) => setConflictForm({ ...conflictForm, date: e.target.value })}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Reason *</Form.Label>
                 <Form.Control
                   as="textarea"
                   rows={3}
-                  value={conflictForm.resolution_note}
-                  onChange={(e) => setConflictForm({ ...conflictForm, resolution_note: e.target.value })}
-                  placeholder="How was this conflict resolved..."
+                  value={conflictForm.reason}
+                  onChange={(e) => setConflictForm({ ...conflictForm, reason: e.target.value })}
+                  placeholder="Describe the conflict..."
+                  required
                 />
               </Form.Group>
-            )}
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowConflictModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleAddConflict}>
-            <Plus size={18} className="me-1" />
-            Add Conflict
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
-      {/* Add Communication Modal */}
-      <Modal show={showCommunicationModal} onHide={() => setShowCommunicationModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <MessageSquare size={24} className="me-2" />
-            Add Communication
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Date</Form.Label>
-              <Form.Control
-                type="date"
-                value={communicationForm.date}
-                onChange={(e) => setCommunicationForm({ ...communicationForm, date: e.target.value })}
-              />
-            </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  label="Conflict Resolved"
+                  checked={conflictForm.resolved}
+                  onChange={(e) => setConflictForm({ ...conflictForm, resolved: e.target.checked })}
+                />
+              </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Type *</Form.Label>
-              <Form.Select
-                value={communicationForm.type}
-                onChange={(e) => setCommunicationForm({ ...communicationForm, type: e.target.value })}
-              >
-                <option value="email">Email</option>
-                <option value="phone">Phone</option>
-                <option value="meeting">Meeting</option>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="other">Other</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>By</Form.Label>
-              <Form.Control
-                type="text"
-                value={communicationForm.by}
-                onChange={(e) => setCommunicationForm({ ...communicationForm, by: e.target.value })}
-                placeholder="Admin, Sales Team, etc."
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Message *</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={4}
-                value={communicationForm.message}
-                onChange={(e) => setCommunicationForm({ ...communicationForm, message: e.target.value })}
-                placeholder="Enter communication message..."
-                required
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCommunicationModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleAddCommunication} disabled={loading}>
-            {loading ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-1" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus size={18} className="me-1" />
-                Add Message
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Add Company Modal */}
-      <Modal show={showCompanyModal} onHide={() => setShowCompanyModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <Briefcase size={24} className="me-2" />
-            Add Company Relationship
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Organization Name *</Form.Label>
-              <Form.Control
-                type="text"
-                value={companyForm.organization_name}
-                onChange={(e) => setCompanyForm({ ...companyForm, organization_name: e.target.value })}
-                placeholder="Enter organization name"
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Organization ID</Form.Label>
-              <Form.Control
-                type="number"
-                value={companyForm.organization_id}
-                onChange={(e) => setCompanyForm({ ...companyForm, organization_id: e.target.value })}
-                placeholder="Optional - auto-generated if empty"
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Work Types</Form.Label>
-              <Form.Control
-                type="text"
-                value={companyForm.work_type.join(", ")}
-                onChange={(e) => {
-                  const types = e.target.value.split(",").map(t => t.trim()).filter(t => t);
-                  setCompanyForm({ ...companyForm, work_type: types });
-                }}
-                placeholder="e.g., Tickets, Hotels, Visa (comma-separated)"
-              />
-              <Form.Text className="text-muted">
-                Enter work types separated by commas
-              </Form.Text>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCompanyModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleAddCompany} disabled={loading}>
-            {loading ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-1" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus size={18} className="me-1" />
-                Add Company
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Create/Update Agency Profile Modal */}
-      <Modal show={showProfileModal} onHide={() => setShowProfileModal(false)} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FileText size={24} className="me-2" />
-            {profileModalMode === "create" ? "Create" : "Update"} Agency Profile - {profileAgency?.ageny_name || profileAgency?.name}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Relationship Status *</Form.Label>
-              <Form.Select
-                value={profileForm.relationship_status}
-                onChange={(e) => setProfileForm({ ...profileForm, relationship_status: e.target.value })}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="risky">Risky</option>
-                <option value="dispute">Dispute</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Performance Remarks</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Enter performance remarks..."
-                value={profileForm.performance_summary.remarks}
-                onChange={(e) => setProfileForm({ 
-                  ...profileForm, 
-                  performance_summary: { 
-                    ...profileForm.performance_summary, 
-                    remarks: e.target.value 
-                  } 
-                })}
-              />
-            </Form.Group>
-
-            <Row>
-              <Col md={6}>
+              {conflictForm.resolved && (
                 <Form.Group className="mb-3">
-                  <Form.Label>Total Bookings</Form.Label>
+                  <Form.Label>Resolution Note</Form.Label>
                   <Form.Control
-                    type="number"
-                    min="0"
-                    value={profileForm.performance_summary.total_bookings}
-                    onChange={(e) => setProfileForm({ 
-                      ...profileForm, 
-                      performance_summary: { 
-                        ...profileForm.performance_summary, 
-                        total_bookings: parseInt(e.target.value) || 0 
-                      } 
-                    })}
+                    as="textarea"
+                    rows={3}
+                    value={conflictForm.resolution_note}
+                    onChange={(e) => setConflictForm({ ...conflictForm, resolution_note: e.target.value })}
+                    placeholder="How was this conflict resolved..."
                   />
                 </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>On-Time Payments</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min="0"
-                    value={profileForm.performance_summary.on_time_payments}
-                    onChange={(e) => setProfileForm({ 
-                      ...profileForm, 
-                      performance_summary: { 
-                        ...profileForm.performance_summary, 
-                        on_time_payments: parseInt(e.target.value) || 0 
-                      } 
-                    })}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
+              )}
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowConflictModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleAddConflict}>
+              <Plus size={18} className="me-1" />
+              Add Conflict
+            </Button>
+          </Modal.Footer>
+        </Modal>
 
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Late Payments</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min="0"
-                    value={profileForm.performance_summary.late_payments}
-                    onChange={(e) => setProfileForm({ 
-                      ...profileForm, 
-                      performance_summary: { 
-                        ...profileForm.performance_summary, 
-                        late_payments: parseInt(e.target.value) || 0 
-                      } 
-                    })}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Disputes</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min="0"
-                    value={profileForm.performance_summary.disputes}
-                    onChange={(e) => setProfileForm({ 
-                      ...profileForm, 
-                      performance_summary: { 
-                        ...profileForm.performance_summary, 
-                        disputes: parseInt(e.target.value) || 0 
-                      } 
-                    })}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
+        {/* Add Communication Modal */}
+        <Modal show={showCommunicationModal} onHide={() => setShowCommunicationModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <MessageSquare size={24} className="me-2" />
+              Add Communication
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={communicationForm.date}
+                  onChange={(e) => setCommunicationForm({ ...communicationForm, date: e.target.value })}
+                />
+              </Form.Group>
 
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleSaveProfile} disabled={loading}>
-            {loading ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-1" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={18} className="me-1" />
-                {profileModalMode === "create" ? "Create Profile" : "Update Profile"}
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </div>
-    
-    <style>{`
+              <Form.Group className="mb-3">
+                <Form.Label>Type *</Form.Label>
+                <Form.Select
+                  value={communicationForm.type}
+                  onChange={(e) => setCommunicationForm({ ...communicationForm, type: e.target.value })}
+                >
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="other">Other</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>By</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={communicationForm.by}
+                  onChange={(e) => setCommunicationForm({ ...communicationForm, by: e.target.value })}
+                  placeholder="Admin, Sales Team, etc."
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Message *</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  value={communicationForm.message}
+                  onChange={(e) => setCommunicationForm({ ...communicationForm, message: e.target.value })}
+                  placeholder="Enter communication message..."
+                  required
+                />
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowCommunicationModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleAddCommunication} disabled={loading}>
+              {loading ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-1" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus size={18} className="me-1" />
+                  Add Message
+                </>
+              )}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Add Company Modal */}
+        <Modal show={showCompanyModal} onHide={() => setShowCompanyModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <Briefcase size={24} className="me-2" />
+              Add Company Relationship
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Organization Name *</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={companyForm.organization_name}
+                  onChange={(e) => setCompanyForm({ ...companyForm, organization_name: e.target.value })}
+                  placeholder="Enter organization name"
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Organization ID</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={companyForm.organization_id}
+                  onChange={(e) => setCompanyForm({ ...companyForm, organization_id: e.target.value })}
+                  placeholder="Optional - auto-generated if empty"
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Work Types</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={companyForm.work_type.join(", ")}
+                  onChange={(e) => {
+                    const types = e.target.value.split(",").map(t => t.trim()).filter(t => t);
+                    setCompanyForm({ ...companyForm, work_type: types });
+                  }}
+                  placeholder="e.g., Tickets, Hotels, Visa (comma-separated)"
+                />
+                <Form.Text className="text-muted">
+                  Enter work types separated by commas
+                </Form.Text>
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowCompanyModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleAddCompany} disabled={loading}>
+              {loading ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-1" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus size={18} className="me-1" />
+                  Add Company
+                </>
+              )}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Create/Update Agency Profile Modal */}
+        <Modal show={showProfileModal} onHide={() => setShowProfileModal(false)} centered size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <FileText size={24} className="me-2" />
+              {profileModalMode === "create" ? "Create" : "Update"} Agency Profile - {profileAgency?.ageny_name || profileAgency?.name}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Relationship Status *</Form.Label>
+                <Form.Select
+                  value={profileForm.relationship_status}
+                  onChange={(e) => setProfileForm({ ...profileForm, relationship_status: e.target.value })}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="risky">Risky</option>
+                  <option value="dispute">Dispute</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Performance Remarks</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  placeholder="Enter performance remarks..."
+                  value={profileForm.performance_summary.remarks}
+                  onChange={(e) => setProfileForm({
+                    ...profileForm,
+                    performance_summary: {
+                      ...profileForm.performance_summary,
+                      remarks: e.target.value
+                    }
+                  })}
+                />
+              </Form.Group>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Total Bookings</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="0"
+                      value={profileForm.performance_summary.total_bookings}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        performance_summary: {
+                          ...profileForm.performance_summary,
+                          total_bookings: parseInt(e.target.value) || 0
+                        }
+                      })}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>On-Time Payments</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="0"
+                      value={profileForm.performance_summary.on_time_payments}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        performance_summary: {
+                          ...profileForm.performance_summary,
+                          on_time_payments: parseInt(e.target.value) || 0
+                        }
+                      })}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Late Payments</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="0"
+                      value={profileForm.performance_summary.late_payments}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        performance_summary: {
+                          ...profileForm.performance_summary,
+                          late_payments: parseInt(e.target.value) || 0
+                        }
+                      })}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Disputes</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="0"
+                      value={profileForm.performance_summary.disputes}
+                      onChange={(e) => setProfileForm({
+                        ...profileForm,
+                        performance_summary: {
+                          ...profileForm.performance_summary,
+                          disputes: parseInt(e.target.value) || 0
+                        }
+                      })}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSaveProfile} disabled={loading}>
+              {loading ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-1" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} className="me-1" />
+                  {profileModalMode === "create" ? "Create Profile" : "Update Profile"}
+                </>
+              )}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      </div>
+
+      <style>{`
       @media (max-width: 991.98px) {
         .page-container {
           flex-direction: column !important;
@@ -2319,6 +2448,121 @@ const AgencyProfile = () => {
         }
       }
     `}</style>
+
+      {/* Edit Agency Modal */}
+      <Modal show={showEditAgencyModal} onHide={() => { setShowEditAgencyModal(false); setEditingAgencyId(null); }} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Agency</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Name *</Form.Label>
+                  <Form.Control type="text" value={newAgencyForm.name} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, name: e.target.value })} placeholder="Contact Person Name" />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Agency Name *</Form.Label>
+                  <Form.Control type="text" value={newAgencyForm.ageny_name} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, ageny_name: e.target.value })} placeholder="Agency Business Name" />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Phone Number *</Form.Label>
+                  <Form.Control type="tel" value={newAgencyForm.phone_number} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, phone_number: e.target.value })} placeholder="+92 300 1234567" />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Email</Form.Label>
+                  <Form.Control type="email" value={newAgencyForm.email} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, email: e.target.value })} placeholder="agency@example.com" />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Address</Form.Label>
+              <Form.Control as="textarea" rows={2} value={newAgencyForm.address} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, address: e.target.value })} placeholder="Full Address" />
+            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Credit Limit</Form.Label>
+                  <Form.Control type="number" min="0" step="0.01" value={newAgencyForm.credit_limit} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, credit_limit: e.target.value })} placeholder="50000" />
+                  <Form.Text className="text-muted">Maximum credit amount allowed</Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Credit Limit Days</Form.Label>
+                  <Form.Control type="number" min="0" value={newAgencyForm.credit_limit_days} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, credit_limit_days: e.target.value })} placeholder="30" />
+                  <Form.Text className="text-muted">Number of days for payment</Form.Text>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            {/* Agency Type Selector */}
+            <Form.Group className="mb-3">
+              <Form.Label>Agency Type</Form.Label>
+              <Form.Select
+                value={newAgencyForm.agency_type}
+                onChange={(e) => setNewAgencyForm({ ...newAgencyForm, agency_type: e.target.value })}
+              >
+                <option value="Area Agency">Area Agency</option>
+                <option value="Full Agency">Full Agency</option>
+              </Form.Select>
+              <Form.Text className="text-muted">Select the agency type</Form.Text>
+            </Form.Group>
+
+            {/* Conditional Commission Group selector for Area Agency */}
+            {newAgencyForm.agency_type === "Area Agency" && (
+              <Form.Group className="mb-3">
+                <Form.Label>Commission Group</Form.Label>
+                <Form.Select
+                  value={newAgencyForm.commission_group}
+                  onChange={(e) => setNewAgencyForm({ ...newAgencyForm, commission_group: e.target.value })}
+                >
+                  <option value="">Select Commission Group</option>
+                  {commissionGroups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
+                  ))}
+                </Form.Select>
+                <Form.Text className="text-muted">Select a commission group for this Area Agency</Form.Text>
+              </Form.Group>
+            )}
+
+            {/* Conditional Discount Group selector for Full Agency */}
+            {newAgencyForm.agency_type === "Full Agency" && (
+              <Form.Group className="mb-3">
+                <Form.Label>Discount Group</Form.Label>
+                <Form.Select
+                  value={newAgencyForm.discount_group}
+                  onChange={(e) => setNewAgencyForm({ ...newAgencyForm, discount_group: e.target.value })}
+                >
+                  <option value="">Select Discount Group</option>
+                  {discountGroups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name || `Group ${g.id}`}</option>
+                  ))}
+                </Form.Select>
+                <Form.Text className="text-muted">Select a discount group for this Full Agency</Form.Text>
+              </Form.Group>
+            )}
+
+            <Form.Group className="mb-3">
+              <Form.Check type="checkbox" label="Agreement Status (Active)" checked={newAgencyForm.agreement_status} onChange={(e) => setNewAgencyForm({ ...newAgencyForm, agreement_status: e.target.checked })} />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowEditAgencyModal(false); setEditingAgencyId(null); }}>Cancel</Button>
+          <Button variant="primary" onClick={handleUpdateAgency} disabled={loading}>{loading ? <Spinner size="sm" animation="border" /> : "Update Agency"}</Button>
+        </Modal.Footer>
+      </Modal>
+
     </>
   );
 };

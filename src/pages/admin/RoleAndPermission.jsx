@@ -80,7 +80,7 @@ const RoleAndPermissions = () => {
   const CACHE_EXPIRY_TIME = 5 * 60 * 1000;
 
   const axiosInstance = axios.create({
-    baseURL: "https://api.saer.pk/api/",
+    baseURL: "http://127.0.0.1:8000/api/",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${getAccessToken()}`,
@@ -179,9 +179,11 @@ const RoleAndPermissions = () => {
       const storedOrg = localStorage.getItem("selectedOrganization");
       const selectedOrgId = storedOrg ? JSON.parse(storedOrg).id : null;
 
+      // If organization is selected, filter by it
+      // Otherwise, show all groups (including those without organization)
       const filteredGroups = selectedOrgId
         ? groupsWithFallback.filter(
-          (group) => group.extended?.organization === selectedOrgId
+          (group) => group.extended?.organization === selectedOrgId || !group.extended?.organization
         )
         : groupsWithFallback;
 
@@ -214,7 +216,7 @@ const RoleAndPermissions = () => {
 
         const filteredGroups = selectedOrgId
           ? groupsWithFallback.filter(
-            (group) => group.extended?.organization === selectedOrgId
+            (group) => group.extended?.organization === selectedOrgId || !group.extended?.organization
           )
           : groupsWithFallback;
 
@@ -706,126 +708,126 @@ const RoleAndPermissions = () => {
                   <AdminFooter />
                 </div>
               </div>
-              </div>
             </div>
           </div>
+        </div>
 
-          {/* Create/Edit Modal */}
-          <Modal show={showModal} onHide={handleClose} centered size="md">
-            <Modal.Body>
-              <h4 className="text-center fw-bold p-4 mb-4">
-                {modalMode === "create" ? "Add Group" : "Edit Group"}
-              </h4>
-              <hr />
-              <Form className="p-4">
-                {/* Group Name */}
-                <div>
-                  <label htmlFor="" className="Control-label">
-                    Group Name
-                  </label>
-                  <Form.Control
-                    type="text"
-                    name="name"
-                    value={currentGroup.name}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Admin Group"
-                    disabled={apiLoading}
-                    className=" shadow-none px-1 py-2"
-                  />
-                </div>
+        {/* Create/Edit Modal */}
+        <Modal show={showModal} onHide={handleClose} centered size="md">
+          <Modal.Body>
+            <h4 className="text-center fw-bold p-4 mb-4">
+              {modalMode === "create" ? "Add Group" : "Edit Group"}
+            </h4>
+            <hr />
+            <Form className="p-4">
+              {/* Group Name */}
+              <div>
+                <label htmlFor="" className="Control-label">
+                  Group Name
+                </label>
+                <Form.Control
+                  type="text"
+                  name="name"
+                  value={currentGroup.name}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Admin Group"
+                  disabled={apiLoading}
+                  className=" shadow-none px-1 py-2"
+                />
+              </div>
 
-                {/* Type */}
-                <div>
-                  <label htmlFor="" className="Control-label">
-                    Type
-                  </label>
-                  <Form.Select
-                    name="extended.type"
-                    value={currentGroup.extended.type}
-                    onChange={handleInputChange}
-                    disabled={apiLoading}
-                    className=" shadow-none px-1 py-2"
-                  >
-                    <option value="">Select Type</option>
-                    <option value="agents">Agent</option>
-                    <option value="employee">Employee</option>
-                  </Form.Select>
-                </div>
+              {/* Type */}
+              <div>
+                <label htmlFor="" className="Control-label">
+                  Type
+                </label>
+                <Form.Select
+                  name="extended.type"
+                  value={currentGroup.extended.type}
+                  onChange={handleInputChange}
+                  disabled={apiLoading}
+                  className=" shadow-none px-1 py-2"
+                >
+                  <option value="">Select Type</option>
+                  <option value="agents">Agent</option>
+                  <option value="employee">Employee</option>
+                </Form.Select>
+              </div>
 
-                {/* Organization */}
-                <div className="mb-3">
-                  <label htmlFor="" className="Control-label">
-                    Organization
-                  </label>
-                  <Form.Control
-                    type="text"
-                    value={
-                      selectedOrg ? selectedOrg.name : "No organization selected"
-                    }
-                    disabled
-                    className=" shadow-none px-1 py-2"
-                  />
-                </div>
+              {/* Organization */}
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Organization
+                </label>
+                <Form.Control
+                  type="text"
+                  value={
+                    selectedOrg ? selectedOrg.name : "No organization selected"
+                  }
+                  disabled
+                  className=" shadow-none px-1 py-2"
+                />
+              </div>
 
-                {/* Buttons */}
-                <div className="d-flex justify-content-between">
-                  <Button
-                    variant="primary"
-                    onClick={handleSubmit}
-                    disabled={apiLoading}
-                  >
-                    {apiLoading
-                      ? "Processing..."
-                      : modalMode === "create"
-                        ? "Create"
-                        : "Update"}
-                  </Button>
-                  <Button
-                    variant="light"
-                    className="text-muted"
-                    onClick={handleClose}
-                    disabled={apiLoading}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </Form>
-            </Modal.Body>
-          </Modal>
-
-          {/* Delete Confirmation */}
-          <Modal
-            show={showDeleteConfirm}
-            onHide={() => setShowDeleteConfirm(false)}
-            centered
-          >
-            <Modal.Body className="p-4">
-              <h5 className="text-center mb-4">Confirm Delete</h5>
-              <p className="text-center">
-                Are you sure you want to delete this group? This action cannot be
-                undone.
-              </p>
-              <div className="d-flex justify-content-center gap-3 mt-4">
+              {/* Buttons */}
+              <div className="d-flex justify-content-between">
                 <Button
-                  variant="secondary"
-                  onClick={() => setShowDeleteConfirm(false)}
+                  variant="primary"
+                  onClick={handleSubmit}
+                  disabled={apiLoading}
+                >
+                  {apiLoading
+                    ? "Processing..."
+                    : modalMode === "create"
+                      ? "Create"
+                      : "Update"}
+                </Button>
+                <Button
+                  variant="light"
+                  className="text-muted"
+                  onClick={handleClose}
                   disabled={apiLoading}
                 >
                   Cancel
                 </Button>
-                <Button
-                  variant="danger"
-                  onClick={deleteGroup}
-                  disabled={apiLoading}
-                >
-                  {apiLoading ? "Deleting..." : "Delete"}
-                </Button>
               </div>
-            </Modal.Body>
-          </Modal>
-        </div>
-      </>
-      );
+            </Form>
+          </Modal.Body>
+        </Modal>
+
+        {/* Delete Confirmation */}
+        <Modal
+          show={showDeleteConfirm}
+          onHide={() => setShowDeleteConfirm(false)}
+          centered
+        >
+          <Modal.Body className="p-4">
+            <h5 className="text-center mb-4">Confirm Delete</h5>
+            <p className="text-center">
+              Are you sure you want to delete this group? This action cannot be
+              undone.
+            </p>
+            <div className="d-flex justify-content-center gap-3 mt-4">
+              <Button
+                variant="secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={apiLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={deleteGroup}
+                disabled={apiLoading}
+              >
+                {apiLoading ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </Modal.Body>
+        </Modal>
+      </div>
+    </>
+  );
 };
 
-      export default RoleAndPermissions;
+export default RoleAndPermissions;

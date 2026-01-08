@@ -88,7 +88,7 @@ const AssignRoom = () => {
 
     const fetchHotels = async () => {
         try {
-            const res = await axios.get('https://api.saer.pk/api/hotels/', {
+            const res = await axios.get('http://127.0.0.1:8000/api/hotels/', {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -102,7 +102,7 @@ const AssignRoom = () => {
 
     const fetchSingleHotel = async (hotelId) => {
         try {
-            const res = await axios.get(`https://api.saer.pk/api/hotels/${hotelId}/`, {
+            const res = await axios.get(`http://127.0.0.1:8000/api/hotels/${hotelId}/`, {
                 params: organizationId ? { organization: organizationId } : {},
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -117,18 +117,18 @@ const AssignRoom = () => {
 
     const fetchFloors = async (hotelId) => {
         try {
-            const res = await axios.get(`https://api.saer.pk/api/hotel-floors/`, {
-                params: { 
+            const res = await axios.get(`http://127.0.0.1:8000/api/hotel-floors/`, {
+                params: {
                     hotel: hotelId,
                     organization: organizationId
                 },
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            
+
             // API returns { hotels: [...] } structure
             const data = res.data.results || res.data;
             const hotelsArray = data.hotels || data || [];
-            
+
             // Find the specific hotel in the array and get its floors
             let filteredFloors = [];
             if (Array.isArray(hotelsArray)) {
@@ -145,13 +145,13 @@ const AssignRoom = () => {
                     }));
                 }
             }
-            
+
             console.log('Selected Hotel ID:', hotelId);
             console.log('Filtered floors:', filteredFloors.length);
             console.log('Floors data:', filteredFloors);
-            
+
             setFloors(filteredFloors);
-            
+
             // Fetch existing rooms for each floor
             await fetchExistingRoomsForFloors(filteredFloors, hotelId);
         } catch (e) {
@@ -163,20 +163,20 @@ const AssignRoom = () => {
     const fetchExistingRoomsForFloors = async (floors, hotelId) => {
         try {
             // Fetch all rooms for this hotel
-            const res = await axios.get(`https://api.saer.pk/api/hotel-rooms/`, {
-                params: { 
+            const res = await axios.get(`http://127.0.0.1:8000/api/hotel-rooms/`, {
+                params: {
                     hotel: hotelId,
                     hotel_id: hotelId
                 },
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            
+
             const allRooms = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.results) ? res.data.results : [];
             console.log('Fetched existing rooms for hotel', hotelId, ':', allRooms);
-            
+
             // Group rooms by floor
             const roomsByFloor = {};
-            
+
             for (const floor of floors) {
                 // Filter rooms that belong to BOTH this hotel AND this floor
                 const floorRooms = allRooms.filter(room => {
@@ -186,22 +186,22 @@ const AssignRoom = () => {
                         console.log(`Skipping placeholder room: ${roomNumber}`);
                         return false;
                     }
-                    
+
                     // Check hotel match
                     const roomHotelId = typeof room.hotel === 'object' ? room.hotel.id : room.hotel;
                     const hotelMatch = parseInt(roomHotelId) === parseInt(hotelId);
-                    
+
                     // Check floor match
                     const roomFloor = room.floor || room.floor_id || room.floor_no;
                     const floorMatch = String(roomFloor) === String(floor.floor_no);
-                    
+
                     console.log(`Room ${room.id}: hotel ${roomHotelId} === ${hotelId}? ${hotelMatch}, floor ${roomFloor} === ${floor.floor_no}? ${floorMatch}`);
-                    
+
                     return hotelMatch && floorMatch;
                 });
-                
+
                 console.log(`Floor ${floor.floor_no} has ${floorRooms.length} rooms`);
-                
+
                 // Transform backend room format to component format
                 const transformedRooms = floorRooms.map(room => ({
                     id: room.id, // Include room ID for updates
@@ -224,10 +224,10 @@ const AssignRoom = () => {
                         };
                     })
                 }));
-                
+
                 roomsByFloor[floor.id] = transformedRooms;
             }
-            
+
             console.log('Rooms grouped by floor:', roomsByFloor);
             setFloorRooms(roomsByFloor);
         } catch (e) {
@@ -238,25 +238,25 @@ const AssignRoom = () => {
     const fetchRoomTypesForHotel = async (hotelId) => {
         try {
             // Fetch bed types using organization parameter
-            const res = await axios.get(`https://api.saer.pk/api/bed-types/`, {
+            const res = await axios.get(`http://127.0.0.1:8000/api/bed-types/`, {
                 params: { organization: organizationId },
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            
+
             const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.results) ? res.data.results : [];
-            
+
             // Store full bed types data for capacity lookup
             setBedTypesData(data);
-            
+
             // Extract unique room types from bed types
             const uniqueTypes = [...new Set(data.map(bedType => bedType.name))].filter(Boolean);
-            
+
             // Format for dropdown
             const formattedTypes = uniqueTypes.map(type => ({
                 value: type.toLowerCase(),
                 label: type.charAt(0).toUpperCase() + type.slice(1)
             }));
-            
+
             // If no room types found, use default fallback
             if (formattedTypes.length === 0) {
                 setRoomTypesForHotel(defaultRoomTypes);
@@ -290,39 +290,39 @@ const AssignRoom = () => {
             const currentFloor = floors.find(f => f.id === floorId);
             const oldFloorNo = currentFloor?.floor_no;
             const newFloorNo = parseInt(editFloorNo);
-            
+
             // Update floor details
             await axios.patch(
-                `https://api.saer.pk/api/hotel-floors/${floorId}/`,
-                { 
+                `http://127.0.0.1:8000/api/hotel-floors/${floorId}/`,
+                {
                     floor_title: editFloorTitle,
                     floor_no: newFloorNo
                 },
                 { headers: token ? { Authorization: `Bearer ${token}` } : {} }
             );
-            
+
             // If floor number changed, update all rooms on this floor with the new floor number
             if (oldFloorNo !== newFloorNo) {
                 const roomsOnFloor = floorRooms[floorId] || [];
                 for (const room of roomsOnFloor) {
                     if (room.id) {
                         await axios.patch(
-                            `https://api.saer.pk/api/hotel-rooms/${room.id}/`,
+                            `http://127.0.0.1:8000/api/hotel-rooms/${room.id}/`,
                             { floor: String(newFloorNo) },
                             { headers: token ? { Authorization: `Bearer ${token}` } : {} }
                         );
                     }
                 }
             }
-            
+
             // Update local state
-            setFloors(floors.map(f => 
+            setFloors(floors.map(f =>
                 f.id === floorId ? { ...f, floor_title: editFloorTitle, floor_no: newFloorNo } : f
             ));
-            
+
             showAlert('success', 'Floor details updated successfully');
             cancelEditingFloor();
-            
+
             // Refresh to reflect changes
             if (selectedHotelId) {
                 await fetchFloors(selectedHotelId);
@@ -335,31 +335,31 @@ const AssignRoom = () => {
 
     const deleteFloor = async (floorId, floorNo, floorTitle) => {
         const roomsInFloor = floorRooms[floorId] || [];
-        
+
         if (roomsInFloor.length > 0) {
             showAlert('danger', `Cannot delete floor with existing rooms. Please remove all ${roomsInFloor.length} room(s) first.`);
             return;
         }
-        
+
         if (!window.confirm(`Are you sure you want to delete Floor ${floorNo} - ${floorTitle}? This action cannot be undone.`)) {
             return;
         }
-        
+
         try {
-            await axios.delete(`https://api.saer.pk/api/hotel-floors/${floorId}/`, {
+            await axios.delete(`http://127.0.0.1:8000/api/hotel-floors/${floorId}/`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            
+
             // Remove from local state
             setFloors(floors.filter(f => f.id !== floorId));
-            
+
             // Remove floor rooms from state
             setFloorRooms(prev => {
                 const updated = { ...prev };
                 delete updated[floorId];
                 return updated;
             });
-            
+
             showAlert('success', `Floor ${floorNo} deleted successfully`);
         } catch (e) {
             console.error('Failed to delete floor', e);
@@ -371,7 +371,7 @@ const AssignRoom = () => {
     const addRoom = (floorId) => {
         console.log('Adding room to floor ID:', floorId);
         console.log('Current floorRooms state:', floorRooms);
-        
+
         setFloorRooms(prev => {
             const updated = {
                 ...prev,
@@ -391,7 +391,7 @@ const AssignRoom = () => {
                     },
                 ]
             };
-            
+
             console.log('Updated floorRooms state:', updated);
             return updated;
         });
@@ -399,15 +399,15 @@ const AssignRoom = () => {
 
     const removeRoom = async (floorId, roomIndex) => {
         const room = floorRooms[floorId]?.[roomIndex];
-        
+
         // If room has an ID, it exists in the database and needs to be deleted
         if (room?.id) {
             if (!window.confirm(`Are you sure you want to delete room ${room.room_no}? This action cannot be undone.`)) {
                 return;
             }
-            
+
             try {
-                await axios.delete(`https://api.saer.pk/api/hotel-rooms/${room.id}/`, {
+                await axios.delete(`http://127.0.0.1:8000/api/hotel-rooms/${room.id}/`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 showAlert('success', `Room ${room.room_no} deleted successfully`);
@@ -417,7 +417,7 @@ const AssignRoom = () => {
                 return; // Don't remove from UI if backend deletion failed
             }
         }
-        
+
         // Remove from local state
         setFloorRooms(prev => ({
             ...prev,
@@ -432,12 +432,12 @@ const AssignRoom = () => {
                 ...room,
                 beds: [...(room.beds || [])]
             }));
-            
+
             // Deep clone the specific room being updated
-            floorRoomsCopy[roomIndex] = { 
-                ...floorRoomsCopy[roomIndex], 
+            floorRoomsCopy[roomIndex] = {
+                ...floorRoomsCopy[roomIndex],
                 beds: [...(floorRoomsCopy[roomIndex].beds || [])],
-                [field]: value 
+                [field]: value
             };
 
             // When room type changes, auto-set capacity from bed type data
@@ -446,7 +446,7 @@ const AssignRoom = () => {
                 if (bedType && bedType.capacity) {
                     const newCapacity = parseInt(bedType.capacity) || 2;
                     floorRoomsCopy[roomIndex].capacity = newCapacity;
-                    
+
                     // Update beds based on new capacity with numeric labels
                     const newBeds = [];
                     for (let i = 0; i < newCapacity; i++) {
@@ -488,15 +488,15 @@ const AssignRoom = () => {
                 ...room,
                 beds: [...(room.beds || [])]
             }));
-            
+
             // Deep clone the specific room's beds array
             floorRoomsCopy[roomIndex] = {
                 ...floorRoomsCopy[roomIndex],
-                beds: floorRoomsCopy[roomIndex].beds.map((bed, idx) => 
+                beds: floorRoomsCopy[roomIndex].beds.map((bed, idx) =>
                     idx === bedIndex ? { ...bed, [field]: value } : bed
                 )
             };
-            
+
             return {
                 ...prev,
                 [floorId]: floorRoomsCopy
@@ -541,13 +541,13 @@ const AssignRoom = () => {
                     // Check if this is an existing room (has ID) or a new room
                     if (room.id) {
                         // Update existing room
-                        await axios.patch(`https://api.saer.pk/api/hotel-rooms/${room.id}/`, roomPayload, {
+                        await axios.patch(`http://127.0.0.1:8000/api/hotel-rooms/${room.id}/`, roomPayload, {
                             headers: token ? { Authorization: `Bearer ${token}` } : {},
                         });
                         console.log(`Updated existing room ${room.id}`);
                     } else {
                         // Create new room
-                        await axios.post('https://api.saer.pk/api/hotel-rooms/', roomPayload, {
+                        await axios.post('http://127.0.0.1:8000/api/hotel-rooms/', roomPayload, {
                             headers: token ? { Authorization: `Bearer ${token}` } : {},
                         });
                         console.log(`Created new room ${room.room_no}`);
@@ -630,10 +630,10 @@ const AssignRoom = () => {
                             {floors.map((floor) => {
                                 const roomsInFloor = floorRooms[floor.id] || [];
                                 const isEditing = editingFloorId === floor.id;
-                                
+
                                 // Debug logging
                                 console.log(`Rendering floor ${floor.floor_no} with ID: ${floor.id}, rooms:`, roomsInFloor.length);
-                                
+
                                 return (
                                     <Card key={floor.id} className="shadow-sm mb-4">
                                         <Card.Header className="bg-primary text-white d-flex justify-content-between align-items-center">
@@ -657,15 +657,15 @@ const AssignRoom = () => {
                                                             placeholder="Floor Title"
                                                             style={{ maxWidth: '300px' }}
                                                         />
-                                                        <Button 
-                                                            variant="success" 
+                                                        <Button
+                                                            variant="success"
                                                             size="sm"
                                                             onClick={() => saveFloorDetails(floor.id)}
                                                         >
                                                             <Save size={14} /> Save
                                                         </Button>
-                                                        <Button 
-                                                            variant="secondary" 
+                                                        <Button
+                                                            variant="secondary"
                                                             size="sm"
                                                             onClick={cancelEditingFloor}
                                                         >
@@ -678,15 +678,15 @@ const AssignRoom = () => {
                                                             <h5 className="mb-0">Floor {floor.floor_no} - {floor.floor_title}</h5>
                                                             <small>{roomsInFloor.length} room{roomsInFloor.length !== 1 ? 's' : ''}</small>
                                                         </div>
-                                                        <Button 
-                                                            variant="outline-light" 
+                                                        <Button
+                                                            variant="outline-light"
                                                             size="sm"
                                                             onClick={() => startEditingFloor(floor)}
                                                         >
                                                             Edit Floor
                                                         </Button>
-                                                        <Button 
-                                                            variant="outline-danger" 
+                                                        <Button
+                                                            variant="outline-danger"
                                                             size="sm"
                                                             onClick={() => deleteFloor(floor.id, floor.floor_no, floor.floor_title)}
                                                             title={roomsInFloor.length > 0 ? 'Remove all rooms before deleting floor' : 'Delete floor'}
@@ -696,9 +696,9 @@ const AssignRoom = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <Button 
-                                                variant="light" 
-                                                size="sm" 
+                                            <Button
+                                                variant="light"
+                                                size="sm"
                                                 onClick={() => addRoom(floor.id)}
                                             >
                                                 <Plus size={16} className="me-1" /> Add Room

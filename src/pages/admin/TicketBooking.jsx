@@ -246,7 +246,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     candidateIds.forEach((id) => {
       (async () => {
         try {
-          const res = await axios.get(`https://api.saer.pk/api/cities/${id}/`, {
+          const res = await axios.get(`http://127.0.0.1:8000/api/cities/${id}/`, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -377,7 +377,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
     candidateIds.forEach((id) => {
       (async () => {
         try {
-          const url = `https://api.saer.pk/api/airlines/${encodeURIComponent(id)}/`;
+          const url = `http://127.0.0.1:8000/api/airlines/${encodeURIComponent(id)}/`;
           const res = await axios.get(url, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
@@ -400,7 +400,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // If single fetch failed or returned no name/logo, try the owner's airlines list
         try {
-          const listRes = await axios.get(`https://api.saer.pk/api/airlines/`, {
+          const listRes = await axios.get(`http://127.0.0.1:8000/api/airlines/`, {
             params: { organization: ownerOrgId },
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -419,7 +419,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // Try fetching the airline without organization (global single)
         try {
-          const res2 = await axios.get(`https://api.saer.pk/api/airlines/${encodeURIComponent(id)}/`, {
+          const res2 = await axios.get(`http://127.0.0.1:8000/api/airlines/${encodeURIComponent(id)}/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data2 = res2?.data || {};
@@ -436,7 +436,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
         // Finally, try fetching the global airlines list and match id
         try {
-          const globalListRes = await axios.get(`https://api.saer.pk/api/airlines/`, {
+          const globalListRes = await axios.get(`http://127.0.0.1:8000/api/airlines/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const globalList = Array.isArray(globalListRes?.data) ? globalListRes.data : (Array.isArray(globalListRes?.data?.results) ? globalListRes.data.results : []);
@@ -653,7 +653,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
 
   return (
     <div className="flight-card card mb-4 rounded-3">
-    <div className="card-body p-4">
+      <div className="card-body p-4">
         {/* Outbound Flight Segment */}
         <div className="d-flex justify-conter-between align-items-center gy-3">
           <div className="col-md-2 text-center">
@@ -671,7 +671,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
                 Resolved: {fallbackAirlines[String(ticket.airline)].name}
               </div>
             )}
-          
+
             <div className="d-flex flex-column align-items-center justify-content-center gap-2">
               <div className="flight-number">{outboundFlightNumber}</div>
               {(ticket.reselling_allowed === true || ticket.reselling_allowed === "true" || ticket.reselling_allowed === 1 || ticket.reselling_allowed === "1") && String(ticket.organization) !== String(orgId) && (
@@ -751,7 +751,7 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
               {resolveCityName(outboundTrip.arrival_city, outboundTrip)}
             </div>
           </div>
-            <div className="col-md-2 text-center">
+          <div className="col-md-2 text-center">
             <div className="fw-medium flight-duration">
               {getDuration(
                 outboundTrip.departure_date_time,
@@ -781,12 +781,12 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
             <hr className="my-4" />
             <div className="d-flex justify-conter-between align-items-center gy-3 mt-3">
               <div className="col-md-2 text-center">
-                  <img
-                    src={displayAirlineLogo || flightlogo}
-                    alt={`${displayAirlineName} logo`}
-                    className="img-fluid"
-                    style={{ maxHeight: "60px", objectFit: "contain" }}
-                  />
+                <img
+                  src={displayAirlineLogo || flightlogo}
+                  alt={`${displayAirlineName} logo`}
+                  className="img-fluid"
+                  style={{ maxHeight: "60px", objectFit: "contain" }}
+                />
                 <div className="text-muted mt-2 small fw-medium">
                   {displayAirlineName}
                 </div>
@@ -837,16 +837,16 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
                               zIndex: 1,
                             }}
                           ></span>
-                            <div
-                              className="text-muted small mt-2"
-                              style={{ whiteSpace: "nowrap" }}
-                            >
-                              <div>{resolveCityName(returnStopover.stopover_city, returnStopover) || "Unknown City"}</div>
-                              {(() => {
-                                const flightNum = getStopoverFlightNumber(returnStopover, ticket);
-                                return flightNum ? <div style={{ fontSize: '0.75rem', color: '#495057' }}>{flightNum}</div> : null;
-                              })()}
-                            </div>
+                          <div
+                            className="text-muted small mt-2"
+                            style={{ whiteSpace: "nowrap" }}
+                          >
+                            <div>{resolveCityName(returnStopover.stopover_city, returnStopover) || "Unknown City"}</div>
+                            {(() => {
+                              const flightNum = getStopoverFlightNumber(returnStopover, ticket);
+                              return flightNum ? <div style={{ fontSize: '0.75rem', color: '#495057' }}>{flightNum}</div> : null;
+                            })()}
+                          </div>
                         </div>
                         <hr className="w-50 m-0" />
                       </>
@@ -1338,7 +1338,7 @@ const TicketBooking = () => {
           airlinesData = Array.isArray(airlinesResponse?.data) ? airlinesResponse.data : [];
           citiesData = Array.isArray(citiesResponse?.data) ? citiesResponse.data : [];
 
-          console.log(`Parsed data - Tickets: ${ticketsData.length}, Airlines: ${airlinesData.length}, Cities: ${citiesData.length}`);          console.log(`Parsed data - Tickets: ${ticketsData.length}, Airlines: ${airlinesData.length}, Cities: ${citiesData.length}`);
+          console.log(`Parsed data - Tickets: ${ticketsData.length}, Airlines: ${airlinesData.length}, Cities: ${citiesData.length}`); console.log(`Parsed data - Tickets: ${ticketsData.length}, Airlines: ${airlinesData.length}, Cities: ${citiesData.length}`);
         } catch (apiError) {
           console.error('API call failed:', apiError);
           console.error('API error response:', apiError.response);
@@ -1526,7 +1526,7 @@ const TicketBooking = () => {
     console.log(`After filtering: ${result.length} tickets from ${tickets.length} total`);
 
     // PNR search (robust): search common pnr fields and nested booking objects
-    if (pnr && String(pnr).trim() !== "") { 
+    if (pnr && String(pnr).trim() !== "") {
       const q = String(pnr).toLowerCase().trim();
       result = result.filter((ticket) => {
         if (!ticket) return false;
@@ -1982,7 +1982,7 @@ const TicketBooking = () => {
                           className="btn btn-sm  btn-primary px-4"
                           onClick={handleShowAll}
                         >
-                         All
+                          All
                         </button>
 
                       </div>

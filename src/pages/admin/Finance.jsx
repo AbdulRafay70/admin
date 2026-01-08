@@ -61,7 +61,7 @@ const Finance = () => {
     <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
       {/* Add table styles */}
       <style>{tableStyles}</style>
-      
+
       <div className="row g-0">
         {/* Sidebar */}
         <div className="col-12 col-lg-2">
@@ -84,10 +84,9 @@ const Finance = () => {
                         key={index}
                         to={tab.path}
                         className={({ isActive }) =>
-                          `nav-link btn btn-link text-decoration-none px-3 py-2 border-0 ${
-                            isActive || (tab.path === "/finance" && currentPath === "/finance")
-                              ? "text-primary fw-bold border-bottom border-primary border-3"
-                              : "text-secondary"
+                          `nav-link btn btn-link text-decoration-none px-3 py-2 border-0 ${isActive || (tab.path === "/finance" && currentPath === "/finance")
+                            ? "text-primary fw-bold border-bottom border-primary border-3"
+                            : "text-secondary"
                           }`
                         }
                         end={tab.path === "/finance"}
@@ -123,13 +122,24 @@ const Finance = () => {
 
 // 1. Financial Dashboard
 // ...existing code...
-import { getFinanceDashboard } from "../../utils/Api";
+import {
+  getFinanceDashboard,
+  getLedger,
+  getExpenses,
+  getTaxReports,
+  getBalanceSheet,
+  getAuditTrail,
+  submitManualPosting
+} from "../../utils/Api";
+
 
 const FinanceDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [period, setPeriod] = useState("today");
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -144,6 +154,25 @@ const FinanceDashboard = () => {
         setLoading(false);
       });
   }, [period]);
+
+  // Fetch recent transactions
+  useEffect(() => {
+    setTransactionsLoading(true);
+    import('../../utils/Api').then(({ default: api }) => {
+      api.get('/finance/ledger/by-service')
+        .then((res) => {
+          // Get the most recent 10 transactions
+          const records = res.data.records || [];
+          setRecentTransactions(records.slice(0, 10));
+          setTransactionsLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load transactions:", err);
+          setRecentTransactions([]);
+          setTransactionsLoading(false);
+        });
+    });
+  }, []);
 
   const moduleLabels = {
     hotel: "Hotels",
@@ -298,36 +327,47 @@ const FinanceDashboard = () => {
                 <th>Date</th>
                 <th>Reference No</th>
                 <th>Module</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Type</th>
+                <th>Agent Name</th>
+                <th>Income</th>
+                <th>Expense</th>
+                <th>Profit</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>2025-10-17</td>
-                <td>SAER-HTL-00125</td>
-                <td>Hotel</td>
-                <td>Makkah Hilton Booking</td>
-                <td className="text-success fw-bold">Rs. 120,000</td>
-                <td><span className="badge bg-success">Income</span></td>
-              </tr>
-              <tr>
-                <td>2025-10-16</td>
-                <td>SAER-VIS-00089</td>
-                <td>Visa</td>
-                <td>Umrah Visa Processing</td>
-                <td className="text-danger fw-bold">Rs. 35,000</td>
-                <td><span className="badge bg-danger">Expense</span></td>
-              </tr>
-              <tr>
-                <td>2025-10-15</td>
-                <td>SAER-TKT-00234</td>
-                <td>Ticket</td>
-                <td>Flight Booking - Jeddah</td>
-                <td className="text-success fw-bold">Rs. 85,000</td>
-                <td><span className="badge bg-success">Income</span></td>
-              </tr>
+              {transactionsLoading ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4">
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    Loading transactions...
+                  </td>
+                </tr>
+              ) : recentTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4 text-muted">
+                    No recent transactions found
+                  </td>
+                </tr>
+              ) : (
+                recentTransactions.map((transaction, index) => (
+                  <tr key={index}>
+                    <td>{transaction.record_date || 'N/A'}</td>
+                    <td>{transaction.reference_no || `BK-${transaction.booking_id}`}</td>
+                    <td className="text-capitalize">{transaction.booking_id ? `Booking #${transaction.booking_id}` : 'N/A'}</td>
+                    <td>{transaction.agent_name || 'N/A'}</td>
+                    <td className="text-success fw-bold">
+                      Rs. {parseFloat(transaction.income_amount || 0).toLocaleString()}
+                    </td>
+                    <td className="text-danger fw-bold">
+                      Rs. {parseFloat(transaction.expense_amount || 0).toLocaleString()}
+                    </td>
+                    <td className={`fw-bold ${parseFloat(transaction.profit || 0) >= 0 ? 'text-primary' : 'text-danger'}`}>
+                      Rs. {parseFloat(transaction.profit || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </Table>
         </Card.Body>
@@ -337,6 +377,8 @@ const FinanceDashboard = () => {
 };
 
 // 2. Profit & Loss Report
+import { getProfitLossReport } from "../../utils/Api";
+
 const ProfitLossReport = () => {
   const [dateRange, setDateRange] = useState({ from: "2025-10-01", to: "2025-10-31" });
   const [selectedModule, setSelectedModule] = useState("all");
@@ -347,57 +389,59 @@ const ProfitLossReport = () => {
     profitRange: "all",
     transactionCount: "all",
   });
+  const [loading, setLoading] = useState(true);
+  const [reportData, setReportData] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Fetch profit & loss data
+  useEffect(() => {
+    fetchProfitLossData();
+  }, []); // Remove dateRange and selectedModule dependencies
+
+  const fetchProfitLossData = () => {
+    setLoading(true);
+    setError(null);
+
+    // No filters - API will return full data
+    getProfitLossReport()
+      .then((res) => {
+        setReportData(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load profit & loss data");
+        setLoading(false);
+      });
+  };
 
   const handleGenerateReport = () => {
+    fetchProfitLossData();
     setShowReportModal(true);
   };
 
-  const profitLossData = [
-    {
-      module: "Hotels",
-      totalIncome: 5000000,
-      totalExpense: 3000000,
-      profit: 2000000,
-      loss: 0,
-      transactions: 125,
-    },
-    {
-      module: "Visas",
-      totalIncome: 2000000,
-      totalExpense: 1600000,
-      profit: 400000,
-      loss: 0,
-      transactions: 89,
-    },
-    {
-      module: "Transport",
-      totalIncome: 1000000,
-      totalExpense: 700000,
-      profit: 300000,
-      loss: 0,
-      transactions: 45,
-    },
-    {
-      module: "Tickets",
-      totalIncome: 4400000,
-      totalExpense: 3400000,
-      profit: 1000000,
-      loss: 0,
-      transactions: 234,
-    },
-    {
-      module: "Umrah Packages",
-      totalIncome: 8500000,
-      totalExpense: 6200000,
-      profit: 2300000,
-      loss: 0,
-      transactions: 67,
-    },
-  ];
+  // Module labels mapping
+  const moduleLabels = {
+    hotel: "Hotels",
+    visa: "Visas",
+    transport: "Transport",
+    ticket: "Tickets",
+    umrah: "Umrah Packages",
+    other: "Other",
+  };
 
-  const totalIncome = profitLossData.reduce((sum, item) => sum + item.totalIncome, 0);
-  const totalExpense = profitLossData.reduce((sum, item) => sum + item.totalExpense, 0);
-  const totalProfit = profitLossData.reduce((sum, item) => sum + item.profit, 0);
+  // Transform backend data to component format
+  const profitLossData = reportData?.summary ? Object.entries(reportData.summary).map(([key, value]) => ({
+    module: moduleLabels[key] || key,
+    totalIncome: parseFloat(value.income || 0),
+    totalExpense: parseFloat(value.expenses || 0),
+    profit: parseFloat(value.profit || 0),
+    loss: 0,
+    transactions: 0, // Backend doesn't provide this yet
+  })) : [];
+
+  const totalIncome = reportData?.total_income ? parseFloat(reportData.total_income) : 0;
+  const totalExpense = reportData?.total_expenses ? parseFloat(reportData.total_expenses) : 0;
+  const totalProfit = reportData?.total_profit ? parseFloat(reportData.total_profit) : 0;
 
   return (
     <div>
@@ -447,15 +491,15 @@ const ProfitLossReport = () => {
               </Form.Select>
             </Col>
             <Col md={3} sm={6} xs={12} className="d-flex align-items-end gap-2">
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 className="flex-grow-1"
                 onClick={handleGenerateReport}
               >
                 Generate Report
               </Button>
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 onClick={() => setShowMoreFilters(!showMoreFilters)}
               >
                 <Filter size={16} />
@@ -468,8 +512,8 @@ const ProfitLossReport = () => {
             <Row className="g-3 mt-2 pt-3 border-top">
               <Col md={4}>
                 <Form.Label className="small fw-semibold">Branch</Form.Label>
-                <Form.Select 
-                  value={advancedFilters.branch} 
+                <Form.Select
+                  value={advancedFilters.branch}
                   onChange={(e) => setAdvancedFilters({ ...advancedFilters, branch: e.target.value })}
                 >
                   <option value="all">All Branches</option>
@@ -481,8 +525,8 @@ const ProfitLossReport = () => {
               </Col>
               <Col md={4}>
                 <Form.Label className="small fw-semibold">Profit Range</Form.Label>
-                <Form.Select 
-                  value={advancedFilters.profitRange} 
+                <Form.Select
+                  value={advancedFilters.profitRange}
                   onChange={(e) => setAdvancedFilters({ ...advancedFilters, profitRange: e.target.value })}
                 >
                   <option value="all">All Ranges</option>
@@ -494,8 +538,8 @@ const ProfitLossReport = () => {
               </Col>
               <Col md={4}>
                 <Form.Label className="small fw-semibold">Transaction Count</Form.Label>
-                <Form.Select 
-                  value={advancedFilters.transactionCount} 
+                <Form.Select
+                  value={advancedFilters.transactionCount}
                   onChange={(e) => setAdvancedFilters({ ...advancedFilters, transactionCount: e.target.value })}
                 >
                   <option value="all">All Counts</option>
@@ -511,32 +555,47 @@ const ProfitLossReport = () => {
       </Card>
 
       {/* Summary Cards */}
-      <Row className="g-3 mb-4">
-        <Col md={4}>
-          <Card className="border-0 shadow-sm" style={{ backgroundColor: "#d4edda" }}>
-            <Card.Body>
-              <h6 className="text-muted mb-2">Total Income</h6>
-              <h3 className="fw-bold text-success mb-0">Rs. {totalIncome.toLocaleString()}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="border-0 shadow-sm" style={{ backgroundColor: "#f8d7da" }}>
-            <Card.Body>
-              <h6 className="text-muted mb-2">Total Expense</h6>
-              <h3 className="fw-bold text-danger mb-0">Rs. {totalExpense.toLocaleString()}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="border-0 shadow-sm" style={{ backgroundColor: "#d1ecf1" }}>
-            <Card.Body>
-              <h6 className="text-muted mb-2">Net Profit</h6>
-              <h3 className="fw-bold text-primary mb-0">Rs. {totalProfit.toLocaleString()}</h3>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      {loading ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3 text-muted">Loading profit & loss data...</p>
+        </div>
+      ) : error ? (
+        <div className="alert alert-danger" role="alert">
+          <strong>Error:</strong> {error}
+        </div>
+      ) : (
+        <>
+          <Row className="g-3 mb-4">
+            <Col md={4}>
+              <Card className="border-0 shadow-sm" style={{ backgroundColor: "#d4edda" }}>
+                <Card.Body>
+                  <h6 className="text-muted mb-2">Total Income</h6>
+                  <h3 className="fw-bold text-success mb-0">Rs. {totalIncome.toLocaleString()}</h3>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={4}>
+              <Card className="border-0 shadow-sm" style={{ backgroundColor: "#f8d7da" }}>
+                <Card.Body>
+                  <h6 className="text-muted mb-2">Total Expense</h6>
+                  <h3 className="fw-bold text-danger mb-0">Rs. {totalExpense.toLocaleString()}</h3>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={4}>
+              <Card className="border-0 shadow-sm" style={{ backgroundColor: "#d1ecf1" }}>
+                <Card.Body>
+                  <h6 className="text-muted mb-2">Net Profit</h6>
+                  <h3 className="fw-bold text-primary mb-0">Rs. {totalProfit.toLocaleString()}</h3>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </>
+      )}
 
       {/* Detailed Table */}
       <Card className="border-0 shadow-sm">
@@ -555,22 +614,39 @@ const ProfitLossReport = () => {
               </tr>
             </thead>
             <tbody>
-              {profitLossData.map((item, index) => {
-                const profitMargin = ((item.profit / item.totalIncome) * 100).toFixed(2);
-                return (
-                  <tr key={index}>
-                    <td className="fw-semibold">{item.module}</td>
-                    <td className="text-success">Rs. {item.totalIncome.toLocaleString()}</td>
-                    <td className="text-danger">Rs. {item.totalExpense.toLocaleString()}</td>
-                    <td className="fw-bold text-primary">Rs. {item.profit.toLocaleString()}</td>
-                    <td>Rs. {item.loss.toLocaleString()}</td>
-                    <td>{item.transactions}</td>
-                    <td>
-                      <span className="badge bg-success">{profitMargin}%</span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4">
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    Loading data...
+                  </td>
+                </tr>
+              ) : profitLossData.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4 text-muted">
+                    No profit & loss data available for the selected period
+                  </td>
+                </tr>
+              ) : (
+                profitLossData.map((item, index) => {
+                  const profitMargin = item.totalIncome > 0 ? ((item.profit / item.totalIncome) * 100).toFixed(2) : '0.00';
+                  return (
+                    <tr key={index}>
+                      <td className="fw-semibold">{item.module}</td>
+                      <td className="text-success">Rs. {item.totalIncome.toLocaleString()}</td>
+                      <td className="text-danger">Rs. {item.totalExpense.toLocaleString()}</td>
+                      <td className="fw-bold text-primary">Rs. {item.profit.toLocaleString()}</td>
+                      <td>Rs. {item.loss.toLocaleString()}</td>
+                      <td>{item.transactions}</td>
+                      <td>
+                        <span className="badge bg-success">{profitMargin}%</span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
             <tfoot className="table-light fw-bold">
               <tr>
@@ -582,7 +658,7 @@ const ProfitLossReport = () => {
                 <td>{profitLossData.reduce((sum, item) => sum + item.transactions, 0)}</td>
                 <td>
                   <span className="badge bg-success">
-                    {((totalProfit / totalIncome) * 100).toFixed(2)}%
+                    {totalIncome > 0 ? ((totalProfit / totalIncome) * 100).toFixed(2) : '0.00'}%
                   </span>
                 </td>
               </tr>
@@ -693,127 +769,38 @@ const FinancialLedger = () => {
     agent: "all",
     amountRange: "all",
   });
+  const [loading, setLoading] = useState(true);
+  const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [error, setError] = useState(null);
 
-  const ledgerEntries = [
-    {
-      date: "2025-10-28",
-      referenceNo: "SAER-HTL-00145",
-      module: "Hotel",
-      description: "Madinah Oberoi Hotel - 5 Nights Booking",
-      agentName: "Al-Haramain Tours",
-      income: 150000,
-      expense: 0,
-      balance: 150000,
-      type: "income",
-    },
-    {
-      date: "2025-10-28",
-      referenceNo: "SAER-HTL-00145-EXP",
-      module: "Hotel",
-      description: "Hotel Payment to Supplier",
-      agentName: "Al-Haramain Tours",
-      income: 0,
-      expense: 95000,
-      balance: 55000,
-      type: "expense",
-    },
-    {
-      date: "2025-10-27",
-      referenceNo: "SAER-TKT-00289",
-      module: "Ticket",
-      description: "ISB-JED Flight Booking - Saudi Airlines",
-      agentName: "Makkah Express",
-      income: 95000,
-      expense: 0,
-      balance: 150000,
-      type: "income",
-    },
-    {
-      date: "2025-10-27",
-      referenceNo: "SAER-TKT-00289-EXP",
-      module: "Ticket",
-      description: "Airline Payment",
-      agentName: "Makkah Express",
-      income: 0,
-      expense: 78000,
-      balance: 72000,
-      type: "expense",
-    },
-    {
-      date: "2025-10-26",
-      referenceNo: "SAER-VIS-00112",
-      module: "Visa",
-      description: "Umrah Visa Processing - 10 PAX",
-      agentName: "Safar Tours",
-      income: 80000,
-      expense: 0,
-      balance: 150000,
-      type: "income",
-    },
-    {
-      date: "2025-10-26",
-      referenceNo: "SAER-VIS-00112-EXP",
-      module: "Visa",
-      description: "Visa Fee Payment to Embassy",
-      agentName: "Safar Tours",
-      income: 0,
-      expense: 65000,
-      balance: 85000,
-      type: "expense",
-    },
-    {
-      date: "2025-10-25",
-      referenceNo: "SAER-TRN-00067",
-      module: "Transport",
-      description: "Airport Transfer - Jeddah to Makkah",
-      agentName: "Rihla Travel",
-      income: 25000,
-      expense: 0,
-      balance: 110000,
-      type: "income",
-    },
-    {
-      date: "2025-10-25",
-      referenceNo: "SAER-TRN-00067-EXP",
-      module: "Transport",
-      description: "Fuel & Driver Payment",
-      agentName: "Rihla Travel",
-      income: 0,
-      expense: 15000,
-      balance: 95000,
-      type: "expense",
-    },
-    {
-      date: "2025-10-24",
-      referenceNo: "SAER-UMR-00023",
-      module: "Umrah Package",
-      description: "Complete Umrah Package - 15 Days",
-      agentName: "Ziyarat Services",
-      income: 450000,
-      expense: 0,
-      balance: 545000,
-      type: "income",
-    },
-    {
-      date: "2025-10-24",
-      referenceNo: "SAER-UMR-00023-EXP",
-      module: "Umrah Package",
-      description: "Package Expenses (Hotel+Ticket+Visa+Transport)",
-      agentName: "Ziyarat Services",
-      income: 0,
-      expense: 320000,
-      balance: 225000,
-      type: "expense",
-    },
-  ];
+  // Fetch ledger data
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    const params = {};
+    if (moduleFilter !== "all") {
+      params.service_type = moduleFilter;
+    }
+
+    getLedger(params)
+      .then((res) => {
+        const records = res.data.records || [];
+        setLedgerEntries(records);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load ledger data");
+        setLoading(false);
+      });
+  }, [moduleFilter]);
 
   const filteredLedger = ledgerEntries.filter((entry) => {
     const matchesSearch =
-      entry.referenceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.agentName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModule = moduleFilter === "all" || entry.module.toLowerCase() === moduleFilter.toLowerCase();
-    return matchesSearch && matchesModule;
+      (entry.reference_no && entry.reference_no.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.agent_name && entry.agent_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.booking_id && entry.booking_id.toString().includes(searchTerm));
+    return matchesSearch;
   });
 
   return (
@@ -847,8 +834,8 @@ const FinancialLedger = () => {
               </Form.Select>
             </Col>
             <Col md={3} sm={6} xs={12}>
-              <Button 
-                variant="outline-primary" 
+              <Button
+                variant="outline-primary"
                 className="w-100"
                 onClick={() => setShowMoreFilters(!showMoreFilters)}
               >
@@ -879,8 +866,8 @@ const FinancialLedger = () => {
               </Col>
               <Col md={2}>
                 <Form.Label className="small fw-semibold">Type</Form.Label>
-                <Form.Select 
-                  value={advancedFilters.type} 
+                <Form.Select
+                  value={advancedFilters.type}
                   onChange={(e) => setAdvancedFilters({ ...advancedFilters, type: e.target.value })}
                 >
                   <option value="all">All Types</option>
@@ -890,8 +877,8 @@ const FinancialLedger = () => {
               </Col>
               <Col md={2}>
                 <Form.Label className="small fw-semibold">Agent</Form.Label>
-                <Form.Select 
-                  value={advancedFilters.agent} 
+                <Form.Select
+                  value={advancedFilters.agent}
                   onChange={(e) => setAdvancedFilters({ ...advancedFilters, agent: e.target.value })}
                 >
                   <option value="all">All Agents</option>
@@ -904,8 +891,8 @@ const FinancialLedger = () => {
               </Col>
               <Col md={2}>
                 <Form.Label className="small fw-semibold">Amount Range</Form.Label>
-                <Form.Select 
-                  value={advancedFilters.amountRange} 
+                <Form.Select
+                  value={advancedFilters.amountRange}
                   onChange={(e) => setAdvancedFilters({ ...advancedFilters, amountRange: e.target.value })}
                 >
                   <option value="all">All Amounts</option>
@@ -941,33 +928,56 @@ const FinancialLedger = () => {
               <tr>
                 <th>Date</th>
                 <th>Reference No</th>
-                <th>Module</th>
-                <th>Description</th>
+                <th>Booking ID</th>
                 <th>Agent/Branch</th>
                 <th>Income</th>
                 <th>Expense</th>
-                <th>Balance</th>
+                <th>Profit</th>
               </tr>
             </thead>
             <tbody>
-              {filteredLedger.map((entry, index) => (
-                <tr key={index}>
-                  <td>{entry.date}</td>
-                  <td className="fw-semibold text-primary">{entry.referenceNo}</td>
-                  <td>
-                    <Badge bg="secondary">{entry.module}</Badge>
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4">
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    Loading ledger data...
                   </td>
-                  <td>{entry.description}</td>
-                  <td>{entry.agentName}</td>
-                  <td className="text-success fw-bold">
-                    {entry.income > 0 ? `Rs. ${entry.income.toLocaleString()}` : "—"}
-                  </td>
-                  <td className="text-danger fw-bold">
-                    {entry.expense > 0 ? `Rs. ${entry.expense.toLocaleString()}` : "—"}
-                  </td>
-                  <td className="fw-bold">Rs. {entry.balance.toLocaleString()}</td>
                 </tr>
-              ))}
+              ) : error ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4">
+                    <div className="alert alert-danger mb-0">{error}</div>
+                  </td>
+                </tr>
+              ) : filteredLedger.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-4 text-muted">
+                    No ledger entries found
+                  </td>
+                </tr>
+              ) : (
+                filteredLedger.map((entry, index) => (
+                  <tr key={index}>
+                    <td>{entry.record_date || 'N/A'}</td>
+                    <td className="fw-semibold text-primary">{entry.reference_no || `BK-${entry.booking_id}`}</td>
+                    <td>
+                      <Badge bg="secondary">#{entry.booking_id}</Badge>
+                    </td>
+                    <td>{entry.agent_name || 'N/A'}</td>
+                    <td className="text-success fw-bold">
+                      Rs. {parseFloat(entry.income_amount || 0).toLocaleString()}
+                    </td>
+                    <td className="text-danger fw-bold">
+                      Rs. {parseFloat(entry.expense_amount || 0).toLocaleString()}
+                    </td>
+                    <td className={`fw-bold ${parseFloat(entry.profit || 0) >= 0 ? 'text-primary' : 'text-danger'}`}>
+                      Rs. {parseFloat(entry.profit || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </Table>
         </Card.Body>
@@ -983,90 +993,37 @@ const ExpenseManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [expenseFilter, setExpenseFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] = useState([]);
+  const [error, setError] = useState(null);
 
-  const expenses = [
-    {
-      id: 1,
-      date: "2025-10-28",
-      expenseType: "Staff Salary",
-      moduleType: "General",
-      description: "October Monthly Salaries - Admin Staff",
-      amount: 450000,
-      paymentMode: "Bank Transfer",
-      paidTo: "Employee Accounts",
-      status: "Paid",
-      approvedBy: "Admin Manager",
-    },
-    {
-      id: 2,
-      date: "2025-10-27",
-      expenseType: "Hotel Cleaning",
-      moduleType: "Hotel",
-      description: "Room Cleaning Services - Makkah Hotels",
-      amount: 25000,
-      paymentMode: "Cash",
-      paidTo: "Cleaning Vendor",
-      status: "Paid",
-      approvedBy: "Hotel Manager",
-    },
-    {
-      id: 3,
-      expenseType: "Fuel Cost",
-      moduleType: "Transport",
-      description: "Fuel for Airport Transfers - October",
-      amount: 35000,
-      paymentMode: "Cash",
-      paidTo: "Petrol Pump",
-      status: "Paid",
-      approvedBy: "Transport Manager",
-      date: "2025-10-26",
-    },
-    {
-      id: 4,
-      expenseType: "Visa Fee",
-      moduleType: "Visa",
-      description: "Embassy Visa Processing Charges",
-      amount: 180000,
-      paymentMode: "Bank",
-      paidTo: "Saudi Embassy",
-      status: "Pending",
-      approvedBy: "Visa Manager",
-      date: "2025-10-25",
-    },
-    {
-      id: 5,
-      expenseType: "Office Maintenance",
-      moduleType: "General",
-      description: "Office Repairs & Maintenance",
-      amount: 55000,
-      paymentMode: "Cash",
-      paidTo: "Maintenance Company",
-      status: "Paid",
-      approvedBy: "Admin Manager",
-      date: "2025-10-24",
-    },
-    {
-      id: 6,
-      expenseType: "Electricity Bill",
-      moduleType: "General",
-      description: "September Electricity Bill",
-      amount: 42000,
-      paymentMode: "Bank",
-      paidTo: "WAPDA",
-      status: "Paid",
-      approvedBy: "Finance Manager",
-      date: "2025-10-23",
-    },
-  ];
+  // Fetch expenses from API
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    getExpenses()
+      .then((res) => {
+        // Backend may return expenses in different structures
+        const expenseData = res.data.expenses || res.data || [];
+        setExpenses(expenseData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load expenses");
+        setLoading(false);
+      });
+  }, []);
 
   const filteredExpenses = expenses.filter((exp) => {
     if (expenseFilter === "all") return true;
-    return exp.status.toLowerCase() === expenseFilter.toLowerCase();
+    // Filter by category if needed
+    return true;
   });
 
-  const totalExpense = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const paidExpense = expenses.filter((e) => e.status === "Paid").reduce((sum, exp) => sum + exp.amount, 0);
-  const pendingExpense = expenses.filter((e) => e.status === "Pending").reduce((sum, exp) => sum + exp.amount, 0);
+  const totalExpense = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
+  const paidExpense = totalExpense; // Simplified - all expenses are considered paid
+  const pendingExpense = 0; // Simplified
 
   return (
     <div>
@@ -1161,49 +1118,70 @@ const ExpenseManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredExpenses.map((expense) => (
-                <tr key={expense.id}>
-                  <td>{expense.date}</td>
-                  <td className="fw-semibold">{expense.expenseType}</td>
-                  <td>
-                    <Badge bg="info">{expense.moduleType}</Badge>
-                  </td>
-                  <td>{expense.description}</td>
-                  <td className="fw-bold text-danger">Rs. {expense.amount.toLocaleString()}</td>
-                  <td>{expense.paymentMode}</td>
-                  <td>{expense.paidTo}</td>
-                  <td>
-                    <Badge bg={expense.status === "Paid" ? "success" : "warning"}>
-                      {expense.status}
-                    </Badge>
-                  </td>
-                  <td className="small">{expense.approvedBy}</td>
-                  <td>
-                    <div className="d-flex gap-1">
-                      <Button 
-                        variant="outline-primary" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedExpense(expense);
-                          setShowEditModal(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="outline-danger" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedExpense(expense);
-                          setShowDeleteModal(true);
-                        }}
-                      >
-                        Delete
-                      </Button>
+              {loading ? (
+                <tr>
+                  <td colSpan="10" className="text-center py-4">
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Loading...</span>
                     </div>
+                    Loading expenses...
                   </td>
                 </tr>
-              ))}
+              ) : error ? (
+                <tr>
+                  <td colSpan="10" className="text-center py-4">
+                    <div className="alert alert-danger mb-0">{error}</div>
+                  </td>
+                </tr>
+              ) : filteredExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan="10" className="text-center py-4 text-muted">
+                    No expenses found
+                  </td>
+                </tr>
+              ) : (
+                filteredExpenses.map((expense, index) => (
+                  <tr key={expense.id || index}>
+                    <td>{expense.date}</td>
+                    <td className="fw-semibold">{expense.category || 'N/A'}</td>
+                    <td>
+                      <Badge bg="info">{expense.module_type || 'General'}</Badge>
+                    </td>
+                    <td>{expense.notes || 'N/A'}</td>
+                    <td className="fw-bold text-danger">Rs. {parseFloat(expense.amount || 0).toLocaleString()}</td>
+                    <td>{expense.payment_mode || 'N/A'}</td>
+                    <td>{expense.paid_to || 'N/A'}</td>
+                    <td>
+                      <Badge bg="success">Paid</Badge>
+                    </td>
+                    <td className="small">{expense.created_by || 'System'}</td>
+                    <td>
+                      <div className="d-flex gap-1">
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedExpense(expense);
+                            setShowEditModal(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedExpense(expense);
+                            setShowDeleteModal(true);
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </Table>
         </Card.Body>
@@ -2111,8 +2089,8 @@ const AuditTrail = () => {
                         log.action === "Created"
                           ? "success"
                           : log.action === "Updated"
-                          ? "warning"
-                          : "danger"
+                            ? "warning"
+                            : "danger"
                       }
                     >
                       {log.action}
@@ -2122,8 +2100,8 @@ const AuditTrail = () => {
                   <td className="text-primary fw-semibold small">{log.recordId}</td>
                   <td className="small">{log.description}</td>
                   <td>
-                    <Button 
-                      variant="outline-primary" 
+                    <Button
+                      variant="outline-primary"
                       size="sm"
                       onClick={() => {
                         setSelectedLog(log);
@@ -2169,8 +2147,8 @@ const AuditTrail = () => {
                         selectedLog.action === "Created"
                           ? "success"
                           : selectedLog.action === "Updated"
-                          ? "warning"
-                          : "danger"
+                            ? "warning"
+                            : "danger"
                       }
                     >
                       {selectedLog.action}

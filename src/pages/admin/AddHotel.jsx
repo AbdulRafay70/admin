@@ -83,7 +83,7 @@ const AddHotels = () => {
       };
 
       try {
-        const DIRECT_BACKEND = (window.REACT_APP_API_URL && window.REACT_APP_API_URL.length>0) ? window.REACT_APP_API_URL : 'https://api.saer.pk';
+        const DIRECT_BACKEND = (window.REACT_APP_API_URL && window.REACT_APP_API_URL.length > 0) ? window.REACT_APP_API_URL : 'http://127.0.0.1:8000';
 
         if (orgId) {
           try {
@@ -138,7 +138,7 @@ const AddHotels = () => {
         } else {
           toast.error(
             "Failed to load cities: " +
-              (error.response?.data?.detail || error.response?.data || "Unknown error.")
+            (error.response?.data?.detail || error.response?.data || "Unknown error.")
           );
         }
       }

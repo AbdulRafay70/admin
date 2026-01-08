@@ -5,7 +5,7 @@ import axios from "axios";
 
 const RoomMapManager = ({ hotelId, onSaved }) => {
   const [activeTab, setActiveTab] = useState("floors");
-  
+
   // Demo hardcoded data
   const demoFloors = [
     {
@@ -115,13 +115,13 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await axios.get('https://api.saer.pk/api/hotels/room-map/', {
+      const response = await axios.get('http://127.0.0.1:8000/api/hotels/room-map/', {
         params: { hotel_id: hotelId },
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       const roomMapData = response.data;
-      
+
       // Transform the data structure to match the component's expected format
       const transformedFloors = roomMapData.floors?.map(floor => ({
         id: floor.id,
@@ -144,7 +144,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       })) || [];
 
       setFloors(transformedFloors);
-      
+
       // Set first floor and first room as selected by default
       if (transformedFloors.length > 0) {
         setSelectedFloor(transformedFloors[0]);
@@ -232,7 +232,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       if (editingFloor && editingFloor.id) {
         // Update existing floor
         await axios.patch(
-          `https://api.saer.pk/api/hotel-floors/${editingFloor.id}/`,
+          `http://127.0.0.1:8000/api/hotel-floors/${editingFloor.id}/`,
           floorPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -240,7 +240,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       } else {
         // Create new floor
         await axios.post(
-          'https://api.saer.pk/api/hotel-floors/',
+          'http://127.0.0.1:8000/api/hotel-floors/',
           floorPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -275,10 +275,10 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      
+
       // Get the floor number from selectedFloor
       const floorNumber = String(selectedFloor.floor_no);
-      
+
       // Build details array for beds
       const bedsData = editingRoom ? editingRoom.beds : [];
       const details = bedsData.map((bed, index) => ({
@@ -298,7 +298,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       if (editingRoom && editingRoom.id) {
         // Update existing room
         await axios.patch(
-          `https://api.saer.pk/api/hotel-rooms/${editingRoom.id}/`,
+          `http://127.0.0.1:8000/api/hotel-rooms/${editingRoom.id}/`,
           roomPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -306,7 +306,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       } else {
         // Create new room
         await axios.post(
-          'https://api.saer.pk/api/hotel-rooms/',
+          'http://127.0.0.1:8000/api/hotel-rooms/',
           roomPayload,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
@@ -455,7 +455,7 @@ const RoomMapManager = ({ hotelId, onSaved }) => {
       };
 
       const token = localStorage.getItem("accessToken");
-      await axios.post("https://api.saer.pk/api/hotels/room-map", payload, {
+      await axios.post("http://127.0.0.1:8000/api/hotels/room-map", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

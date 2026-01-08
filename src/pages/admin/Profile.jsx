@@ -68,7 +68,7 @@ const ProfilePage = () => {
         const userId = decoded.user_id || decoded.id;
 
         const response = await axios.get(
-          `https://api.saer.pk/api/users/${userId}/`,
+          `http://127.0.0.1:8000/api/users/${userId}/`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -109,7 +109,7 @@ const ProfilePage = () => {
       }
       try {
         const token = localStorage.getItem("accessToken");
-        const response = await axios.get(`https://api.saer.pk/api/branches/`, {
+        const response = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const branchData = response.data.filter(
@@ -147,7 +147,7 @@ const ProfilePage = () => {
       }
       try {
         const token = localStorage.getItem("accessToken");
-        const response = await axios.get(`https://api.saer.pk/api/groups/`, {
+        const response = await axios.get(`http://127.0.0.1:8000/api/groups/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const allGroups = response.data;
@@ -199,7 +199,26 @@ const ProfilePage = () => {
   };
 
   const renderEditableField = (section, key, value) => {
+    // Check if user is an employee or branch user (subagent)
+    const isEmployee = profile?.profile?.type === "employee";
+    const isSubagent = profile?.profile?.type === "subagent";
+
     if (key === "organization_details") {
+      // For employees and subagents, show organization as read-only text
+      if (isEmployee || isSubagent) {
+        const userOrgs = Array.isArray(value) ? value : [];
+        return (
+          <input
+            type="text"
+            className="form-control bg-light"
+            value={userOrgs.length > 0 ? userOrgs.map(org => org.name).join(", ") : "No organization assigned"}
+            readOnly
+            style={{ cursor: "not-allowed" }}
+          />
+        );
+      }
+
+      // For non-employees (admins, etc.), allow selection
       return (
         <select
           className="form-select shadow-none mb-2"
@@ -216,20 +235,41 @@ const ProfilePage = () => {
     }
 
     if (key === "branch_details") {
-      return branches.length > 0 ? (
+      // Use the user's assigned branches from their profile data
+      const userBranches = Array.isArray(value) ? value : [];
+      const isEmployee = profile?.profile?.type === "employee";
+      const isSubagent = profile?.profile?.type === "subagent";
+
+      // For employees and subagents, show branch as read-only text
+      if (isEmployee || isSubagent) {
+        return (
+          <input
+            type="text"
+            className="form-control bg-light"
+            value={userBranches.length > 0
+              ? userBranches.map(b => `${b.name} ${b.branch_code ? `(${b.branch_code})` : ""}`).join(", ")
+              : "No branches assigned"}
+            readOnly
+            style={{ cursor: "not-allowed" }}
+          />
+        );
+      }
+
+      // For non-employees, allow selection if they have branches
+      return userBranches.length > 0 ? (
         <select
           className="form-select shadow-none"
-          value={selectedBranch ? selectedBranch.id : ""}
+          value={selectedBranch ? selectedBranch.id : (userBranches[0]?.id || "")}
           onChange={handleBranchChange}
         >
-          {branches.map((branch) => (
+          {userBranches.map((branch) => (
             <option key={branch.id} value={branch.id}>
-              {branch.name}
+              {branch.name} {branch.branch_code ? `(${branch.branch_code})` : ""}
             </option>
           ))}
         </select>
       ) : (
-        <div className="text-muted">No branches available.</div>
+        <div className="text-muted">No branches assigned.</div>
       );
     }
 
@@ -279,13 +319,15 @@ const ProfilePage = () => {
             ? "Inactive"
             : value === null || value === undefined
               ? ""
-              : value}
+              : value === "subagent"
+                ? "Branch"
+                : value}
       </span>
     );
   };
 
   return (
-          <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
 
       <style>
         {`
@@ -303,74 +345,74 @@ const ProfilePage = () => {
         `}
       </style>
 
-        <div className="row g-0">
-          {/* Sidebar */}
-          <div className="col-12 col-lg-2">
-            <Sidebar />
-          </div>
-          {/* Main Content */}
-          <div className="col-12 col-lg-10">
-            <div className="container">
-              <Header />
-              <div className="px-3 px-lg-4 my-3">
-                <div className="row d-flex justify-content-center align-items-center">
-                  <div className="col-lg-8 col-md-10">
-                    {loading || !profile || !selectedOrganization ? (
-                      <ProfileShimmer />
-                    ) : (
-                      <div className="p-4">
-                        <h2 className="text-center mt-5 mb-4 text-muted">
-                          Profile Page
-                        </h2>
+      <div className="row g-0">
+        {/* Sidebar */}
+        <div className="col-12 col-lg-2">
+          <Sidebar />
+        </div>
+        {/* Main Content */}
+        <div className="col-12 col-lg-10">
+          <div className="container">
+            <Header />
+            <div className="px-3 px-lg-4 my-3">
+              <div className="row d-flex justify-content-center align-items-center">
+                <div className="col-lg-8 col-md-10">
+                  {loading || !profile || !selectedOrganization ? (
+                    <ProfileShimmer />
+                  ) : (
+                    <div className="p-4">
+                      <h2 className="text-center mt-5 mb-4 text-muted">
+                        Profile Page
+                      </h2>
 
-                        <div className="profile-content">
-                          {Object.entries(profile)
-                            .filter(
-                              ([key]) =>
-                                !hiddenKeys.includes(key) && key !== "profile"
-                            )
-                            .map(([key, value]) => (
-                              <div key={key} className="row mb-3 align-items-center">
+                      <div className="profile-content">
+                        {Object.entries(profile)
+                          .filter(
+                            ([key]) =>
+                              !hiddenKeys.includes(key) && key !== "profile"
+                          )
+                          .map(([key, value]) => (
+                            <div key={key} className="row mb-3 align-items-center">
+                              <div className="col-sm-4">
+                                <strong className="text-dark">
+                                  {formatLabel(key)}:
+                                </strong>
+                              </div>
+                              <div className="col-sm-8">
+                                {renderEditableField("main", key, value)}
+                              </div>
+                            </div>
+                          ))}
+
+                        {Object.keys(nestedProfile).length > 0 && (
+                          <>
+                            {Object.entries(nestedProfile).map(([key, value]) => (
+                              <div
+                                key={key}
+                                className="row mb-3 align-items-center"
+                              >
                                 <div className="col-sm-4">
                                   <strong className="text-dark">
                                     {formatLabel(key)}:
                                   </strong>
                                 </div>
                                 <div className="col-sm-8">
-                                  {renderEditableField("main", key, value)}
+                                  {renderEditableField("nested", key, value)}
                                 </div>
                               </div>
                             ))}
-
-                          {Object.keys(nestedProfile).length > 0 && (
-                            <>
-                              {Object.entries(nestedProfile).map(([key, value]) => (
-                                <div
-                                  key={key}
-                                  className="row mb-3 align-items-center"
-                                >
-                                  <div className="col-sm-4">
-                                    <strong className="text-dark">
-                                      {formatLabel(key)}:
-                                    </strong>
-                                  </div>
-                                  <div className="col-sm-8">
-                                    {renderEditableField("nested", key, value)}
-                                  </div>
-                                </div>
-                              ))}
-                            </>
-                          )}
-                        </div>
+                          </>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
   );
 };
 

@@ -32,7 +32,7 @@ const ShimmerLoader = () => {
 };
 
 const Organization = () => {
-  const API_URL = "https://api.saer.pk/api/organizations/";
+  const API_URL = "http://127.0.0.1:8000/api/organizations/";
   const CACHE_KEY = "organizations_cache";
   const CACHE_TIMESTAMP_KEY = "organizations_cache_timestamp";
   const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes cache expiry
@@ -60,7 +60,7 @@ const Organization = () => {
   const accessToken = localStorage.getItem("accessToken");
 
   const api = axios.create({
-    baseURL: "https://api.saer.pk",
+    baseURL: "http://127.0.0.1:8000",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "multipart/form-data",
@@ -131,7 +131,7 @@ const Organization = () => {
     try {
       // eslint-disable-next-line no-console
       console.debug("Organization mounted", window.location.pathname);
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Handle search
@@ -291,124 +291,124 @@ const Organization = () => {
         `}
       </style>
       <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
-      <div className="row g-0">
-        {/* Sidebar */}
-        <div className="col-12 col-lg-2">
-          <Sidebar />
-        </div>
-        {/* Main Content */}
-        <div className="col-12 col-lg-10">
-          <div className="container">
-            <Header />
-            <div className="px-3 px-lg-4 my-3">
-              {/* Navigation Tabs */}
-              <PartnersTabs />
+        <div className="row g-0">
+          {/* Sidebar */}
+          <div className="col-12 col-lg-2">
+            <Sidebar />
+          </div>
+          {/* Main Content */}
+          <div className="col-12 col-lg-10">
+            <div className="container">
+              <Header />
+              <div className="px-3 px-lg-4 my-3">
+                {/* Navigation Tabs */}
+                <PartnersTabs />
 
-              {/* Error Message */}
-              {error && (
-                <div className="alert alert-danger" role="alert">
-                  {error}
-                  <button
-                    type="button"
-                    className="btn-close float-end"
-                    onClick={() => setError(null)}
-                    aria-label="Close"
-                  ></button>
-                </div>
-              )}
-
-              {/* Organization Table */}
-              <div className="p-3 my-3 bg-white rounded shadow-sm">
-                <div className="d-flex flex-wrap justify-content-between">
-                  <h5 className="fw-semibold mb-0">Organizations</h5>
-                  <div className="d-flex gap-2">
+                {/* Error Message */}
+                {error && (
+                  <div className="alert alert-danger" role="alert">
+                    {error}
                     <button
-                      className="btn btn-primary"
-                      onClick={handleShowCreate}
-                    >
-                      Add Organization
-                    </button>
-                    <button className="btn btn-primary">Print</button>
-                    <button className="btn btn-primary">Download</button>
+                      type="button"
+                      className="btn-close float-end"
+                      onClick={() => setError(null)}
+                      aria-label="Close"
+                    ></button>
                   </div>
-                </div>
-
-                {isLoading ? (
-                  <div className="p-3">
-                    <ShimmerLoader />
-                  </div>
-                ) : filteredOrganizations.length === 0 ? (
-                  <div className="text-center py-5">
-                    <p>No organizations found</p>
-                  </div>
-                ) : (
-                  <>
-                    <Table
-                      hover
-                      responsive
-                      className="align-middle text-center mt-3"
-                    >
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Name</th>
-                          <th>Phone</th>
-                          <th>Email</th>
-                          <th>Address</th>
-                          <th>Logo</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredOrganizations.map((org) => (
-                          <tr key={org.id}>
-                            <td>{org.id}</td>
-                            <td>{org.name}</td>
-                            <td>{org.phone_number}</td>
-                            <td>{org.email}</td>
-                            <td>{org.address}</td>
-                            <td>
-                              {org.logo ? (
-                                <a href={org.logo} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">View</a>
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td>
-                              <Dropdown>
-                                <Dropdown.Toggle
-                                  variant="link"
-                                  className="text-decoration-none p-0"
-                                >
-                                  <Gear size={18} />
-                                </Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                  <Dropdown.Item
-                                    className="text-primary"
-                                    onClick={() => handleShowEdit(org)}
-                                  >
-                                    Edit
-                                  </Dropdown.Item>
-                                  <Dropdown.Item
-                                    className="text-danger"
-                                    onClick={() => handleDelete(org.id)}
-                                  >
-                                    Delete
-                                  </Dropdown.Item>
-                                </Dropdown.Menu>
-                              </Dropdown>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </>
                 )}
+
+                {/* Organization Table */}
+                <div className="p-3 my-3 bg-white rounded shadow-sm">
+                  <div className="d-flex flex-wrap justify-content-between">
+                    <h5 className="fw-semibold mb-0">Organizations</h5>
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleShowCreate}
+                      >
+                        Add Organization
+                      </button>
+                      <button className="btn btn-primary">Print</button>
+                      <button className="btn btn-primary">Download</button>
+                    </div>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="p-3">
+                      <ShimmerLoader />
+                    </div>
+                  ) : filteredOrganizations.length === 0 ? (
+                    <div className="text-center py-5">
+                      <p>No organizations found</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Table
+                        hover
+                        responsive
+                        className="align-middle text-center mt-3"
+                      >
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Address</th>
+                            <th>Logo</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredOrganizations.map((org) => (
+                            <tr key={org.id}>
+                              <td>{org.id}</td>
+                              <td>{org.name}</td>
+                              <td>{org.phone_number}</td>
+                              <td>{org.email}</td>
+                              <td>{org.address}</td>
+                              <td>
+                                {org.logo ? (
+                                  <a href={org.logo} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">View</a>
+                                ) : (
+                                  <span className="text-muted">—</span>
+                                )}
+                              </td>
+                              <td>
+                                <Dropdown>
+                                  <Dropdown.Toggle
+                                    variant="link"
+                                    className="text-decoration-none p-0"
+                                  >
+                                    <Gear size={18} />
+                                  </Dropdown.Toggle>
+                                  <Dropdown.Menu>
+                                    <Dropdown.Item
+                                      className="text-primary"
+                                      onClick={() => handleShowEdit(org)}
+                                    >
+                                      Edit
+                                    </Dropdown.Item>
+                                    <Dropdown.Item
+                                      className="text-danger"
+                                      onClick={() => handleDelete(org.id)}
+                                    >
+                                      Delete
+                                    </Dropdown.Item>
+                                  </Dropdown.Menu>
+                                </Dropdown>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </>
+                  )}
+                </div>
+                <div>
+                  <AdminFooter />
+                </div>
               </div>
-              <div>
-                <AdminFooter />
-              </div>
-            </div>
             </div>
           </div>
         </div>

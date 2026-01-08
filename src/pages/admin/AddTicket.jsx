@@ -44,17 +44,17 @@ const FlightBookingForm = () => {
     stopTime1: "",
     stopLocation2: "",
     stopTime2: "",
-  returnStopLocation1: "",
-  returnStopTime1: "",
-  returnStopLocation2: "",
-  returnStopTime2: "",
-  // 1-stop segment fields (return)
-  return_stop1_airline: "",
-  return_stop1_flightNumber: "",
-  return_stop1_departureDateTime: "",
-  return_stop1_arrivalDateTime: "",
-  return_stop1_departure: "",
-  return_stop1_arrival: "",
+    returnStopLocation1: "",
+    returnStopTime1: "",
+    returnStopLocation2: "",
+    returnStopTime2: "",
+    // 1-stop segment fields (return)
+    return_stop1_airline: "",
+    return_stop1_flightNumber: "",
+    return_stop1_departureDateTime: "",
+    return_stop1_arrivalDateTime: "",
+    return_stop1_departure: "",
+    return_stop1_arrival: "",
     flightNumber: "",
     returnFlightNumber: "",
     adultSellingPrice: "",
@@ -85,11 +85,11 @@ const FlightBookingForm = () => {
       infantSellingPrice: ticketData.infantSellingPrice || ticketData.infant_fare || "",
       infantPurchasePrice: ticketData.infantPurchasePrice || ticketData.infant_purchase_price || ticketData.infant_price || "",
       // Map primary trip and stopover fields into the flat form fields the UI expects
-      ...(function(data){
+      ...(function (data) {
         try {
-          const outTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t=>t.trip_type==='Departure') || data.trip_details[0]) : null;
-          const retTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t=>t.trip_type==='Return') || data.trip_details[1]) : null;
-          const stop = Array.isArray(data.stopover_details) && data.stopover_details.length ? (data.stopover_details.find(s=>s.trip_type==='Departure') || data.stopover_details[0]) : null;
+          const outTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t => t.trip_type === 'Departure') || data.trip_details[0]) : null;
+          const retTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t => t.trip_type === 'Return') || data.trip_details[1]) : null;
+          const stop = Array.isArray(data.stopover_details) && data.stopover_details.length ? (data.stopover_details.find(s => s.trip_type === 'Departure') || data.stopover_details[0]) : null;
 
           const mapCityId = (c) => {
             if (!c) return "";
@@ -115,27 +115,27 @@ const FlightBookingForm = () => {
             // Ensure top-level airline is derived from trip if present
             airline: outTrip ? (outTrip.airline ? (typeof outTrip.airline === 'object' ? outTrip.airline.id : outTrip.airline) : (data.airline || "")) : (data.airline || ""),
             // Outbound trip
-            departureDateTime: outTrip ? formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime || outTrip.departure_date_time) : (data.departure_date && data.departure_time ? `${data.departure_date}T${data.departure_time.slice(0,5)}` : (data.departureDateTime || "")),
-            arrivalDateTime: outTrip ? formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime || outTrip.arrival_date_time) : (data.arrival_date && data.arrival_time ? `${data.arrival_date}T${data.arrival_time.slice(0,5)}` : (data.arrivalDateTime || "")),
+            departureDateTime: outTrip ? formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime || outTrip.departure_date_time) : (data.departure_date && data.departure_time ? `${data.departure_date}T${data.departure_time.slice(0, 5)}` : (data.departureDateTime || "")),
+            arrivalDateTime: outTrip ? formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime || outTrip.arrival_date_time) : (data.arrival_date && data.arrival_time ? `${data.arrival_date}T${data.arrival_time.slice(0, 5)}` : (data.arrivalDateTime || "")),
             departure: outTrip ? mapCityId(outTrip.departure_city || outTrip.departure_city_id || outTrip.departure_city) : (data.origin || data.departure || ""),
             arrival: outTrip ? mapCityId(outTrip.arrival_city || outTrip.arrival_city_id || outTrip.arrival_city) : (data.destination || data.arrival || ""),
             flightNumber: outTrip ? (outTrip.flight_number || outTrip.flightNumber || outTrip.number || outTrip.flight || data.flight_number || "") : (data.flight_number || ""),
 
             // Stopover (departure-side)
             stop1_departure: stop ? mapCityId(stop.stopover_city || stop.stopover_city_id || stop.stopover_city) : (data.stopLocation1 || data.stop1_departure || ""),
-              stop1_arrival: (function(){
-                if (!stop) return (data.stop1_arrival || "");
-                // Prefer explicit stop-level arrival_city on the stopover record
-                if (stop.arrival_city) return (typeof stop.arrival_city === 'object' ? stop.arrival_city.id : stop.arrival_city);
-                // Some payloads embed trip info under stop.trip; use that if present
-                if (stop.trip && stop.trip.arrival_city) {
-                  return (typeof stop.trip.arrival_city === 'object' ? stop.trip.arrival_city.id : stop.trip.arrival_city);
-                }
-                // fallback to outbound trip arrival city if stop-level arrival not provided
-                if (outTrip && outTrip.arrival_city) return (typeof outTrip.arrival_city === 'object' ? outTrip.arrival_city.id : outTrip.arrival_city);
-                return (data.stop1_arrival || "");
-              })(),
-            stop1_departureDateTime: (function(){
+            stop1_arrival: (function () {
+              if (!stop) return (data.stop1_arrival || "");
+              // Prefer explicit stop-level arrival_city on the stopover record
+              if (stop.arrival_city) return (typeof stop.arrival_city === 'object' ? stop.arrival_city.id : stop.arrival_city);
+              // Some payloads embed trip info under stop.trip; use that if present
+              if (stop.trip && stop.trip.arrival_city) {
+                return (typeof stop.trip.arrival_city === 'object' ? stop.trip.arrival_city.id : stop.trip.arrival_city);
+              }
+              // fallback to outbound trip arrival city if stop-level arrival not provided
+              if (outTrip && outTrip.arrival_city) return (typeof outTrip.arrival_city === 'object' ? outTrip.arrival_city.id : outTrip.arrival_city);
+              return (data.stop1_arrival || "");
+            })(),
+            stop1_departureDateTime: (function () {
               if (!stop) return (data.stop1_departureDateTime || "");
               if (stop.trip && (stop.trip.departure_date_time || stop.trip.departureDateTime)) {
                 return formatForDatetimeLocal(stop.trip.departure_date_time || stop.trip.departureDateTime);
@@ -144,7 +144,7 @@ const FlightBookingForm = () => {
               if (outTrip && (outTrip.departure_date_time || outTrip.departureDateTime)) return formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime);
               return (data.stop1_departureDateTime || "");
             })(),
-            stop1_arrivalDateTime: (function(){
+            stop1_arrivalDateTime: (function () {
               if (!stop) return (data.stop1_arrivalDateTime || "");
               if (stop.trip && (stop.trip.arrival_date_time || stop.trip.arrivalDateTime)) {
                 return formatForDatetimeLocal(stop.trip.arrival_date_time || stop.trip.arrivalDateTime);
@@ -153,7 +153,7 @@ const FlightBookingForm = () => {
               if (outTrip && (outTrip.arrival_date_time || outTrip.arrivalDateTime)) return formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime);
               return (data.stop1_arrivalDateTime || "");
             })(),
-            stop1_airline: (function(){
+            stop1_airline: (function () {
               // Prefer an explicit stop-level airline, then the stop.airline_id,
               // then the outbound trip's airline, then legacy top-level fields.
               if (!stop) {
@@ -165,14 +165,14 @@ const FlightBookingForm = () => {
               if (outTrip && outTrip.airline) return (typeof outTrip.airline === 'object' ? outTrip.airline.id : outTrip.airline);
               return (data.stop1_airline || data.airline || "");
             })(),
-            stop1_flightNumber: (function(){
+            stop1_flightNumber: (function () {
               if (!stop) return (data.stop1_flightNumber || "");
               if (stop.trip && (stop.trip.flight_number || stop.trip.flightNumber)) return (stop.trip.flight_number || stop.trip.flightNumber);
               // fallback to outbound trip flight number
               if (outTrip && (outTrip.flight_number || outTrip.flightNumber)) return (outTrip.flight_number || outTrip.flightNumber);
               return (data.stop1_flightNumber || "");
             })(),
-            stopTime1: (function(){ if (!stop) return (data.stopTime1 || ""); return (stop.stopover_duration || data.stopTime1 || ""); })(),
+            stopTime1: (function () { if (!stop) return (data.stopTime1 || ""); return (stop.stopover_duration || data.stopTime1 || ""); })(),
 
             // Return trip (if present)
             returnDepartureDateTime: retTrip ? (retTrip.departure_date_time || retTrip.departureDateTime || "") : (data.returnDepartureDateTime || ""),
@@ -185,25 +185,25 @@ const FlightBookingForm = () => {
       })(ticketData),
       // Map other API fields if needed
       // Extract numeric suffixes from per-trip flight numbers when available
-      flightNumber: (function(v){
+      flightNumber: (function (v) {
         try {
-          if(!v) return "";
-          const extract = (s) => { if(!s && s !== 0) return ""; const str = String(s); return (str.includes('-') ? str.split('-').pop() : str).replace(/\D/g, ''); };
+          if (!v) return "";
+          const extract = (s) => { if (!s && s !== 0) return ""; const str = String(s); return (str.includes('-') ? str.split('-').pop() : str).replace(/\D/g, ''); };
           // prefer trip_details Departure entry
-          const td = Array.isArray(v.trip_details) && v.trip_details.length ? (v.trip_details.find(t=>t.trip_type==='Departure') || v.trip_details[0]) : null;
+          const td = Array.isArray(v.trip_details) && v.trip_details.length ? (v.trip_details.find(t => t.trip_type === 'Departure') || v.trip_details[0]) : null;
           if (td) return extract(td.flight_number || td.flightNumber || td.number || td.flight || v.flight_number);
           return extract(v.flight_number || v.departure_flight_number || "");
-        } catch(e){ return "" }
+        } catch (e) { return "" }
       })(ticketData),
-      returnFlightNumber: (function(v){
+      returnFlightNumber: (function (v) {
         try {
-          if(!v) return "";
-          const extract = (s) => { if(!s && s !== 0) return ""; const str = String(s); return (str.includes('-') ? str.split('-').pop() : str).replace(/\D/g, ''); };
+          if (!v) return "";
+          const extract = (s) => { if (!s && s !== 0) return ""; const str = String(s); return (str.includes('-') ? str.split('-').pop() : str).replace(/\D/g, ''); };
           // prefer trip_details Return entry (or second index)
-          const td = Array.isArray(v.trip_details) && v.trip_details.length ? (v.trip_details.find(t=>t.trip_type==='Return') || v.trip_details[1]) : null;
+          const td = Array.isArray(v.trip_details) && v.trip_details.length ? (v.trip_details.find(t => t.trip_type === 'Return') || v.trip_details[1]) : null;
           if (td) return extract(td.flight_number || td.flightNumber || td.number || td.flight || v.return_flight_number);
           return extract(v.return_flight_number || v.returnFlightNumber || "");
-        } catch(e){ return "" }
+        } catch (e) { return "" }
       })(ticketData),
       meal: ticketData?.is_meal_included ? "Yes" : "No",
       ticketType: ticketData?.is_refundable ? "Refundable" : "Non-Refundable",
@@ -236,11 +236,11 @@ const FlightBookingForm = () => {
 
     // Ensure trip-level flight numbers map into the editable numeric suffix fields
     const mapFlightSuffix = (data) => {
-      const extract = (s) => { if(!s && s !== 0) return ""; const str = String(s); return (str.includes('-') ? str.split('-').pop() : str).replace(/\D/g, ''); };
-      const outTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t=>t.trip_type==='Departure') || data.trip_details[0]) : null;
-      const retTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t=>t.trip_type==='Return') || data.trip_details[1]) : null;
+      const extract = (s) => { if (!s && s !== 0) return ""; const str = String(s); return (str.includes('-') ? str.split('-').pop() : str).replace(/\D/g, ''); };
+      const outTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t => t.trip_type === 'Departure') || data.trip_details[0]) : null;
+      const retTrip = Array.isArray(data.trip_details) && data.trip_details.length ? (data.trip_details.find(t => t.trip_type === 'Return') || data.trip_details[1]) : null;
       // also map trip/stopover display fields to keep the edit form populated
-      const stop = Array.isArray(data.stopover_details) && data.stopover_details.length ? (data.stopover_details.find(s=>s.trip_type==='Departure') || data.stopover_details[0]) : null;
+      const stop = Array.isArray(data.stopover_details) && data.stopover_details.length ? (data.stopover_details.find(s => s.trip_type === 'Departure') || data.stopover_details[0]) : null;
       const mapCityId = (c) => { if (!c) return ""; if (typeof c === 'object') return c.id || c.value || ""; return c; };
 
       const formatForDatetimeLocal = (iso) => {
@@ -260,15 +260,15 @@ const FlightBookingForm = () => {
       return {
         flightNumber: outTrip ? extract(outTrip.flight_number || outTrip.flightNumber || outTrip.number || outTrip.flight || data.flight_number) : extract(data.flight_number || data.departure_flight_number),
         returnFlightNumber: retTrip ? extract(retTrip.flight_number || retTrip.flightNumber || retTrip.number || retTrip.flight || data.return_flight_number) : extract(data.return_flight_number || data.returnFlightNumber),
-        departureDateTime: outTrip ? formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime || outTrip.departure_date_time) : (data.departure_date && data.departure_time ? `${data.departure_date}T${data.departure_time.slice(0,5)}` : (data.departureDateTime || "")),
-        arrivalDateTime: outTrip ? formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime || outTrip.arrival_date_time) : (data.arrival_date && data.arrival_time ? `${data.arrival_date}T${data.arrival_time.slice(0,5)}` : (data.arrivalDateTime || "")),
+        departureDateTime: outTrip ? formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime || outTrip.departure_date_time) : (data.departure_date && data.departure_time ? `${data.departure_date}T${data.departure_time.slice(0, 5)}` : (data.departureDateTime || "")),
+        arrivalDateTime: outTrip ? formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime || outTrip.arrival_date_time) : (data.arrival_date && data.arrival_time ? `${data.arrival_date}T${data.arrival_time.slice(0, 5)}` : (data.arrivalDateTime || "")),
         departure: outTrip ? mapCityId(outTrip.departure_city || outTrip.departure_city_id || outTrip.departure_city) : (data.origin || data.departure || ""),
         arrival: outTrip ? mapCityId(outTrip.arrival_city || outTrip.arrival_city_id || outTrip.arrival_city) : (data.destination || data.arrival || ""),
         stop1_departure: stop ? mapCityId(stop.stopover_city || stop.stopover_city_id || stop.stopover_city) : (data.stopLocation1 || data.stop1_departure || ""),
-        stop1_arrival: (function(){ if(!stop) return (data.stop1_arrival || ""); if (stop.trip && stop.trip.arrival_city) { return (typeof stop.trip.arrival_city === 'object' ? stop.trip.arrival_city.id : stop.trip.arrival_city); } if (outTrip && outTrip.arrival_city) return (typeof outTrip.arrival_city === 'object' ? outTrip.arrival_city.id : outTrip.arrival_city); return (data.stop1_arrival || ""); })(),
-        stop1_departureDateTime: (function(){ if(!stop) return (data.stop1_departureDateTime || ""); if (stop.departure_date_time || stop.departureDateTime) { return formatForDatetimeLocal(stop.departure_date_time || stop.departureDateTime); } if (stop.trip && (stop.trip.departure_date_time || stop.trip.departureDateTime)) { return formatForDatetimeLocal(stop.trip.departure_date_time || stop.trip.departureDateTime); } if (outTrip && (outTrip.departure_date_time || outTrip.departureDateTime)) return formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime); return (data.stop1_departureDateTime || ""); })(),
-        stop1_arrivalDateTime: (function(){ if(!stop) return (data.stop1_arrivalDateTime || ""); if (stop.arrival_date_time || stop.arrivalDateTime) { return formatForDatetimeLocal(stop.arrival_date_time || stop.arrivalDateTime); } if (stop.trip && (stop.trip.arrival_date_time || stop.trip.arrivalDateTime)) { return formatForDatetimeLocal(stop.trip.arrival_date_time || stop.trip.arrivalDateTime); } if (outTrip && (outTrip.arrival_date_time || outTrip.arrivalDateTime)) return formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime); return (data.stop1_arrivalDateTime || ""); })(),
-        stop1_airline: (function(){
+        stop1_arrival: (function () { if (!stop) return (data.stop1_arrival || ""); if (stop.trip && stop.trip.arrival_city) { return (typeof stop.trip.arrival_city === 'object' ? stop.trip.arrival_city.id : stop.trip.arrival_city); } if (outTrip && outTrip.arrival_city) return (typeof outTrip.arrival_city === 'object' ? outTrip.arrival_city.id : outTrip.arrival_city); return (data.stop1_arrival || ""); })(),
+        stop1_departureDateTime: (function () { if (!stop) return (data.stop1_departureDateTime || ""); if (stop.departure_date_time || stop.departureDateTime) { return formatForDatetimeLocal(stop.departure_date_time || stop.departureDateTime); } if (stop.trip && (stop.trip.departure_date_time || stop.trip.departureDateTime)) { return formatForDatetimeLocal(stop.trip.departure_date_time || stop.trip.departureDateTime); } if (outTrip && (outTrip.departure_date_time || outTrip.departureDateTime)) return formatForDatetimeLocal(outTrip.departure_date_time || outTrip.departureDateTime); return (data.stop1_departureDateTime || ""); })(),
+        stop1_arrivalDateTime: (function () { if (!stop) return (data.stop1_arrivalDateTime || ""); if (stop.arrival_date_time || stop.arrivalDateTime) { return formatForDatetimeLocal(stop.arrival_date_time || stop.arrivalDateTime); } if (stop.trip && (stop.trip.arrival_date_time || stop.trip.arrivalDateTime)) { return formatForDatetimeLocal(stop.trip.arrival_date_time || stop.trip.arrivalDateTime); } if (outTrip && (outTrip.arrival_date_time || outTrip.arrivalDateTime)) return formatForDatetimeLocal(outTrip.arrival_date_time || outTrip.arrivalDateTime); return (data.stop1_arrivalDateTime || ""); })(),
+        stop1_airline: (function () {
           if (!stop) {
             if (outTrip && outTrip.airline) return (typeof outTrip.airline === 'object' ? outTrip.airline.id : outTrip.airline);
             return (data.stop1_airline || data.airline || "");
@@ -278,15 +278,15 @@ const FlightBookingForm = () => {
           if (outTrip && outTrip.airline) return (typeof outTrip.airline === 'object' ? outTrip.airline.id : outTrip.airline);
           return (data.stop1_airline || data.airline || "");
         })(),
-        stop1_flightNumber: (function(){ if (!stop) return (data.stop1_flightNumber || (outTrip && (outTrip.flight_number || outTrip.flightNumber)) || (data.flight_number || "")); if (stop.flight_number || stop.flightNumber) return (stop.flight_number || stop.flightNumber); if (stop.trip && (stop.trip.flight_number || stop.trip.flightNumber)) return (stop.trip.flight_number || stop.trip.flightNumber); if (outTrip && (outTrip.flight_number || outTrip.flightNumber)) return (outTrip.flight_number || outTrip.flightNumber); return (data.stop1_flightNumber || (data.flight_number || "")); })(),
-        stopTime1: (function(){ if (!stop) return (data.stopTime1 || ""); return (stop.stopover_duration || data.stopTime1 || ""); })(),
+        stop1_flightNumber: (function () { if (!stop) return (data.stop1_flightNumber || (outTrip && (outTrip.flight_number || outTrip.flightNumber)) || (data.flight_number || "")); if (stop.flight_number || stop.flightNumber) return (stop.flight_number || stop.flightNumber); if (stop.trip && (stop.trip.flight_number || stop.trip.flightNumber)) return (stop.trip.flight_number || stop.trip.flightNumber); if (outTrip && (outTrip.flight_number || outTrip.flightNumber)) return (outTrip.flight_number || outTrip.flightNumber); return (data.stop1_flightNumber || (data.flight_number || "")); })(),
+        stopTime1: (function () { if (!stop) return (data.stopTime1 || ""); return (stop.stopover_duration || data.stopTime1 || ""); })(),
       };
     };
 
-      const flightSuffixes = mapFlightSuffix(ticketData);
+    const flightSuffixes = mapFlightSuffix(ticketData);
 
-        setFormData((prev) => ({ ...prev, ...ticketData, ...normalized, ...flightSuffixes }));
-      }, [ticketData]);
+    setFormData((prev) => ({ ...prev, ...ticketData, ...normalized, ...flightSuffixes }));
+  }, [ticketData]);
 
   // Debug: log incoming editData and formData for troubleshooting reselling flag
   useEffect(() => {
@@ -502,7 +502,7 @@ const FlightBookingForm = () => {
         setLoading((prev) => ({ ...prev, airlines: true }));
         setError((prev) => ({ ...prev, airlines: null }));
         const airlinesResponse = await axios.get(
-          "https://api.saer.pk/api/airlines/",
+          "http://127.0.0.1:8000/api/airlines/",
           {
             params: { organization: organizationId },
             headers: { Authorization: `Bearer ${token}` },
@@ -514,7 +514,7 @@ const FlightBookingForm = () => {
         setLoading((prev) => ({ ...prev, cities: true }));
         setError((prev) => ({ ...prev, cities: null }));
         const citiesResponse = await axios.get(
-          "https://api.saer.pk/api/cities/",
+          "http://127.0.0.1:8000/api/cities/",
           {
             params: { organization: organizationId },
             headers: { Authorization: `Bearer ${token}` },
@@ -550,7 +550,7 @@ const FlightBookingForm = () => {
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
         if (!organizationId || !token) return;
-        const resp = await axios.get(`https://api.saer.pk/api/tickets/${ticketId}/`, {
+        const resp = await axios.get(`http://127.0.0.1:8000/api/tickets/${ticketId}/`, {
           params: { organization: organizationId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -700,14 +700,14 @@ const FlightBookingForm = () => {
         is_refundable: formData.ticketType === "Refundable",
         pnr: formData.pnr || "N/A",
         // price: cleanPrice,
-  // Purchase prices -> `*_price` (purchase / cost)
-  adult_price: cleanAdultPurchase,
-  child_price: cleanChildPurchase,
-  infant_price: cleanInfantPurchase,
-  // Selling prices -> store in `*_fare` (selling / fare)
-  adult_fare: cleanAdultSelling,
-  child_fare: cleanChildSelling,
-  infant_fare: cleanInfantSelling,
+        // Purchase prices -> `*_price` (purchase / cost)
+        adult_price: cleanAdultPurchase,
+        child_price: cleanChildPurchase,
+        infant_price: cleanInfantPurchase,
+        // Selling prices -> store in `*_fare` (selling / fare)
+        adult_fare: cleanAdultSelling,
+        child_fare: cleanChildSelling,
+        infant_fare: cleanInfantSelling,
         total_seats: parseInt(formData.totalSeats) || 0,
         left_seats: parseInt(formData.totalSeats) || 0,
         baggage_weight: parseFloat((formData.weight || "").toString().replace(/[^0-9.]/g, '')) || 0,
@@ -725,8 +725,8 @@ const FlightBookingForm = () => {
         reselling_allowed: ticketId
           ? !!formData.resellingAllowed
           : resellingTouched
-          ? !!formData.resellingAllowed
-          : false,
+            ? !!formData.resellingAllowed
+            : false,
         airline: parseInt(formData.airline),
         trip_details: [],
         stopover_details: [],
@@ -899,7 +899,7 @@ const FlightBookingForm = () => {
       if (ticketId) {
         // Update existing ticket
         response = await axios.put(
-          `https://api.saer.pk/api/tickets/${ticketId}/`,
+          `http://127.0.0.1:8000/api/tickets/${ticketId}/`,
           payload,
           {
             params: { organization: organizationId },
@@ -912,7 +912,7 @@ const FlightBookingForm = () => {
       } else {
         // Create new ticket
         response = await axios.post(
-          "https://api.saer.pk/api/tickets/",
+          "http://127.0.0.1:8000/api/tickets/",
           payload,
           {
             headers: {
@@ -1795,7 +1795,7 @@ const FlightBookingForm = () => {
                               placeholder="30 Minutes"
                             />
                           </div>
-                          
+
                         </div>
                       )}
 

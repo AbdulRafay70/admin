@@ -27,7 +27,7 @@ const EditHotelAvailability = () => {
         const organizationId = orgData?.id;
 
         const response = await axios.get(
-          `https://api.saer.pk/api/hotels/${id}/`,
+          `http://127.0.0.1:8000/api/hotels/${id}/`,
           {
             params: { organization: organizationId },
             headers: {
@@ -99,7 +99,7 @@ const EditHotelAvailability = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -120,7 +120,7 @@ const EditHotelAvailability = () => {
       };
 
       await axios.patch(
-        `https://api.saer.pk/api/hotels/${id}/`,
+        `http://127.0.0.1:8000/api/hotels/${id}/`,
         updateData,
         {
           params: { organization: organizationId },
@@ -137,7 +137,7 @@ const EditHotelAvailability = () => {
       }, 1500);
     } catch (error) {
       let errorMessage = "Failed to update hotel availability.";
-      
+
       if (error.response) {
         if (error.response.status === 403) {
           errorMessage = "You don't have permission to update this hotel.";
@@ -148,7 +148,7 @@ const EditHotelAvailability = () => {
           errorMessage = fieldErrors.join(" ");
         }
       }
-      
+
       setError(errorMessage);
       console.error("Update error:", error);
     } finally {
@@ -206,9 +206,8 @@ const EditHotelAvailability = () => {
                         name="available_start_date"
                         value={hotelData.available_start_date}
                         onChange={handleInputChange}
-                        className={`form-control ${
-                          formErrors.available_start_date ? "is-invalid" : ""
-                        }`}
+                        className={`form-control ${formErrors.available_start_date ? "is-invalid" : ""
+                          }`}
                         required
                       />
                       {formErrors.available_start_date && (
@@ -225,9 +224,8 @@ const EditHotelAvailability = () => {
                         name="available_end_date"
                         value={hotelData.available_end_date}
                         onChange={handleInputChange}
-                        className={`form-control ${
-                          formErrors.available_end_date ? "is-invalid" : ""
-                        }`}
+                        className={`form-control ${formErrors.available_end_date ? "is-invalid" : ""
+                          }`}
                         required
                       />
                       {formErrors.available_end_date && (

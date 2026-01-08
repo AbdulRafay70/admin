@@ -8,7 +8,7 @@ import { NavLink } from "react-router-dom";
 import axios from "axios";
 
 const Groups = () => {
-  const API_URL = "https://api.saer.pk/api/groups/";
+  const API_URL = "http://127.0.0.1:8000/api/groups/";
   const [groups, setGroups] = useState([]);
   const [filteredGroups, setFilteredGroups] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -32,7 +32,7 @@ const Groups = () => {
 
   // Create Axios instance with common configuration
   const api = axios.create({
-    baseURL: "https://api.saer.pk",
+    baseURL: "http://127.0.0.1:8000",
     headers: {
       "Content-Type": "application/json",
     },
@@ -42,18 +42,18 @@ const Groups = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Fetch groups
       const groupsResponse = await api.get("/api/groups/");
-      
+
       // Fetch organizations
       const orgsResponse = await api.get("/api/organizations/");
       setOrganizations(orgsResponse.data);
-      
+
       // Fetch permissions
       const permsResponse = await api.get("/api/permissions/");
       setPermissions(permsResponse.data);
-      
+
       setGroups(groupsResponse.data);
       setFilteredGroups(groupsResponse.data);
       setIsLoading(false);
@@ -71,8 +71,8 @@ const Groups = () => {
   // Handle search
   useEffect(() => {
     if (searchTerm) {
-      const filtered = groups.filter(group => 
-        Object.values(group).some(val => 
+      const filtered = groups.filter(group =>
+        Object.values(group).some(val =>
           val && val.toString().toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
@@ -85,7 +85,7 @@ const Groups = () => {
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.startsWith("extended.")) {
       const field = name.split(".")[1];
       setFormData(prev => ({
@@ -104,13 +104,13 @@ const Groups = () => {
   const handlePermissionChange = (e) => {
     const options = e.target.options;
     const selectedPermissions = [];
-    
+
     for (let i = 0; i < options.length; i++) {
       if (options[i].selected) {
         selectedPermissions.push(parseInt(options[i].value));
       }
     }
-    
+
     setFormData(prev => ({
       ...prev,
       permissions: selectedPermissions
@@ -161,7 +161,7 @@ const Groups = () => {
   // Handle form submission (create/update)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       const payload = {
         ...formData,
@@ -184,14 +184,14 @@ const Groups = () => {
       handleClose();
     } catch (error) {
       let errorMessage = error.message;
-      
+
       // Extract server error message if available
       if (error.response) {
-        errorMessage = error.response.data.message || 
-                       error.response.data.detail || 
-                       JSON.stringify(error.response.data);
+        errorMessage = error.response.data.message ||
+          error.response.data.detail ||
+          JSON.stringify(error.response.data);
       }
-      
+
       setError(`Error: ${errorMessage}`);
       console.error("Error submitting group:", error);
     }
@@ -202,7 +202,7 @@ const Groups = () => {
     if (window.confirm("Are you sure you want to delete this group?")) {
       try {
         await api.delete(`${API_URL}${id}/`);
-        
+
         // Refresh list
         fetchData();
       } catch (error) {
@@ -256,11 +256,10 @@ const Groups = () => {
                   <NavLink
                     key={index}
                     to={tab.path}
-                    className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${
-                      tab.name === "Groups"
-                        ? "text-primary fw-semibold"
-                        : "text-muted"
-                    }`}
+                    className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Groups"
+                      ? "text-primary fw-semibold"
+                      : "text-muted"
+                      }`}
                     style={{ backgroundColor: "transparent" }}
                   >
                     {tab.name}
@@ -288,10 +287,10 @@ const Groups = () => {
           {error && (
             <div className="alert alert-danger" role="alert">
               {error}
-              <button 
-                type="button" 
-                className="btn-close float-end" 
-                onClick={() => setError(null)} 
+              <button
+                type="button"
+                className="btn-close float-end"
+                onClick={() => setError(null)}
                 aria-label="Close"
               ></button>
             </div>
@@ -344,8 +343,8 @@ const Groups = () => {
                         </td>
                         <td>{group.extended?.type || "N/A"}</td>
                         <td>
-                          {group.extended?.organization 
-                            ? getOrganizationName(group.extended.organization) 
+                          {group.extended?.organization
+                            ? getOrganizationName(group.extended.organization)
                             : "N/A"}
                         </td>
                         <td>
@@ -357,13 +356,13 @@ const Groups = () => {
                               <Gear size={18} />
                             </Dropdown.Toggle>
                             <Dropdown.Menu>
-                              <Dropdown.Item 
+                              <Dropdown.Item
                                 className="text-primary"
                                 onClick={() => handleShowEdit(group)}
                               >
                                 Edit
                               </Dropdown.Item>
-                              <Dropdown.Item 
+                              <Dropdown.Item
                                 className="text-danger"
                                 onClick={() => handleDelete(group.id)}
                               >
@@ -482,7 +481,7 @@ const Groups = () => {
                   />
                 </fieldset>
               </div>
-              
+
               <div className="col-md-6 mb-3">
                 <fieldset
                   className="border border-black p-2 rounded mb-3"

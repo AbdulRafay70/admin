@@ -75,7 +75,7 @@ const TicketTravelBookingInvoice = () => {
         console.log("🔍 Organization ID:", organizationId);
         console.log("🔍 Token exists:", !!token);
 
-        const apiUrl = `https://api.saer.pk/api/bookings/?organization=${organizationId}&booking_number=${orderNo}`;
+        const apiUrl = `http://127.0.0.1:8000/api/bookings/?organization=${organizationId}&booking_number=${orderNo}`;
         console.log("🔍 Full API URL:", apiUrl);
 
         const response = await axios.get(
@@ -106,7 +106,7 @@ const TicketTravelBookingInvoice = () => {
           console.log("🔍 No booking found in regular endpoint, trying public bookings...");
 
           const publicResponse = await axios.get(
-            `https://api.saer.pk/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`,
+            `http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -146,7 +146,7 @@ const TicketTravelBookingInvoice = () => {
           if (agency?.id) {
             try {
               const ledgerResponse = await axios.get(
-                `https://api.saer.pk/api/ledger/agency/${agency.id}/`,
+                `http://127.0.0.1:8000/api/ledger/agency/${agency.id}/`,
                 {
                   headers: {
                     Authorization: `Bearer ${token}`,
@@ -181,7 +181,7 @@ const TicketTravelBookingInvoice = () => {
       const token = localStorage.getItem("accessToken");
 
       const response = await axios.patch(
-        `https://api.saer.pk/api/bookings/${bookingData.id}/`,
+        `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
         {
           status: 'Approved',
         },
@@ -245,7 +245,7 @@ const TicketTravelBookingInvoice = () => {
 
       // Use the new person-details update endpoint
       const response = await axios.patch(
-        `https://api.saer.pk/api/person-details/${personId}/`,
+        `http://127.0.0.1:8000/api/person-details/${personId}/`,
         {
           [backendField]: editedValue
         },
@@ -333,7 +333,7 @@ const TicketTravelBookingInvoice = () => {
 
       // Use the person-details update endpoint
       const response = await axios.patch(
-        `https://api.saer.pk/api/person-details/${personId}/`,
+        `http://127.0.0.1:8000/api/person-details/${personId}/`,
         updatePayload,
         {
           headers: {

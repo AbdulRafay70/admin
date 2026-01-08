@@ -83,7 +83,7 @@ const Branches = () => {
   const getAxiosInstance = () => {
     const token = getAccessToken();
     return axios.create({
-      baseURL: "https://api.saer.pk/api/",
+      baseURL: "http://127.0.0.1:8000/api/",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -221,8 +221,8 @@ const Branches = () => {
       showNotification("Branch name is required");
       return;
     }
-    if (!selectedOrg || !selectedOrg.id) {
-      showNotification("No organization selected");
+    if (!currentBranch.organization) {
+      showNotification("Please select an organization");
       return;
     }
 
@@ -233,7 +233,7 @@ const Branches = () => {
         contact_number: currentBranch.contact_number,
         email: currentBranch.email,
         address: currentBranch.address,
-        organization: selectedOrg.id,
+        organization: currentBranch.organization,
       };
 
       const axiosInstance = getAxiosInstance();
@@ -258,8 +258,8 @@ const Branches = () => {
       showNotification("Branch name is required");
       return;
     }
-    if (!selectedOrg || !selectedOrg.id) {
-      showNotification("No organization selected");
+    if (!currentBranch.organization) {
+      showNotification("Please select an organization");
       return;
     }
 
@@ -270,7 +270,7 @@ const Branches = () => {
         contact_number: currentBranch.contact_number,
         email: currentBranch.email,
         address: currentBranch.address,
-        organization: selectedOrg.id,
+        organization: currentBranch.organization,
       };
 
       const axiosInstance = getAxiosInstance();
@@ -339,7 +339,7 @@ const Branches = () => {
       contact_number: branch.contact_number,
       email: branch.email,
       address: branch.address,
-      organization: selectedOrg.id,
+      organization: branch.organization,
     });
     setShowModal(true);
   };
@@ -362,19 +362,11 @@ const Branches = () => {
 
   // Navigation is rendered by shared PartnersTabs
 
-  // Filter branches by selected organization
+  // Filter branches - show ALL branches, only filter by search term
   const filteredBranches = branches.filter((branch) => {
-    // Only show branches for the selected organization
-    if (
-      selectedOrg &&
-      selectedOrg.id &&
-      branch.organization !== selectedOrg.id
-    ) {
-      return false;
-    }
-
+    // Search filter only - show all branches regardless of organization
     const searchString =
-      `${branch.name} ${branch.contact_number} ${branch.email} ${branch.address}`.toLowerCase();
+      `${branch.name} ${branch.contact_number} ${branch.email} ${branch.address} ${orgMap[branch.organization] || ''}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
 
@@ -455,36 +447,21 @@ const Branches = () => {
                 )}
 
                 {/* Organization Selection Notice */}
-                {!selectedOrg && !loading && (
-                  <div className="alert alert-warning" role="alert">
-                    <div className="d-flex align-items-center">
-                      <i className="bi bi-exclamation-circle me-2"></i>
-                      <div>
-                        <strong>No Organization Selected</strong>
-                        <p className="mb-0">
-                          Please select an organization to view its branches
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Branches Table */}
                 <div className="p-3 my-3 bg-white rounded-4 shadow-sm">
                   <div className="d-flex flex-wrap justify-content-between mb-3">
                     <div>
-                      <h5 className="fw-semibold mb-0">Branches</h5>
-                      {selectedOrg && (
-                        <p className="text-muted mb-0">
-                          Showing branches for: <strong>{selectedOrg.name}</strong>
-                        </p>
-                      )}
+                      <h5 className="fw-semibold mb-0">All Branches</h5>
+                      <p className="text-muted mb-0">
+                        Showing all branches from all organizations
+                      </p>
                     </div>
                     <div className="d-flex flex-wrap gap-2">
                       <button
                         className="btn btn-primary"
                         onClick={handleCreateModal}
-                        disabled={apiLoading || !selectedOrg}
+                        disabled={apiLoading}
                       >
                         {apiLoading ? "Processing..." : "Add Branch"}
                       </button>
@@ -508,24 +485,12 @@ const Branches = () => {
                     <tbody>
                       {loading ? (
                         <ShimmerLoader rows={perPage} cols={7} />
-                      ) : !selectedOrg ? (
-                        <tr>
-                          <td colSpan="7" className="text-center py-4">
-                            <div className="d-flex flex-column align-items-center justify-content-center">
-                              <i className="bi bi-building-exclamation fs-1 text-muted mb-2"></i>
-                              <p className="mb-0">No organization selected</p>
-                              <p className="mb-0">
-                                Please select an organization to view branches
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
                       ) : filteredBranches.length === 0 ? (
                         <tr>
                           <td colSpan="7" className="text-center py-4">
                             {searchTerm
                               ? "No branches match your search"
-                              : "No branches found for this organization"}
+                              : "No branches found in the database"}
                           </td>
                         </tr>
                       ) : (
@@ -584,7 +549,7 @@ const Branches = () => {
                   </Table>
 
                   {/* Pagination */}
-                  {!loading && selectedOrg && totalPages > 1 && (
+                  {!loading && totalPages > 1 && (
                     <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
                       <div className="d-flex flex-wrap align-items-center">
                         <span className="me-2">
@@ -648,166 +613,178 @@ const Branches = () => {
                 </div>
                 <div>
                   <AdminFooter />
-                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Branch Modal */}
-          <Modal
-            show={showModal}
-            onHide={handleClose}
-            centered
-            style={{ fontFamily: "Poppins, sans-serif" }}
-          >
-            <Modal.Body className="">
-              <h4 className="text-center fw-bold p-4 mb-4">
-                {modalMode === "create" ? "New Branch" : "Edit Branch"}
-              </h4>
-              <hr />
-              <Form className="p-4">
-                <div className="mb-3">
-                  <label htmlFor="" className="Control-label">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    className="form-control rounded shadow-none  px-1 py-2"
-                    required
-                    placeholder="Branch Name"
-                    value={currentBranch.name}
-                    onChange={handleInputChange}
-                    disabled={apiLoading}
-                  />
+        {/* Branch Modal */}
+        <Modal
+          show={showModal}
+          onHide={handleClose}
+          centered
+          style={{ fontFamily: "Poppins, sans-serif" }}
+        >
+          <Modal.Body className="">
+            <h4 className="text-center fw-bold p-4 mb-4">
+              {modalMode === "create" ? "New Branch" : "Edit Branch"}
+            </h4>
+            <hr />
+            <Form className="p-4">
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  className="form-control rounded shadow-none  px-1 py-2"
+                  required
+                  placeholder="Branch Name"
+                  value={currentBranch.name}
+                  onChange={handleInputChange}
+                  disabled={apiLoading}
+                />
 
-                </div>
+              </div>
 
-                <div className="mb-3">
-                  <label htmlFor="" className="Control-label">
-                    Contact Number
-                  </label>
-                  <input
-                    type="tel"
-                    name="contact_number"
-                    className="form-control rounded shadow-none  px-1 py-2"
-                    required
-                    placeholder="+923631569595"
-                    value={currentBranch.contact_number}
-                    onChange={handleInputChange}
-                    disabled={apiLoading}
-                  />
-                </div>
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Contact Number
+                </label>
+                <input
+                  type="tel"
+                  name="contact_number"
+                  className="form-control rounded shadow-none  px-1 py-2"
+                  required
+                  placeholder="+923631569595"
+                  value={currentBranch.contact_number}
+                  onChange={handleInputChange}
+                  disabled={apiLoading}
+                />
+              </div>
 
-                <div className="mb-3">
-                  <label htmlFor="" className="Control-label">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    className="form-control rounded shadow-none  px-1 py-2"
-                    required
-                    placeholder="branch@example.com"
-                    value={currentBranch.email}
-                    onChange={handleInputChange}
-                    disabled={apiLoading}
-                  />
-                </div>
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  className="form-control rounded shadow-none  px-1 py-2"
+                  required
+                  placeholder="branch@example.com"
+                  value={currentBranch.email}
+                  onChange={handleInputChange}
+                  disabled={apiLoading}
+                />
+              </div>
 
-                <div className="mb-3">
-                  <label htmlFor="" className="Control-label">
-                    Address
-                  </label>
-                  <textarea
-                    name="address"
-                    className="form-control rounded shadow-none  px-1 py-2"
-                    required
-                    placeholder="Branch Address"
-                    value={currentBranch.address}
-                    onChange={handleInputChange}
-                    rows="2"
-                    disabled={apiLoading}
-                  />
-                </div>
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  className="form-control rounded shadow-none  px-1 py-2"
+                  required
+                  placeholder="Branch Address"
+                  value={currentBranch.address}
+                  onChange={handleInputChange}
+                  rows="2"
+                  disabled={apiLoading}
+                />
+              </div>
 
-                <div className="mb-3">
-                  <label htmlFor="" className="Control-label">
-                    Organization
-                  </label>
-                  <input
-                    type="text"
-                    name="organization"
-                    className="form-control rounded shadow-none  px-1 py-2"
-                    value={
-                      selectedOrg
-                        ? selectedOrg.name
-                        : orgMap[currentBranch.organization] || "N/A"
-                    }
-                    readOnly
-                    disabled
-                  />
-                </div>
+              <div className="mb-3">
+                <label htmlFor="organizationSelect" className="Control-label">
+                  Organization <span className="text-danger">*</span>
+                </label>
+                <select
+                  id="organizationSelect"
+                  name="organization"
+                  className="form-select rounded shadow-none px-1 py-2"
+                  value={currentBranch.organization || (selectedOrg ? selectedOrg.id : "")}
+                  onChange={(e) => {
+                    const orgId = parseInt(e.target.value);
+                    setCurrentBranch((prev) => ({ ...prev, organization: orgId }));
+                  }}
+                  disabled={apiLoading}
+                  required
+                >
+                  <option value="">-- Select Organization --</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name} ({org.org_code || `ID: ${org.id}`})
+                    </option>
+                  ))}
+                </select>
+                {organizations.length === 0 && (
+                  <small className="text-muted">
+                    No organizations available. Please create an organization first.
+                  </small>
+                )}
+              </div>
 
-                <div className="d-flex justify-content-between">
-                  <Button
-                    variant="primary"
-                    onClick={handleSubmit}
-                    disabled={apiLoading}
-                  >
-                    {apiLoading
-                      ? "Processing..."
-                      : modalMode === "create"
-                        ? "Create"
-                        : "Update"}
-                  </Button>
-                  <Button
-                    variant="light"
-                    className="text-muted"
-                    onClick={handleClose}
-                    disabled={apiLoading}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </Form>
-            </Modal.Body>
-          </Modal>
-
-          {/* Delete Confirmation Modal */}
-          <Modal
-            show={showDeleteConfirm}
-            onHide={() => setShowDeleteConfirm(false)}
-            centered
-          >
-            <Modal.Body className="p-4">
-              <h5 className="text-center mb-4">Confirm Delete</h5>
-              <p className="text-center">
-                Are you sure you want to delete this branch? This action cannot be
-                undone.
-              </p>
-              <div className="d-flex justify-content-center gap-3 mt-4">
+              <div className="d-flex justify-content-between">
                 <Button
-                  variant="secondary"
-                  onClick={() => setShowDeleteConfirm(false)}
+                  variant="primary"
+                  onClick={handleSubmit}
+                  disabled={apiLoading}
+                >
+                  {apiLoading
+                    ? "Processing..."
+                    : modalMode === "create"
+                      ? "Create"
+                      : "Update"}
+                </Button>
+                <Button
+                  variant="light"
+                  className="text-muted"
+                  onClick={handleClose}
                   disabled={apiLoading}
                 >
                   Cancel
                 </Button>
-                <Button
-                  variant="danger"
-                  onClick={deleteBranch}
-                  disabled={apiLoading}
-                >
-                  {apiLoading ? "Deleting..." : "Delete"}
-                </Button>
               </div>
-            </Modal.Body>
-          </Modal>
-        </div>
-      </>
-      );
+            </Form>
+          </Modal.Body>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          show={showDeleteConfirm}
+          onHide={() => setShowDeleteConfirm(false)}
+          centered
+        >
+          <Modal.Body className="p-4">
+            <h5 className="text-center mb-4">Confirm Delete</h5>
+            <p className="text-center">
+              Are you sure you want to delete this branch? This action cannot be
+              undone.
+            </p>
+            <div className="d-flex justify-content-center gap-3 mt-4">
+              <Button
+                variant="secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={apiLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={deleteBranch}
+                disabled={apiLoading}
+              >
+                {apiLoading ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </Modal.Body>
+        </Modal>
+      </div>
+    </>
+  );
 };
 
-      export default Branches;
+export default Branches;

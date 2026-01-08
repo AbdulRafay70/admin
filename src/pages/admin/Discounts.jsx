@@ -35,7 +35,7 @@ const Discounts = () => {
   const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("https://api.saer.pk/api/discount-groups/", {
+      const res = await axios.get("http://127.0.0.1:8000/api/discount-groups/", {
         params: organizationId ? { organization: organizationId } : {},
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -81,28 +81,48 @@ const Discounts = () => {
     const payload = {
       name: name,
       group_type: groupType || null,
-      organization: organizationId || 0,
+      organization: organizationId || null,
       is_active: true,
     };
 
+    console.log("💾 Saving discount group with payload:", payload);
+
     try {
       if (editing && editing.id) {
-        await axios.patch(`https://api.saer.pk/api/discount-groups/${editing.id}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        await axios.patch(`http://127.0.0.1:8000/api/discount-groups/${editing.id}/`, payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       } else {
-        await axios.post("https://api.saer.pk/api/discount-groups/", payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        await axios.post("http://127.0.0.1:8000/api/discount-groups/", payload, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       }
       closeModal();
       fetchGroups();
     } catch (e) {
       console.error("Failed to save discount group", e);
-      alert("Failed to save discount group");
+      console.error("Error response:", e.response?.data);
+
+      // Extract the actual error message
+      let errorMsg = "Failed to save discount group";
+      if (e.response?.data) {
+        const data = e.response.data;
+        // Check if organization error is an array and get the first message
+        if (data.organization && Array.isArray(data.organization) && data.organization.length > 0) {
+          errorMsg = `Organization: ${data.organization[0]}`;
+        } else if (data.name && Array.isArray(data.name) && data.name.length > 0) {
+          errorMsg = `Name: ${data.name[0]}`;
+        } else if (data.detail) {
+          errorMsg = data.detail;
+        } else if (typeof data === 'string') {
+          errorMsg = data;
+        }
+      }
+
+      alert(errorMsg);
     }
   };
 
   const removeGroup = async (id) => {
     if (!confirm("Delete this discount group?")) return;
     try {
-      await axios.delete(`https://api.saer.pk/api/discount-groups/${id}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      await axios.delete(`http://127.0.0.1:8000/api/discount-groups/${id}/`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       fetchGroups();
     } catch (e) {
       console.error("Failed to delete discount group", e);

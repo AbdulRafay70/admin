@@ -96,6 +96,8 @@ const AgencyRelations = () => {
     agreement_status: true,
     branch: branchId || "",
     logo: null,
+    credit_limit: "",
+    credit_limit_days: "",
   });
 
   // Handle agency form submission
@@ -116,14 +118,14 @@ const AgencyRelations = () => {
     try {
       // First get the agency details to find the associated user
       const agencyResponse = await axios.get(
-        `https://api.saer.pk/api/agencies/${agencyId}/`,
+        `http://127.0.0.1:8000/api/agencies/${agencyId}/`,
         axiosConfig
       );
 
       // Then get the user details if available
       if (agencyResponse.data.user) {
         const userResponse = await axios.get(
-          `https://api.saer.pk/api/users/${agencyResponse.data.user}/`,
+          `http://127.0.0.1:8000/api/users/${agencyResponse.data.user}/`,
           axiosConfig
         );
 
@@ -159,7 +161,9 @@ const AgencyRelations = () => {
       email: agency.email || "",
       agreement_status: agency.agreement_status || true,
       branch: branchId,
-      logo: agency.logo || null, // Add this line
+      logo: agency.logo || null,
+      credit_limit: agency.credit_limit || "",
+      credit_limit_days: agency.credit_limit_days || "",
     });
 
     await fetchMainAgentData(agency.id); // Pass agency ID to fetch data
@@ -185,6 +189,14 @@ const AgencyRelations = () => {
       formData.append("email", agencyForm.email);
       formData.append("agreement_status", agencyForm.agreement_status);
       formData.append("branch", branchId);
+
+      // Add credit limit fields
+      if (agencyForm.credit_limit) {
+        formData.append("credit_limit", agencyForm.credit_limit);
+      }
+      if (agencyForm.credit_limit_days) {
+        formData.append("credit_limit_days", agencyForm.credit_limit_days);
+      }
 
       if (agencyForm.logo && typeof agencyForm.logo !== "string") {
         formData.append("logo", agencyForm.logo);
@@ -212,12 +224,12 @@ const AgencyRelations = () => {
 
       if (editingId) {
         await axios.put(
-          `https://api.saer.pk/api/agencies/${editingId}/`,
+          `http://127.0.0.1:8000/api/agencies/${editingId}/`,
           formData,
           config
         );
       } else {
-        await axios.post("https://api.saer.pk/api/agencies/", formData, config);
+        await axios.post("http://127.0.0.1:8000/api/agencies/", formData, config);
       }
 
       localStorage.removeItem(AGENCIES_CACHE_KEY);
@@ -244,13 +256,17 @@ const AgencyRelations = () => {
         cacheTimestamp &&
         Date.now() - parseInt(cacheTimestamp) < CACHE_EXPIRY_TIME
       ) {
+        console.log('Using cached agencies data');
         setAgencies(JSON.parse(cachedData));
       } else {
+        console.log('Fetching fresh agencies from API...');
         const response = await axios.get(
-          "https://api.saer.pk/api/agencies/",
+          "http://127.0.0.1:8000/api/agencies/",
           axiosConfig
         );
         const data = response.data || [];
+        console.log('API Response - Total agencies:', data.length);
+        console.log('API Response data:', data);
         setAgencies(data);
 
         localStorage.setItem(AGENCIES_CACHE_KEY, JSON.stringify(data));
@@ -271,7 +287,7 @@ const AgencyRelations = () => {
   const fetchAgencyDetails = async (id) => {
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/agencies/${id}/`,
+        `http://127.0.0.1:8000/api/agencies/${id}/`,
         axiosConfig
       );
       if (response.data.contacts) {
@@ -324,14 +340,23 @@ const AgencyRelations = () => {
   const filteredAgencies = useMemo(() => {
     let result = agencies;
 
+    console.log('=== FILTERING DEBUG ===');
+    console.log('Total agencies before filter:', agencies.length);
+    console.log('Current branchId from localStorage:', branchId);
+    console.log('Agencies:', agencies.map(a => ({ id: a.id, name: a.name, branch: a.branch })));
+
     // Filter by branch - convert both IDs to numbers for comparison
     if (branchId) {
       const currentBranchId = Number(branchId); // Convert localStorage string to number
+      console.log('Filtering by branch:', currentBranchId);
       result = result.filter(agency => {
         // Ensure agency.branch exists and convert to number
         const agencyBranchId = agency.branch ? Number(agency.branch) : null;
-        return agencyBranchId === currentBranchId;
+        const matches = agencyBranchId === currentBranchId;
+        console.log(`Agency ${agency.id} (${agency.name}): branch=${agencyBranchId}, matches=${matches}`);
+        return matches;
       });
+      console.log('After branch filter:', result.length, 'agencies');
     }
 
     // Apply search filter
@@ -353,6 +378,8 @@ const AgencyRelations = () => {
     }
 
     setTotalPages(Math.ceil(result.length / PAGE_SIZE));
+    console.log('Final filtered agencies:', result.length);
+    console.log('===');
     return result;
   }, [agencies, searchTerm, statusFilter, branchId]);
 
@@ -380,6 +407,8 @@ const AgencyRelations = () => {
       email: "",
       agreement_status: true,
       branch: branchId,
+      credit_limit: "",
+      credit_limit_days: "",
     });
     setShowModal(true);
   };
@@ -437,7 +466,7 @@ const AgencyRelations = () => {
     setIsSubmitting(true);
     try {
       await axios.patch(
-        `https://api.saer.pk/api/agencies/${currentAgencyId}/`,
+        `http://127.0.0.1:8000/api/agencies/${currentAgencyId}/`,
         { contacts: contentForm.contacts },
         axiosConfig
       );
@@ -465,7 +494,7 @@ const AgencyRelations = () => {
       setIsLoading(true);
       try {
         await axios.delete(
-          `https://api.saer.pk/api/agencies/${id}/`,
+          `http://127.0.0.1:8000/api/agencies/${id}/`,
           axiosConfig
         );
 
@@ -544,35 +573,35 @@ const AgencyRelations = () => {
         `}
       </style>
       <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
-      <div className="row g-0">
-        {/* Sidebar */}
-        <div className="col-12 col-lg-2">
-          <Sidebar />
-        </div>
-        {/* Main Content */}
-        <div className="col-12 col-lg-10">
-          <div className="container">
-            <Header />
-            <div className="px-3 px-lg-4 my-3">
-              {/* Navigation Tabs */}
-              <div className="row ">
-                <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-                  <nav className="nav flex-wrap gap-2">
-                    {tabs.map((tab, index) => (
-                      <NavLink
-                        key={index}
-                        to={tab.path}
-                        className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Agencies"
-                          ? "text-primary fw-semibold"
-                          : "text-muted"
-                          }`}
-                        style={{ backgroundColor: "transparent" }}
-                      >
-                        {tab.name}
-                      </NavLink>
-                    ))}
-                  </nav>
-                  {/* <div className="d-flex align-items-center gap-3">
+        <div className="row g-0">
+          {/* Sidebar */}
+          <div className="col-12 col-lg-2">
+            <Sidebar />
+          </div>
+          {/* Main Content */}
+          <div className="col-12 col-lg-10">
+            <div className="container">
+              <Header />
+              <div className="px-3 px-lg-4 my-3">
+                {/* Navigation Tabs */}
+                <div className="row ">
+                  <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
+                    <nav className="nav flex-wrap gap-2">
+                      {tabs.map((tab, index) => (
+                        <NavLink
+                          key={index}
+                          to={tab.path}
+                          className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Agencies"
+                            ? "text-primary fw-semibold"
+                            : "text-muted"
+                            }`}
+                          style={{ backgroundColor: "transparent" }}
+                        >
+                          {tab.name}
+                        </NavLink>
+                      ))}
+                    </nav>
+                    {/* <div className="d-flex align-items-center gap-3">
                     {branchId && (
                       <div className="badge bg-primary">
                         Branch:{" "}
@@ -581,226 +610,211 @@ const AgencyRelations = () => {
                       </div>
                     )}
                   </div> */}
-                  <div className="input-group" style={{ maxWidth: "300px" }}>
-                    <span className="input-group-text">
-                      <Search />
-                    </span>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Search name, address, phone, etc"
-                      value={searchTerm}
-                      onChange={handleSearchChange}
-                    />
+                    <div className="input-group" style={{ maxWidth: "300px" }}>
+                      <span className="input-group-text">
+                        <Search />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search name, address, phone, etc"
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-3 bg-white my-3 rounded-3 shadow-sm">
-                <div className="d-flex flex-wrap gap-2 justify-content-between">
-                  <div>
-                    <h5 className="fw-semibold mb-0">All Agencies</h5>
+                <div className="p-3 bg-white my-3 rounded-3 shadow-sm">
+                  <div className="d-flex flex-wrap gap-2 justify-content-between">
+                    <div>
+                      <h5 className="fw-semibold mb-0">All Agencies</h5>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleShowCreate}
+                        disabled={isLoading || isSubmitting}
+                      >
+                        {isLoading ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          "Add Agency"
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleShowCreate}
-                      disabled={isLoading || isSubmitting}
-                    >
-                      {isLoading ? (
-                        <Spinner size="sm" animation="border" />
+
+                  <div className="d-flex justify-content-end mt-2 align-items-center mb-3 flex-wrap gap-2">
+                    <Dropdown>
+                      <Dropdown.Toggle
+                        variant=""
+                        disabled={isLoading || isSubmitting}
+                      >
+                        <Funnel size={16} className="me-1" />
+                        Filters
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {statusOptions.map((status, idx) => (
+                          <Dropdown.Item
+                            key={idx}
+                            onClick={() => setStatusFilter(status)}
+                            active={statusFilter === status}
+                          >
+                            {status}
+                          </Dropdown.Item>
+                        ))}
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="p-3">
+                      <ShimmerLoader />
+                    </div>
+                  ) : (
+                    <>
+                      {filteredAgencies.length === 0 ? (
+                        <div className="text-center py-5">
+                          <p>No agencies found</p>
+                          <Button
+                            variant="primary"
+                            onClick={() => setRefreshTrigger((prev) => prev + 1)}
+                          >
+                            Refresh
+                          </Button>
+                        </div>
                       ) : (
-                        "Add Agency"
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="d-flex justify-content-end mt-2 align-items-center mb-3 flex-wrap gap-2">
-                  <Dropdown>
-                    <Dropdown.Toggle
-                      variant=""
-                      disabled={isLoading || isSubmitting}
-                    >
-                      <Funnel size={16} className="me-1" />
-                      Filters
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
-                      {statusOptions.map((status, idx) => (
-                        <Dropdown.Item
-                          key={idx}
-                          onClick={() => setStatusFilter(status)}
-                          active={statusFilter === status}
-                        >
-                          {status}
-                        </Dropdown.Item>
-                      ))}
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </div>
-
-                {isLoading ? (
-                  <div className="p-3">
-                    <ShimmerLoader />
-                  </div>
-                ) : (
-                  <>
-                    {filteredAgencies.length === 0 ? (
-                      <div className="text-center py-5">
-                        <p>No agencies found</p>
-                        <Button
-                          variant="primary"
-                          onClick={() => setRefreshTrigger((prev) => prev + 1)}
-                        >
-                          Refresh
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <Table
-                          hover
-                          responsive
-                          className="align-middle text-center"
-                        >
-                          <thead>
-                            <tr>
-                              <th>ID</th>
-                              <th>Name</th>
-                              <th>Agency Name</th>
-                              <th>Phone</th>
-                              <th>Email</th>
-                              <th>Address</th>
-                              <th>Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {paginatedAgencies.map((agency) => (
-                              <tr key={agency.id}>
-                                <td>
-                                  <Link
-                                    to={{
-                                      pathname: `/partners/message/${agency.id}`,
-                                      state: { agencyData: agency },
-                                    }}
-                                    style={{
-                                      cursor: "pointer",
-                                      textDecoration: "underline",
-                                    }}
-                                  >
-                                    {agency.id}
-                                  </Link>
-                                </td>
-                                <td>{agency.name || "N/A"}</td>
-                                <td>{agency.ageny_name || "N/A"}</td>
-                                <td>{agency.phone_number || "N/A"}</td>
-                                <td>{agency.email || "N/A"}</td>
-                                <td>{agency.address || "N/A"}</td>
-                                <td>
-                                  <Dropdown>
-                                    <Dropdown.Toggle
-                                      variant="link"
-                                      className="text-decoration-none p-0"
-                                      disabled={isSubmitting}
+                        <>
+                          <Table
+                            hover
+                            responsive
+                            className="align-middle text-center"
+                          >
+                            <thead>
+                              <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Agency Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Address</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paginatedAgencies.map((agency) => (
+                                <tr key={agency.id}>
+                                  <td>
+                                    <Link
+                                      to={{
+                                        pathname: `/partners/message/${agency.id}`,
+                                        state: { agencyData: agency },
+                                      }}
+                                      style={{
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                      }}
                                     >
-                                      <Gear size={18} />
-                                    </Dropdown.Toggle>
-                                    <Dropdown.Menu>
-                                      {/* <Dropdown.Item
-                                      className="text-primary"
-                                      onClick={() =>
-                                        handleShowContent(agency.id)
-                                      }
-                                      disabled={isSubmitting}
-                                    >
-                                      Add Contacts
-                                    </Dropdown.Item> */}
-                                      <Dropdown.Item
-                                        className="text-success"
+                                      {agency.id}
+                                    </Link>
+                                  </td>
+                                  <td>{agency.name || "N/A"}</td>
+                                  <td>{agency.ageny_name || "N/A"}</td>
+                                  <td>{agency.phone_number || "N/A"}</td>
+                                  <td>{agency.email || "N/A"}</td>
+                                  <td>{agency.address || "N/A"}</td>
+                                  <td>
+                                    <div className="d-flex gap-2 justify-content-center">
+                                      <Button
+                                        variant="success"
+                                        size="sm"
                                         onClick={() => handleShowEdit(agency)}
+                                        disabled={isSubmitting}
                                       >
                                         Edit
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
+                                      </Button>
+                                      <Button
+                                        variant="danger"
+                                        size="sm"
                                         onClick={() => handleDelete(agency.id)}
-                                        className="text-danger"
                                         disabled={isSubmitting}
                                       >
                                         Delete
-                                      </Dropdown.Item>
-                                    </Dropdown.Menu>
-                                  </Dropdown>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </Table>
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
 
-                        <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
-                          <div className="d-flex flex-wrap align-items-center">
-                            <span className="me-2">
-                              Showing {paginatedAgencies.length} of{" "}
-                              {filteredAgencies.length} agencies
-                            </span>
-                          </div>
-                          <nav>
-                            <ul className="pagination pagination-sm mb-0">
-                              <li
-                                className={`page-item ${currentPage === 1 ? "disabled" : ""
-                                  }`}
-                              >
-                                <button
-                                  className="page-link"
-                                  onClick={() =>
-                                    handlePageChange(currentPage - 1)
-                                  }
-                                  disabled={currentPage === 1}
-                                >
-                                  Previous
-                                </button>
-                              </li>
-                              {Array.from(
-                                { length: totalPages },
-                                (_, i) => i + 1
-                              ).map((page) => (
+                          <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+                            <div className="d-flex flex-wrap align-items-center">
+                              <span className="me-2">
+                                Showing {paginatedAgencies.length} of{" "}
+                                {filteredAgencies.length} agencies
+                              </span>
+                            </div>
+                            <nav>
+                              <ul className="pagination pagination-sm mb-0">
                                 <li
-                                  key={page}
-                                  className={`page-item ${currentPage === page ? "active" : ""
+                                  className={`page-item ${currentPage === 1 ? "disabled" : ""
                                     }`}
                                 >
                                   <button
                                     className="page-link"
-                                    onClick={() => handlePageChange(page)}
+                                    onClick={() =>
+                                      handlePageChange(currentPage - 1)
+                                    }
+                                    disabled={currentPage === 1}
                                   >
-                                    {page}
+                                    Previous
                                   </button>
                                 </li>
-                              ))}
-                              <li
-                                className={`page-item ${currentPage === totalPages ? "disabled" : ""
-                                  }`}
-                              >
-                                <button
-                                  className="page-link"
-                                  onClick={() =>
-                                    handlePageChange(currentPage + 1)
-                                  }
-                                  disabled={currentPage === totalPages}
+                                {Array.from(
+                                  { length: totalPages },
+                                  (_, i) => i + 1
+                                ).map((page) => (
+                                  <li
+                                    key={page}
+                                    className={`page-item ${currentPage === page ? "active" : ""
+                                      }`}
+                                  >
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handlePageChange(page)}
+                                    >
+                                      {page}
+                                    </button>
+                                  </li>
+                                ))}
+                                <li
+                                  className={`page-item ${currentPage === totalPages ? "disabled" : ""
+                                    }`}
                                 >
-                                  Next
-                                </button>
-                              </li>
-                            </ul>
-                          </nav>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
+                                  <button
+                                    className="page-link"
+                                    onClick={() =>
+                                      handlePageChange(currentPage + 1)
+                                    }
+                                    disabled={currentPage === totalPages}
+                                  >
+                                    Next
+                                  </button>
+                                </li>
+                              </ul>
+                            </nav>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div>
+                  <AdminFooter />
+                </div>
               </div>
-              <div>
-                <AdminFooter />
-              </div>
-            </div>
             </div>
           </div>
         </div>
@@ -886,6 +900,37 @@ const AgencyRelations = () => {
                   placeholder="Agency Address"
                   value={agencyForm.address}
                   onChange={handleChange}
+                />
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Credit Limit
+                </label>
+                <input
+                  type="number"
+                  name="credit_limit"
+                  className="form-control rounded shadow-none px-1 py-2"
+                  placeholder="50000"
+                  value={agencyForm.credit_limit}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Credit Limit Days
+                </label>
+                <input
+                  type="number"
+                  name="credit_limit_days"
+                  className="form-control rounded shadow-none px-1 py-2"
+                  placeholder="30"
+                  value={agencyForm.credit_limit_days}
+                  onChange={handleChange}
+                  min="0"
                 />
               </div>
 

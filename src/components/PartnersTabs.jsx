@@ -11,6 +11,7 @@ const tabs = [
   { name: 'Discounts', path: 'discounts' },
   { name: 'Organization Links', path: 'organization-links' },
   { name: 'Branches', path: 'branche' },
+  { name: 'Agencies', path: 'agencies' },
   { name: 'Markup', path: 'markup' },
   { name: 'Commission Rules', path: 'commission-rules' },
 ];
@@ -38,8 +39,7 @@ export default function PartnersTabs({ activeName }) {
               to={resolveTo(tab.path)}
               end={tab.path === ''}
               className={({ isActive }) =>
-                `partners-tab-link ${
-                  isActive || activeName === tab.name ? 'active' : ''
+                `partners-tab-link ${isActive || activeName === tab.name ? 'active' : ''
                 }`
               }
             >

@@ -408,7 +408,7 @@ const LeadManagement = () => {
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`https://api.saer.pk/api/leads/`, {
+      const response = await axios.get(`http://127.0.0.1:8000/api/leads/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -424,7 +424,7 @@ const LeadManagement = () => {
   // Fetch branches
   const fetchBranches = async () => {
     try {
-      const response = await axios.get(`https://api.saer.pk/api/branches/`, {
+      const response = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
         params: { organization: organizationId },
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -518,7 +518,7 @@ const LeadManagement = () => {
         branch_id: getUserBranchId(), // send user's branch id even though branch field removed from UI
       };
 
-      await axios.post(`https://api.saer.pk/api/leads/`, payload, {
+      await axios.post(`http://127.0.0.1:8000/api/leads/`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -542,7 +542,7 @@ const LeadManagement = () => {
 
     try {
       await axios.put(
-        `https://api.saer.pk/api/leads/${selectedLead.id}/`,
+        `http://127.0.0.1:8000/api/leads/${selectedLead.id}/`,
         leadForm,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -561,7 +561,7 @@ const LeadManagement = () => {
   // Handle delete lead
   const handleDeleteLead = async () => {
     try {
-      await axios.delete(`https://api.saer.pk/api/leads/${selectedLead.id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/leads/${selectedLead.id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -1038,137 +1038,137 @@ const LeadManagement = () => {
                         )}
                       </>
                     )}
-                      </Tab>
+                  </Tab>
 
-                    <Tab eventKey="loans" title="Loans">
-                      <div className="p-3">
-                        {/* Loan Stats */}
-                        <Row className="mb-3">
-                          <Col xs={12} md={3} className="mb-2">
-                            <Card className="stat-card h-100">
-                              <Card.Body>
-                                <p className="text-muted mb-1">Total Loan Amount</p>
-                                <h4 className="mb-0">{loans.reduce((s, l) => s + (l.amount || 0), 0).toLocaleString()}</h4>
-                              </Card.Body>
-                            </Card>
-                          </Col>
-                          <Col xs={12} md={3} className="mb-2">
-                            <Card className="stat-card h-100">
-                              <Card.Body>
-                                <p className="text-muted mb-1">Loan Persons</p>
-                                <h4 className="mb-0">{loans.length}</h4>
-                              </Card.Body>
-                            </Card>
-                          </Col>
-                          <Col xs={12} md={3} className="mb-2">
-                            <Card className="stat-card h-100">
-                              <Card.Body>
-                                <p className="text-muted mb-1">Total Recovery Pending</p>
-                                <h4 className="mb-0">{loans.reduce((s, l) => s + ((l.amount || 0) - (l.recovered_amount || 0)), 0).toLocaleString()}</h4>
-                              </Card.Body>
-                            </Card>
-                          </Col>
-                          <Col xs={12} md={3} className="mb-2">
-                            <Card className="stat-card h-100">
-                              <Card.Body>
-                                <p className="text-muted mb-1">Today Recover / Today Recovered</p>
-                                <h5 className="mb-0">{(() => { const today = new Date().toISOString().slice(0, 10); const todayDue = loans.filter(l => l.due_date === today).reduce((s, l) => s + (l.amount || 0), 0); const todayRecovered = loans.filter(l => l.recovery_date === today).reduce((s, l) => s + (l.recovered_amount || 0), 0); return `${todayDue.toLocaleString()} / ${todayRecovered.toLocaleString()}` })()}</h5>
-                              </Card.Body>
-                            </Card>
-                          </Col>
-                        </Row>
+                  <Tab eventKey="loans" title="Loans">
+                    <div className="p-3">
+                      {/* Loan Stats */}
+                      <Row className="mb-3">
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card h-100">
+                            <Card.Body>
+                              <p className="text-muted mb-1">Total Loan Amount</p>
+                              <h4 className="mb-0">{loans.reduce((s, l) => s + (l.amount || 0), 0).toLocaleString()}</h4>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card h-100">
+                            <Card.Body>
+                              <p className="text-muted mb-1">Loan Persons</p>
+                              <h4 className="mb-0">{loans.length}</h4>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card h-100">
+                            <Card.Body>
+                              <p className="text-muted mb-1">Total Recovery Pending</p>
+                              <h4 className="mb-0">{loans.reduce((s, l) => s + ((l.amount || 0) - (l.recovered_amount || 0)), 0).toLocaleString()}</h4>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col xs={12} md={3} className="mb-2">
+                          <Card className="stat-card h-100">
+                            <Card.Body>
+                              <p className="text-muted mb-1">Today Recover / Today Recovered</p>
+                              <h5 className="mb-0">{(() => { const today = new Date().toISOString().slice(0, 10); const todayDue = loans.filter(l => l.due_date === today).reduce((s, l) => s + (l.amount || 0), 0); const todayRecovered = loans.filter(l => l.recovery_date === today).reduce((s, l) => s + (l.recovered_amount || 0), 0); return `${todayDue.toLocaleString()} / ${todayRecovered.toLocaleString()}` })()}</h5>
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                      </Row>
 
-                        {/* Loans Table */}
-                        <div className="table-responsive">
-                          <Table hover className="mb-0">
-                            <thead className="bg-light">
-                              <tr>
-                                <th>Customer</th>
-                                <th>Contact</th>
-                                <th>Amount</th>
-                                <th>Due Date</th>
-                                <th>Reason</th>
-                                <th>Status</th>
-                                <th>Recovered</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {loans.map(loan => (
-                                <tr key={loan.id}>
-                                  <td>
-                                    <div className="d-flex align-items-center">
-                                      <div className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, marginRight: 8 }}>
-                                        <User size={14} />
-                                      </div>
-                                      <div>
-                                        <div className="fw-500">{loan.customer_full_name}</div>
-                                        <small className="text-muted">{loan.branch_name}</small>
-                                      </div>
+                      {/* Loans Table */}
+                      <div className="table-responsive">
+                        <Table hover className="mb-0">
+                          <thead className="bg-light">
+                            <tr>
+                              <th>Customer</th>
+                              <th>Contact</th>
+                              <th>Amount</th>
+                              <th>Due Date</th>
+                              <th>Reason</th>
+                              <th>Status</th>
+                              <th>Recovered</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {loans.map(loan => (
+                              <tr key={loan.id}>
+                                <td>
+                                  <div className="d-flex align-items-center">
+                                    <div className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, marginRight: 8 }}>
+                                      <User size={14} />
                                     </div>
-                                  </td>
-                                  <td>{loan.contact_number}<br /><small className="text-muted">{loan.email}</small></td>
-                                  <td>Rs. {loan.amount.toLocaleString()}</td>
-                                  <td>{loan.due_date}</td>
-                                  <td>{loan.reason}</td>
-                                  <td><Badge bg={loan.status === 'pending' ? 'warning' : loan.status === 'cleared' ? 'success' : 'danger'}>{loan.status}</Badge></td>
-                                  <td>Rs. {(loan.recovered_amount || 0).toLocaleString()}</td>
-                                  <td>
-                                    <div className="d-flex gap-1">
-                                      <Button variant="outline-primary" size="sm" onClick={() => openViewModal({ ...loan, loan_status: loan.status, loan_promise_date: loan.due_date })} title="View">
-                                        <Eye size={14} />
-                                      </Button>
+                                    <div>
+                                      <div className="fw-500">{loan.customer_full_name}</div>
+                                      <small className="text-muted">{loan.branch_name}</small>
                                     </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      </div>
-                    </Tab>
-
-                    <Tab eventKey="tasks" title="Tasks">
-                      <div className="p-3">
-                        <Row className="mb-3">
-                          <Col>
-                            <h6 className="mb-2">Today's Follow-ups</h6>
-                          </Col>
-                        </Row>
-                        <div className="table-responsive">
-                          <Table hover className="mb-0">
-                            <thead className="bg-light">
-                              <tr>
-                                <th>Customer</th>
-                                <th>Contact</th>
-                                <th>Due Date</th>
-                                <th>Time</th>
-                                <th>Remarks</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {tasks.map(task => (
-                                <tr key={task.id}>
-                                  <td>{task.customer_full_name}</td>
-                                  <td><small className="text-muted">{task.contact_number}</small></td>
-                                  <td>{task.due_date}</td>
-                                  <td>{task.time}</td>
-                                  <td>{task.remarks}</td>
-                                  <td><Badge bg={task.status === 'overdue' ? 'danger' : 'warning'}>{task.status}</Badge></td>
-                                  <td>
-                                    <Button variant="outline-primary" size="sm" onClick={() => openViewModal(leads.find(l => l.id === task.id) || {})}>
+                                  </div>
+                                </td>
+                                <td>{loan.contact_number}<br /><small className="text-muted">{loan.email}</small></td>
+                                <td>Rs. {loan.amount.toLocaleString()}</td>
+                                <td>{loan.due_date}</td>
+                                <td>{loan.reason}</td>
+                                <td><Badge bg={loan.status === 'pending' ? 'warning' : loan.status === 'cleared' ? 'success' : 'danger'}>{loan.status}</Badge></td>
+                                <td>Rs. {(loan.recovered_amount || 0).toLocaleString()}</td>
+                                <td>
+                                  <div className="d-flex gap-1">
+                                    <Button variant="outline-primary" size="sm" onClick={() => openViewModal({ ...loan, loan_status: loan.status, loan_promise_date: loan.due_date })} title="View">
                                       <Eye size={14} />
                                     </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
                       </div>
-                    </Tab>
+                    </div>
+                  </Tab>
+
+                  <Tab eventKey="tasks" title="Tasks">
+                    <div className="p-3">
+                      <Row className="mb-3">
+                        <Col>
+                          <h6 className="mb-2">Today's Follow-ups</h6>
+                        </Col>
+                      </Row>
+                      <div className="table-responsive">
+                        <Table hover className="mb-0">
+                          <thead className="bg-light">
+                            <tr>
+                              <th>Customer</th>
+                              <th>Contact</th>
+                              <th>Due Date</th>
+                              <th>Time</th>
+                              <th>Remarks</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tasks.map(task => (
+                              <tr key={task.id}>
+                                <td>{task.customer_full_name}</td>
+                                <td><small className="text-muted">{task.contact_number}</small></td>
+                                <td>{task.due_date}</td>
+                                <td>{task.time}</td>
+                                <td>{task.remarks}</td>
+                                <td><Badge bg={task.status === 'overdue' ? 'danger' : 'warning'}>{task.status}</Badge></td>
+                                <td>
+                                  <Button variant="outline-primary" size="sm" onClick={() => openViewModal(leads.find(l => l.id === task.id) || {})}>
+                                    <Eye size={14} />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </div>
+                    </div>
+                  </Tab>
                 </Tabs>
               </Card.Body>
             </Card>

@@ -48,7 +48,7 @@ const CommissionManagement = () => {
   const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('https://api.saer.pk/api/commissions/rules', {
+      const res = await axios.get('http://127.0.0.1:8000/api/commissions/rules', {
         params: organizationId ? { organization: organizationId } : {},
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -111,13 +111,13 @@ const CommissionManagement = () => {
     try {
       if (editing && editing.id) {
         await axios.patch(
-          `https://api.saer.pk/api/commissions/rules/${editing.id}/`,
+          `http://127.0.0.1:8000/api/commissions/rules/${editing.id}/`,
           { name: name.trim(), receiver_type: receiverType },
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         showAlert('success', 'Commission group updated successfully');
       } else {
-        await axios.post('https://api.saer.pk/api/commissions/rule/create', payload, {
+        await axios.post('http://127.0.0.1:8000/api/commissions/rule/create', payload, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         showAlert('success', 'Commission group created successfully');
@@ -133,7 +133,7 @@ const CommissionManagement = () => {
   const removeGroup = async (id) => {
     if (!window.confirm('Delete this commission group?')) return;
     try {
-      await axios.delete(`https://api.saer.pk/api/commissions/rules/${id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/commissions/rules/${id}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       showAlert('success', 'Commission group deleted successfully');

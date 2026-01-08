@@ -1,28 +1,29 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Badge, 
-  Table, 
-  Button, 
-  Form, 
-  Modal, 
+import {
+  Card,
+  Row,
+  Col,
+  Badge,
+  Table,
+  Button,
+  Form,
+  Modal,
   Alert,
   Spinner
 } from "react-bootstrap";
-import { 
-  FileText, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Save, 
+import {
+  FileText,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Save,
   X,
   Globe,
   CheckCircle,
   XCircle,
-  Search
+  Search,
+  BookOpen
 } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
@@ -35,6 +36,7 @@ const RulesManagement = () => {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showAllRulesModal, setShowAllRulesModal] = useState(false);
   const [modalMode, setModalMode] = useState("create"); // create or edit
   const [selectedRule, setSelectedRule] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,7 +74,6 @@ const RulesManagement = () => {
   // Pages Configuration
   const availablePages = [
     { value: "booking_page", label: "Booking Page" },
-    { value: "agent_portal", label: "Agent Portal" },
     { value: "hotel_page", label: "Hotel Page" },
     { value: "transport_page", label: "Transport Page" },
     { value: "visa_page", label: "Visa Page" },
@@ -376,10 +377,16 @@ const RulesManagement = () => {
                     Manage Terms & Conditions, Policies, and Business Rules
                   </small>
                 </div>
-                <Button variant="primary" onClick={openCreateModal}>
-                  <Plus size={18} className="me-2" />
-                  Create New Rule
-                </Button>
+                <div className="d-flex gap-2">
+                  <Button variant="outline-primary" onClick={() => setShowAllRulesModal(true)}>
+                    <BookOpen size={18} className="me-2" />
+                    All Rules
+                  </Button>
+                  <Button variant="primary" onClick={openCreateModal}>
+                    <Plus size={18} className="me-2" />
+                    Create New Rule
+                  </Button>
+                </div>
               </div>
 
               {/* Alert */}
@@ -846,6 +853,199 @@ const RulesManagement = () => {
               Edit Rule
             </Button>
           )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* All Rules Reference Modal */}
+      <Modal show={showAllRulesModal} onHide={() => setShowAllRulesModal(false)} size="xl" scrollable>
+        <Modal.Header closeButton className="bg-primary text-white">
+          <Modal.Title>
+            <BookOpen size={24} className="me-2" style={{ verticalAlign: "middle" }} />
+            All Rules Reference Guide
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          <Alert variant="info" className="mb-4">
+            <strong>ℹ️ Reference Guide:</strong> Below are 20 predefined rule examples covering all available rule types. Use these as templates when creating your own rules.
+          </Alert>
+
+          {/* Terms & Conditions Rules */}
+          <Card className="mb-4 shadow-sm">
+            <Card.Header className="bg-light">
+              <h5 className="mb-0"><Badge bg="info" className="me-2">Terms & Conditions</Badge> (4 Rules)</h5>
+            </Card.Header>
+            <Card.Body>
+              <div className="rule-item mb-3 p-3 border-start border-4 border-primary bg-light">
+                <h6 className="fw-bold text-primary">1. General Booking Terms</h6>
+                <p className="mb-1 small">All bookings are subject to availability and confirmation. Customers must provide accurate information during booking. False information may result in booking cancellation without refund.</p>
+                <small className="text-muted">Pages: Booking Page, Agent Portal, Dashboard</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-primary bg-light">
+                <h6 className="fw-bold text-primary">2. Payment Terms</h6>
+                <p className="mb-1 small">Payment must be completed within 24 hours of booking confirmation. Partial payments are accepted as per package terms. Full payment must be received 7 days before departure.</p>
+                <small className="text-muted">Pages: Payment Page, Booking Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-primary bg-light">
+                <h6 className="fw-bold text-primary">3. Customer Responsibilities</h6>
+                <p className="mb-1 small">Customers are responsible for obtaining valid passports, visas, and required vaccinations. Failure to meet these requirements may result in denied boarding and no refund will be provided.</p>
+                <small className="text-muted">Pages: Booking Page, Visa Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-primary bg-light">
+                <h6 className="fw-bold text-primary">4. Age Restrictions</h6>
+                <p className="mb-1 small">Children under 18 must be accompanied by an adult. Infants under 2 years travel at reduced rates but do not occupy a seat. Senior citizens above 65 may require medical clearance.</p>
+                <small className="text-muted">Pages: Booking Page, Dashboard</small>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Cancellation Policy Rules */}
+          <Card className="mb-4 shadow-sm">
+            <Card.Header className="bg-light">
+              <h5 className="mb-0"><Badge bg="warning" className="me-2">Cancellation Policy</Badge> (4 Rules)</h5>
+            </Card.Header>
+            <Card.Body>
+              <div className="rule-item mb-3 p-3 border-start border-4 border-warning bg-light">
+                <h6 className="fw-bold text-warning">5. Standard Cancellation</h6>
+                <p className="mb-1 small">Cancellations made 30+ days before departure: 90% refund. 15-29 days: 50% refund. 7-14 days: 25% refund. Less than 7 days: No refund. Processing fee of $50 applies to all cancellations.</p>
+                <small className="text-muted">Pages: Booking Page, Payment Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-warning bg-light">
+                <h6 className="fw-bold text-warning">6. Emergency Cancellation</h6>
+                <p className="mb-1 small">In case of medical emergencies or death in family, 75% refund provided with valid documentation. Medical certificate or death certificate must be submitted within 48 hours of cancellation request.</p>
+                <small className="text-muted">Pages: Booking Page, Dashboard</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-warning bg-light">
+                <h6 className="fw-bold text-warning">7. Group Cancellation</h6>
+                <p className="mb-1 small">For group bookings (10+ people), if 50% or more cancel, entire booking may be cancelled. Refund terms apply individually. Group leader is responsible for coordinating cancellations.</p>
+                <small className="text-muted">Pages: Agent Portal, Booking Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-warning bg-light">
+                <h6 className="fw-bold text-warning">8. No-Show Policy</h6>
+                <p className="mb-1 small">Failure to show up for departure without prior cancellation results in complete forfeiture of all payments. No refund or credit will be provided for no-show passengers.</p>
+                <small className="text-muted">Pages: Booking Page, Dashboard</small>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Refund Policy Rules */}
+          <Card className="mb-4 shadow-sm">
+            <Card.Header className="bg-light">
+              <h5 className="mb-0"><Badge bg="success" className="me-2">Refund Policy</Badge> (3 Rules)</h5>
+            </Card.Header>
+            <Card.Body>
+              <div className="rule-item mb-3 p-3 border-start border-4 border-success bg-light">
+                <h6 className="fw-bold text-success">9. Refund Processing Time</h6>
+                <p className="mb-1 small">Approved refunds are processed within 14-21 business days. Refunds are issued to the original payment method. Bank processing may take additional 5-7 business days.</p>
+                <small className="text-muted">Pages: Payment Page, Dashboard</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-success bg-light">
+                <h6 className="fw-bold text-success">10. Partial Refunds</h6>
+                <p className="mb-1 small">If only certain services are cancelled (e.g., hotel upgrade, ziyarat tour), partial refunds are calculated based on service cost minus processing fee. Minimum $25 processing fee applies.</p>
+                <small className="text-muted">Pages: Booking Page, Hotel Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-success bg-light">
+                <h6 className="fw-bold text-success">11. Non-Refundable Items</h6>
+                <p className="mb-1 small">Visa processing fees, travel insurance, and service charges are non-refundable. Third-party bookings (flights, hotels) are subject to their respective cancellation policies.</p>
+                <small className="text-muted">Pages: Visa Page, Payment Page</small>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Commission Policy Rules */}
+          <Card className="mb-4 shadow-sm">
+            <Card.Header className="bg-light">
+              <h5 className="mb-0"><Badge bg="primary" className="me-2">Commission Policy</Badge> (2 Rules)</h5>
+            </Card.Header>
+            <Card.Body>
+              <div className="rule-item mb-3 p-3 border-start border-4 border-primary bg-light">
+                <h6 className="fw-bold text-primary">12. Agent Commission Structure</h6>
+                <p className="mb-1 small">Agents earn 5-10% commission on package bookings based on volume. Monthly sales &lt; $10,000: 5%, $10,000-$25,000: 7%, &gt; $25,000: 10%. Commission paid within 30 days of customer payment.</p>
+                <small className="text-muted">Pages: Agent Portal, Dashboard</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-primary bg-light">
+                <h6 className="fw-bold text-primary">13. Commission Clawback</h6>
+                <p className="mb-1 small">If customer cancels and receives refund, agent commission is reversed. If commission already paid, amount will be deducted from next commission payment or invoiced separately.</p>
+                <small className="text-muted">Pages: Agent Portal</small>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Transport, Hotel, Visa, Document Policies */}
+          <Card className="mb-4 shadow-sm">
+            <Card.Header className="bg-light">
+              <h5 className="mb-0"><Badge bg="secondary" className="me-2">Other Policies</Badge> (7 Rules)</h5>
+            </Card.Header>
+            <Card.Body>
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">14. Transport Policy - Luggage</h6>
+                <p className="mb-1 small">Each passenger allowed 1 check-in bag (23kg) and 1 carry-on (7kg). Excess baggage charged at $10/kg. Fragile items must be declared. Company not liable for lost/damaged luggage.</p>
+                <small className="text-muted">Pages: Transport Page, Booking Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">15. Transport Policy - Delays</h6>
+                <p className="mb-1 small">Company not responsible for delays due to weather, traffic, or force majeure. Alternative arrangements made when possible. No compensation for delays under 4 hours.</p>
+                <small className="text-muted">Pages: Transport Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">16. Hotel Policy - Check-in/out</h6>
+                <p className="mb-1 small">Standard check-in: 2 PM, check-out: 12 PM. Early check-in/late check-out subject to availability and additional charges. Guests must present valid ID and booking confirmation.</p>
+                <small className="text-muted">Pages: Hotel Page, Booking Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">17. Hotel Policy - Damage</h6>
+                <p className="mb-1 small">Guests liable for any damage to hotel property. Security deposit may be required. Smoking in non-smoking rooms: $200 fine. Lost key cards: $25 replacement fee.</p>
+                <small className="text-muted">Pages: Hotel Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">18. Visa Policy - Processing</h6>
+                <p className="mb-1 small">Visa processing takes 7-14 business days. Rush processing available for additional fee. Company assists with application but approval is at discretion of embassy. Visa fees non-refundable if rejected.</p>
+                <small className="text-muted">Pages: Visa Page, Booking Page</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">19. Document Policy - Requirements</h6>
+                <p className="mb-1 small">Passport must be valid for 6+ months from travel date. Provide clear scanned copies of passport, photos, and vaccination certificates. Incomplete documents delay processing.</p>
+                <small className="text-muted">Pages: Visa Page, Dashboard</small>
+              </div>
+
+              <div className="rule-item mb-3 p-3 border-start border-4 border-secondary bg-light">
+                <h6 className="fw-bold text-secondary">20. Document Policy - Verification</h6>
+                <p className="mb-1 small">All documents verified for authenticity. Fraudulent documents result in immediate booking cancellation and legal action. Customers must ensure all information matches official documents exactly.</p>
+                <small className="text-muted">Pages: Visa Page, Booking Page, Dashboard</small>
+              </div>
+            </Card.Body>
+          </Card>
+
+          <Alert variant="success" className="mt-4">
+            <strong>✅ Total: 20 Predefined Rules</strong>
+            <br />
+            These rules cover all major aspects of Umrah travel business. Use them as templates to create your own customized rules.
+          </Alert>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAllRulesModal(false)}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowAllRulesModal(false);
+            openCreateModal();
+          }}>
+            <Plus size={16} className="me-2" />
+            Create New Rule
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

@@ -2,7 +2,13 @@ import api from "../utils/Api";
 
 // Service helper for agency-related API calls
 export const getAgencies = (params = {}) => {
-  return api.get("/agencies/", { params }).then((res) => res.data);
+  // Add timestamp to bypass cache (no custom headers to avoid CORS)
+  return api.get("/agencies/", {
+    params: {
+      ...params,
+      _t: Date.now() // Cache buster
+    }
+  }).then((res) => res.data);
 };
 
 export const getAgencyProfile = (agencyId) => {

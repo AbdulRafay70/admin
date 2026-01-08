@@ -35,6 +35,8 @@ import OrganizationLinks from "./pages/admin/OrganizationLinks";
 import Discounts from "./pages/admin/Discounts";
 import DiscountsPermissions from "./pages/admin/DiscountsPermissions";
 import Branches from "./pages/admin/Branches";
+import Agencies from "./pages/admin/Agencies";
+import AgencyDetail from "./pages/admin/AgencyDetail";
 import Groups from "./pages/admin/Groups";
 import ProfilePage from "./pages/admin/Profile";
 import CustomerManagement from "./pages/admin/CustomerManagement";
@@ -396,6 +398,38 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/partners/agencies"
+            element={
+              <PrivateRoute>
+                <Agencies />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/partners/agencies"
+            element={
+              <PrivateRoute>
+                <Agencies />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/partners/agencies/detail/:id"
+            element={
+              <PrivateRoute>
+                <AgencyDetail />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/partners/agencies/detail/:id"
+            element={
+              <PrivateRoute>
+                <AgencyDetail />
+              </PrivateRoute>
+            }
+          />
           {/* Agencies removed from global partners navigation */}
           {/* <Route
               path="/partners/group"
@@ -704,10 +738,14 @@ function App() {
             }
           />
 
-          {/* Redirect legacy commission-management route to partners/commission-rules */}
+          {/* Redirect legacy commission-management routes to partners/commission-rules */}
           <Route
             path="/commission-management"
             element={<Navigate to="/partners/commission-rules" replace />}
+          />
+          <Route
+            path="/commission-management/assign-values"
+            element={<Navigate to="/partners/commission-rules/assign-values" replace />}
           />
 
           {/* Hotel Outsourcing Routes */}
@@ -1009,7 +1047,7 @@ function App() {
 
         </Routes>
       </Container>
-    </div>
+    </div >
   );
 }
 

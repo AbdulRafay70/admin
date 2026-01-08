@@ -79,7 +79,7 @@ const PaxMovementTracking = () => {
 
       // Fetch all bookings with Approved or Delivered status
       const response = await fetch(
-        `https://api.saer.pk/api/bookings/?organization=${organizationId}`,
+        `http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -104,102 +104,154 @@ const PaxMovementTracking = () => {
       // Transform bookings data to passenger format
       const transformedPassengers = [];
 
-      // Helper function to determine passenger status based on dates and transport
+      // Helper function to determine passenger status based on hotel check-in dates
       const determinePassengerStatus = (booking, person) => {
         const currentDate = new Date();
+        currentDate.setHours(0, 0, 0, 0); // Reset to start of day for date comparison
+
         let status = "in_pakistan";
         let current_city = "Pakistan";
         let last_updated = booking.updated_at || new Date().toISOString();
 
-        // Get flight dates and times from trip_details
-        const ticket = booking.ticket_details?.[0];
-        const tripDetails = ticket?.trip_details?.[0]; // Get first trip (outbound flight)
-        console.log('🔍 Status check for', booking.booking_number, ':', { ticket, tripDetails });
+        console.log('🔍 Status check for', booking.booking_number);
 
-        if (!tripDetails) {
-          // No flight information, passenger is in Pakistan
+        // Get hotel details
+        const hotelDetails = booking.hotel_details || [];
+
+        if (hotelDetails.length === 0) {
+          // No hotel information, passenger is in Pakistan
+          console.log('   ❌ No hotel details found');
           return { status, current_city, last_updated };
         }
 
-        // Parse departure and arrival datetime from trip_details
-        const departureDatetime = tripDetails.departure_date_time ? new Date(tripDetails.departure_date_time) : null;
-        const arrivalDatetime = tripDetails.arrival_date_time ? new Date(tripDetails.arrival_date_time) : null;
-
-        // Get return flight info (usually second trip or from ticket fields)
-        const returnTrip = ticket?.trip_details?.[1];
-        const returnDatetime = returnTrip?.departure_date_time ? new Date(returnTrip.departure_date_time) : null;
-
-        console.log('Flight times:', {
-          booking: booking.booking_number,
-          departure: departureDatetime,
-          arrival: arrivalDatetime,
-          return: returnDatetime,
-          current: currentDate
+        // Sort hotels by check-in date
+        const sortedHotels = [...hotelDetails].sort((a, b) => {
+          const dateA = a.check_in_date ? new Date(a.check_in_date) : new Date(0);
+          const dateB = b.check_in_date ? new Date(b.check_in_date) : new Date(0);
+          return dateA - dateB;
         });
 
-        // Check if passenger is in flight or has arrived
-        if (departureDatetime && currentDate >= departureDatetime) {
-          // Check if passenger is currently in flight
-          if (arrivalDatetime && currentDate < arrivalDatetime) {
-            status = "in_flight";
-            current_city = "In Flight to KSA";
-            last_updated = tripDetails.departure_date_time;
-          } else if (arrivalDatetime) {
-            // Passenger has arrived in KSA
-            status = "entered_ksa";
-            current_city = tripDetails.arrival_city || "KSA";
-            last_updated = tripDetails.arrival_date_time;
+        console.log('   📅 Hotels:', sortedHotels.map(h => ({
+          name: h.hotel?.name,
+          check_in: h.check_in_date,
+          check_out: h.check_out_date
+        })));
 
-            // Check if passenger has returned to Pakistan
-            if (returnDatetime && currentDate >= returnDatetime) {
-              status = "exited_ksa";
-              current_city = "Pakistan";
-              last_updated = returnTrip.departure_date_time;
+        // Get first and last hotel
+        const firstHotel = sortedHotels[0];
+        const lastHotel = sortedHotels[sortedHotels.length - 1];
+
+        // Parse dates
+        const firstCheckIn = firstHotel.check_in_date ? new Date(firstHotel.check_in_date) : null;
+        const lastCheckOut = lastHotel.check_out_date ? new Date(lastHotel.check_out_date) : null;
+
+        if (firstCheckIn) {
+          firstCheckIn.setHours(0, 0, 0, 0);
+        }
+        if (lastCheckOut) {
+          lastCheckOut.setHours(0, 0, 0, 0);
+        }
+
+        console.log('   📅 First check-in:', firstCheckIn, 'Last check-out:', lastCheckOut, 'Today:', currentDate);
+
+        // Determine status based on dates
+        if (!firstCheckIn) {
+          // No check-in date, passenger is in Pakistan
+          return { status, current_city, last_updated };
+        }
+
+        // Check if passenger has exited (all hotels checked out and past)
+        if (lastCheckOut && currentDate > lastCheckOut) {
+          status = "exited_ksa";
+          current_city = "Pakistan";
+          last_updated = lastHotel.check_out_date;
+          console.log('   ✅ Exited KSA');
+          return { status, current_city, last_updated };
+        }
+
+        // Check if all hotels are checked out (exit pending)
+        if (lastCheckOut && currentDate.getTime() === lastCheckOut.getTime()) {
+          status = "exit_pending";
+          const cityObj = lastHotel.hotel?.city;
+          current_city = (typeof cityObj === 'string' ? cityObj : cityObj?.name) || "KSA";
+          last_updated = lastHotel.check_out_date;
+          console.log('   ⏳ Exit pending');
+          return { status, current_city, last_updated };
+        }
+
+        // Check if passenger is in flight (check-in is today)
+        if (firstCheckIn.getTime() === currentDate.getTime()) {
+          status = "in_flight";
+          current_city = "In Flight to KSA";
+          last_updated = firstHotel.check_in_date;
+          console.log('   ✈️  In flight');
+          return { status, current_city, last_updated };
+        }
+
+        // Check if passenger hasn't departed yet (check-in is in future)
+        if (currentDate < firstCheckIn) {
+          status = "in_pakistan";
+          current_city = "Pakistan";
+          last_updated = booking.updated_at || new Date().toISOString();
+          console.log('   🇵🇰 In Pakistan (future check-in)');
+          return { status, current_city, last_updated };
+        }
+
+        // Passenger is in KSA - determine which city based on current hotel
+        for (const hotel of sortedHotels) {
+          const checkIn = hotel.check_in_date ? new Date(hotel.check_in_date) : null;
+          const checkOut = hotel.check_out_date ? new Date(hotel.check_out_date) : null;
+
+          if (checkIn) checkIn.setHours(0, 0, 0, 0);
+          if (checkOut) checkOut.setHours(0, 0, 0, 0);
+
+          // Check if currently in this hotel
+          if (checkIn && checkOut && currentDate >= checkIn && currentDate <= checkOut) {
+            const hotelName = hotel.hotel?.name?.toLowerCase() || "";
+            const cityObj = hotel.hotel?.city;
+            const hotelCity = (typeof cityObj === 'string' ? cityObj : cityObj?.name || "").toLowerCase();
+
+            console.log('   🏨 Current hotel:', hotel.hotel?.name);
+            console.log('   📍 City Object Type:', typeof cityObj);
+            console.log('   📍 City Object:', cityObj);
+            console.log('   📍 City Name:', cityObj?.name);
+            console.log('   📍 Hotel City (processed):', hotelCity);
+            console.log('   📍 Hotel Name (lowercase):', hotelName);
+
+            // Determine city from hotel name or city
+            if (hotelName.includes("makkah") || hotelName.includes("mecca") ||
+              hotelCity.includes("makkah") || hotelCity.includes("mecca")) {
+              status = "in_makkah";
+              current_city = "Makkah";
+              last_updated = hotel.check_in_date;
+              console.log('   🕋 In Makkah');
+              break;
+            } else if (hotelName.includes("madinah") || hotelName.includes("madina") || hotelName.includes("medina") ||
+              hotelCity.includes("madinah") || hotelCity.includes("madina") || hotelCity.includes("medina")) {
+              status = "in_madina";
+              current_city = "Madina";
+              last_updated = hotel.check_in_date;
+              console.log('   🕌 In Madinah');
+              break;
+            } else if (hotelName.includes("jeddah") || hotelName.includes("jed") ||
+              hotelCity.includes("jeddah") || hotelCity.includes("jed")) {
+              status = "in_jeddah";
+              current_city = "Jeddah";
+              last_updated = hotel.check_in_date;
+              console.log('   🏙️ In Jeddah');
+              break;
             } else {
-              // Passenger is in KSA, check transport sectors to determine location
-              if (booking.transport_details && booking.transport_details.length > 0) {
-                // Check the most recent transport sector based on current date
-                for (const transport of booking.transport_details) {
-                  if (transport.sector_details && transport.sector_details.length > 0) {
-                    // Check each sector to find current location
-                    for (const sector of transport.sector_details) {
-                      const arrivalCity = sector.arrival_city?.toLowerCase() || "";
-
-                      if (arrivalCity.includes("makkah") || arrivalCity.includes("mecca")) {
-                        status = "in_makkah";
-                        current_city = "Makkah";
-                        break;
-                      } else if (arrivalCity.includes("madinah") || arrivalCity.includes("madina")) {
-                        status = "in_madina";
-                        current_city = "Madina";
-                        break;
-                      } else if (arrivalCity.includes("jeddah") || arrivalCity.includes("jed")) {
-                        status = "in_jeddah";
-                        current_city = "Jeddah";
-                        break;
-                      }
-                    }
-
-                    // If we found a specific city, break
-                    if (status !== "entered_ksa") {
-                      break;
-                    }
-                  }
-                }
-              }
-
-              // Check if return date is approaching (exit pending)
-              if (returnDatetime) {
-                const daysUntilReturn = Math.ceil((returnDatetime - currentDate) / (1000 * 60 * 60 * 24));
-                if (daysUntilReturn <= 2 && daysUntilReturn >= 0) {
-                  status = "exit_pending";
-                  // Keep current_city as is
-                }
-              }
+              // Default to in_ksa if city can't be determined
+              status = "in_ksa";
+              current_city = (typeof cityObj === 'string' ? cityObj : cityObj?.name) || "KSA";
+              last_updated = hotel.check_in_date;
+              console.log('   🇸🇦 In KSA (city unknown)');
+              break;
             }
           }
         }
 
+        console.log('   ➡️  Final status:', status, current_city);
         return { status, current_city, last_updated };
       };
 
@@ -211,7 +263,7 @@ const PaxMovementTracking = () => {
 
         try {
           const agencyResponse = await fetch(
-            `https://api.saer.pk/api/agencies/?organization_id=${organizationId}&id=${agencyId}`,
+            `http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${agencyId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

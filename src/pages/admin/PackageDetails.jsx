@@ -18,7 +18,7 @@ const PackageDetails = () => {
     ].filter(Boolean);
     const token = tokenCandidates[0];
     const selectedOrganization = JSON.parse(
-        
+
         localStorage.getItem("selectedOrganization")
     );
     const orgId = selectedOrganization?.id;
@@ -32,46 +32,46 @@ const PackageDetails = () => {
                 console.debug('PackageDetails - token candidates:', tokenCandidates.map(mask));
                 console.debug('PackageDetails - using token (masked):', mask(token));
 
-                    const doRequest = async (useToken) => {
-                        const headers = { Authorization: `Bearer ${useToken}`, "Content-Type": "application/json" };
+                const doRequest = async (useToken) => {
+                    const headers = { Authorization: `Bearer ${useToken}`, "Content-Type": "application/json" };
 
-                        // Fetch package details (use main packages API)
-                        const packageReq = axios.get(`https://api.saer.pk/api/packages/${id}/`, {
-                            params: { organization: orgId },
-                            headers,
-                        });
+                    // Fetch package details (use main packages API)
+                    const packageReq = axios.get(`http://127.0.0.1:8000/api/packages/${id}/`, {
+                        params: { organization: orgId },
+                        headers,
+                    });
 
-                        // Use the generic bookings list endpoint directly to avoid 404s
-                        const bookingsReq = await axios.get(`https://api.saer.pk/api/bookings/`, {
-                            params: { umrah_package_id: id, organization: orgId },
-                            headers,
-                        });
-                        const packageRes = await packageReq;
-                        return { bookingsRes: bookingsReq, packageRes };
-                    };
+                    // Use the generic bookings list endpoint directly to avoid 404s
+                    const bookingsReq = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
+                        params: { umrah_package_id: id, organization: orgId },
+                        headers,
+                    });
+                    const packageRes = await packageReq;
+                    return { bookingsRes: bookingsReq, packageRes };
+                };
 
-                    let bookingsRes, packageRes;
-                    try {
-                        ({ bookingsRes, packageRes } = await doRequest(token));
-                    } catch (err) {
-                        // If unauthorized and we have another candidate (e.g., agentAccessToken), retry once
-                        // 404 for the specialized endpoint is expected on some backends; lower noise level
-                        console.debug('Initial package details request failed', err?.response?.status || err.message);
-                        if (err?.response?.status === 401 && tokenCandidates.length > 1) {
-                            const fallbackToken = tokenCandidates[1];
-                            console.debug('Retrying requests with fallback token (masked):', mask(fallbackToken));
-                            try {
-                                ({ bookingsRes, packageRes } = await doRequest(fallbackToken));
-                            } catch (err2) {
-                                console.error('Fallback request also failed', err2);
-                                throw err2;
-                            }
-                        } else {
-                            throw err;
+                let bookingsRes, packageRes;
+                try {
+                    ({ bookingsRes, packageRes } = await doRequest(token));
+                } catch (err) {
+                    // If unauthorized and we have another candidate (e.g., agentAccessToken), retry once
+                    // 404 for the specialized endpoint is expected on some backends; lower noise level
+                    console.debug('Initial package details request failed', err?.response?.status || err.message);
+                    if (err?.response?.status === 401 && tokenCandidates.length > 1) {
+                        const fallbackToken = tokenCandidates[1];
+                        console.debug('Retrying requests with fallback token (masked):', mask(fallbackToken));
+                        try {
+                            ({ bookingsRes, packageRes } = await doRequest(fallbackToken));
+                        } catch (err2) {
+                            console.error('Fallback request also failed', err2);
+                            throw err2;
                         }
+                    } else {
+                        throw err;
                     }
+                }
 
-                    setBookingsData((bookingsRes && bookingsRes.data) || []);
+                setBookingsData((bookingsRes && bookingsRes.data) || []);
 
                 // Debug: log raw responses and which organization was requested
                 console.debug('PackageDetails - bookingsRes.data:', bookingsRes.data);
@@ -93,7 +93,7 @@ const PackageDetails = () => {
                     if (ownerOrg && ownerOrg !== orgId) {
                         try {
                             console.debug('No bookings for selected org; trying owner org (generic endpoint):', ownerOrg);
-                            const fallbackRes = await axios.get(`https://api.saer.pk/api/bookings/`, {
+                            const fallbackRes = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
                                 params: { umrah_package_id: id, organization: ownerOrg },
                                 headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
                             });
@@ -111,7 +111,7 @@ const PackageDetails = () => {
                 if ((bookingsRes.data || []).length === 0) {
                     try {
                         console.debug('No bookings found with org filters; trying without organization filter');
-                        const allRes = await axios.get(`https://api.saer.pk/api/bookings/`, {
+                        const allRes = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
                             params: { umrah_package_id: id },
                             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
                         });
@@ -237,7 +237,7 @@ const PackageDetails = () => {
         });
     };
 
-    
+
 
     // Format currency function
     // const formatCurrency = (amount) => {
@@ -305,7 +305,7 @@ const PackageDetails = () => {
                                     >
                                         ← Back to Packages
                                     </button>
-                                    
+
                                     <h2 className="text-primary">Package Bookings</h2>
                                     <p className="text-muted">Package ID: {id} | Total Bookings: {bookingsData.length}</p>
                                     {bookingsData.length === 0 && (
@@ -394,14 +394,14 @@ const PackageDetails = () => {
                                                     <div className="row">
                                                         <div className="col-md-6">
                                                             <strong>Title:</strong> {booking.umrah_package.title}<br />
-                                                            <strong>Visa Prices:</strong> 
-                                                            Adult: {booking.umrah_package.adault_visa_price} | 
-                                                            Child: {booking.umrah_package.child_visa_price} | 
+                                                            <strong>Visa Prices:</strong>
+                                                            Adult: {booking.umrah_package.adault_visa_price} |
+                                                            Child: {booking.umrah_package.child_visa_price} |
                                                             Infant: {booking.umrah_package.infant_visa_price}
                                                         </div>
                                                         <div className="col-md-6">
                                                             <strong>Status:</strong> {booking.umrah_package.is_active ? 'Active' : 'Inactive'}<br />
-                                                            <strong>Total Seats:</strong> {booking.umrah_package.total_seats} | 
+                                                            <strong>Total Seats:</strong> {booking.umrah_package.total_seats} |
                                                             <strong> Left Seats:</strong> {booking.umrah_package.left_seats}
                                                         </div>
                                                     </div>
@@ -519,27 +519,24 @@ const PackageDetails = () => {
                                                                         <td>{person.passport_number || 'N/A'}</td>
                                                                         <td>{formatDate(person.date_of_birth)}</td>
                                                                         <td>
-                                                                            <span className={`badge ${
-                                                                                person.age_group === 'adult' ? 'bg-primary' :
+                                                                            <span className={`badge ${person.age_group === 'adult' ? 'bg-primary' :
                                                                                 person.age_group === 'child' ? 'bg-success' : 'bg-warning'
-                                                                            }`}>
+                                                                                }`}>
                                                                                 {person.age_group || 'N/A'}
                                                                             </span>
                                                                         </td>
                                                                         <td>{person.country || 'N/A'}</td>
                                                                         <td>
-                                                                            <span className={`badge ${
-                                                                                person.visa_status === 'approved' ? 'bg-success' :
+                                                                            <span className={`badge ${person.visa_status === 'approved' ? 'bg-success' :
                                                                                 person.visa_status === 'pending' ? 'bg-warning' : 'bg-secondary'
-                                                                            }`}>
+                                                                                }`}>
                                                                                 {person.visa_status || 'Pending'}
                                                                             </span>
                                                                         </td>
                                                                         <td>
-                                                                            <span className={`badge ${
-                                                                                person.ticket_status === 'confirmed' ? 'bg-success' :
+                                                                            <span className={`badge ${person.ticket_status === 'confirmed' ? 'bg-success' :
                                                                                 person.ticket_status === 'pending' ? 'bg-warning' : 'bg-secondary'
-                                                                            }`}>
+                                                                                }`}>
                                                                                 {person.ticket_status || 'Pending'}
                                                                             </span>
                                                                         </td>

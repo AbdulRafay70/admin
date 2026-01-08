@@ -54,7 +54,7 @@ const UpdateGroupPermissions = () => {
         if (!token) throw new Error("Authentication token not available");
 
         const permsRes = await axios.get(
-          "https://api.saer.pk/api/permissions/",
+          "http://127.0.0.1:8000/api/permissions/",
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -92,10 +92,10 @@ const UpdateGroupPermissions = () => {
               panel === "Uncategorized"
                 ? "Uncategorized"
                 : panel
-                    .replace(/([a-z])([A-Z])/g, "$1 $2")
-                    .split(" ")
-                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(" "),
+                  .replace(/([a-z])([A-Z])/g, "$1 $2")
+                  .split(" ")
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(" "),
             permissions: grouped[panel].sort(),
           }));
         setPermissionSections(sections);
@@ -123,8 +123,8 @@ const UpdateGroupPermissions = () => {
 
         // Create org-specific cache keys
         const cacheKey = orgId ? `cachedGroups_${orgId}` : `cachedGroups`;
-        const permissionsCacheKey = orgId 
-          ? `allGroupPermissions_${orgId}` 
+        const permissionsCacheKey = orgId
+          ? `allGroupPermissions_${orgId}`
           : `allGroupPermissions`;
         const timestampKey = orgId
           ? `cachedGroupsTimestamp_${orgId}`
@@ -144,10 +144,10 @@ const UpdateGroupPermissions = () => {
 
         // Fetch fresh data
         const [groupsRes, permsRes] = await Promise.all([
-          axios.get("https://api.saer.pk/api/groups/", {
+          axios.get("http://127.0.0.1:8000/api/groups/", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get("https://api.saer.pk/api/permissions/", {
+          axios.get("http://127.0.0.1:8000/api/permissions/", {
             headers: { Authorization: `Bearer ${token}` },
           })
         ]);
@@ -155,22 +155,22 @@ const UpdateGroupPermissions = () => {
         // Filter groups by organization
         const filteredGroups = orgId
           ? groupsRes.data.filter(
-              (group) => group.extended?.organization === orgId
-            )
+            (group) => group.extended?.organization === orgId
+          )
           : groupsRes.data;
 
         setGroups(filteredGroups);
 
         // Fetch all groups' permissions in parallel
         const permissionsMap = {};
-        const permissionRequests = filteredGroups.map(group => 
-          axios.get(`https://api.saer.pk/api/groups/${group.id}/`, {
+        const permissionRequests = filteredGroups.map(group =>
+          axios.get(`http://127.0.0.1:8000/api/groups/${group.id}/`, {
             headers: { Authorization: `Bearer ${token}` },
           })
         );
 
         const permissionResponses = await Promise.all(permissionRequests);
-        
+
         permissionResponses.forEach((response, index) => {
           const groupId = filteredGroups[index].id;
           const permIDs = Array.isArray(response.data.permissions)
@@ -272,7 +272,7 @@ const UpdateGroupPermissions = () => {
       if (!token) throw new Error("Authentication token not available");
 
       const res = await axios.get(
-        `https://api.saer.pk/api/groups/${selectedGroup}/`,
+        `http://127.0.0.1:8000/api/groups/${selectedGroup}/`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const groupData = res.data;
@@ -288,7 +288,7 @@ const UpdateGroupPermissions = () => {
       };
 
       await axios.patch(
-        `https://api.saer.pk/api/groups/${selectedGroup}/`,
+        `http://127.0.0.1:8000/api/groups/${selectedGroup}/`,
         payload,
         {
           headers: {
@@ -302,8 +302,8 @@ const UpdateGroupPermissions = () => {
       const storedOrg = JSON.parse(localStorage.getItem("selectedOrganization"));
       const orgId = storedOrg ? storedOrg.id : null;
       const cacheKey = orgId ? `cachedGroups_${orgId}` : `cachedGroups`;
-      const permissionsCacheKey = orgId 
-        ? `allGroupPermissions_${orgId}` 
+      const permissionsCacheKey = orgId
+        ? `allGroupPermissions_${orgId}`
         : `allGroupPermissions`;
       const timestampKey = orgId
         ? `cachedGroupsTimestamp_${orgId}`
@@ -372,150 +372,149 @@ const UpdateGroupPermissions = () => {
         `}
       </style>
       <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
-      <div className="row g-0">
-        {/* Sidebar */}
-        <div className="col-12 col-lg-2">
-          <Sidebar />
-        </div>
-        {/* Main Content */}
-        <div className="col-12 col-lg-10">
-          <div className="container">
-            <Header />
-            <div className="px-3 px-lg-4 my-3">
-              {/* Navigation Tabs */}
-              <div className="row ">
-              <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-                <nav className="nav flex-wrap gap-2">
-                  {tabs.map((tab, idx) => (
-                    <NavLink
-                      key={idx}
-                      to={tab.path}
-                      className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${
-                        tab.name === "Group And Permissions"
-                          ? "text-primary fw-semibold"
-                          : "text-muted"
-                      }`}
-                      style={{ backgroundColor: "transparent" }}
-                    >
-                      {tab.name}
-                    </NavLink>
-                  ))}
-                </nav>
-              </div>
-            </div>
-            <div className="p-3 my-3 bg-white shadow-sm rounded-3">
-              <div>
-                <div className="d-flex justify-content-between align-items-center py-3">
-                  <h4 className="mb-0 fw-bold">Update Group Permissions</h4>
-                  <div className="d-flex flex-wrap gap-2">
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleUpdatePermissions}
-                      disabled={!selectedGroup || isUpdating}
-                    >
-                      {isUpdating ? (
-                        <>
-                          <span
-                            className="spinner-border spinner-border-sm me-2"
-                            role="status"
-                            aria-hidden="true"
-                          ></span>
-                          Updating...
-                        </>
-                      ) : (
-                        "Update"
-                      )}
-                    </button>
-                    <Link
-                      to="/admin/partners/role-permissions"
-                      className="btn btn-primary"
-                    >
-                      Groups
-                    </Link>
+        <div className="row g-0">
+          {/* Sidebar */}
+          <div className="col-12 col-lg-2">
+            <Sidebar />
+          </div>
+          {/* Main Content */}
+          <div className="col-12 col-lg-10">
+            <div className="container">
+              <Header />
+              <div className="px-3 px-lg-4 my-3">
+                {/* Navigation Tabs */}
+                <div className="row ">
+                  <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
+                    <nav className="nav flex-wrap gap-2">
+                      {tabs.map((tab, idx) => (
+                        <NavLink
+                          key={idx}
+                          to={tab.path}
+                          className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Group And Permissions"
+                            ? "text-primary fw-semibold"
+                            : "text-muted"
+                            }`}
+                          style={{ backgroundColor: "transparent" }}
+                        >
+                          {tab.name}
+                        </NavLink>
+                      ))}
+                    </nav>
                   </div>
                 </div>
-
-                {isLoading ? (
-                  <ShimmerLoader />
-                ) : (
-                  <div className="p-4">
-                    <div className="mb-4 row">
-                      <div className="col-md-4">
-                        <fieldset className="border border-black w-100 p-2 rounded mb-3">
-                          <legend className="float-none w-auto px-1 fs-6">
-                            Groups
-                          </legend>
-                          <Select
-                            options={groupOptions}
-                            value={groupOptions.find(
-                              (option) => option.value === selectedGroup
-                            )}
-                            onChange={(selected) =>
-                              setSelectedGroup(selected?.value || "")
-                            }
-                            placeholder="Select Group"
-                            isSearchable={true}
-                            styles={{
-                              control: (base) => ({
-                                ...base,
-                                border: "none",
-                                boxShadow: "none",
-                                "&:hover": {
-                                  border: "none",
-                                },
-                              }),
-                            }}
-                          />
-                        </fieldset>
+                <div className="p-3 my-3 bg-white shadow-sm rounded-3">
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center py-3">
+                      <h4 className="mb-0 fw-bold">Update Group Permissions</h4>
+                      <div className="d-flex flex-wrap gap-2">
+                        <button
+                          className="btn btn-primary"
+                          onClick={handleUpdatePermissions}
+                          disabled={!selectedGroup || isUpdating}
+                        >
+                          {isUpdating ? (
+                            <>
+                              <span
+                                className="spinner-border spinner-border-sm me-2"
+                                role="status"
+                                aria-hidden="true"
+                              ></span>
+                              Updating...
+                            </>
+                          ) : (
+                            "Update"
+                          )}
+                        </button>
+                        <Link
+                          to="/admin/partners/role-permissions"
+                          className="btn btn-primary"
+                        >
+                          Groups
+                        </Link>
                       </div>
                     </div>
-                    {permissionSections.length > 0 ? (
-                      permissionSections.map((section) => (
-                        <div key={section.id} className="mb-4">
-                          <h5 className="text-muted mb-3">{section.title}</h5>
-                          <div className="d-flex flex-wrap gap-4">
-                            {section.permissions.map((perm) => (
-                              <div
-                                className="form-check"
-                                key={`${section.id}-${perm}`}
-                              >
-                                <input
-                                  className="form-check-input border border-black"
-                                  type="checkbox"
-                                  checked={
-                                    permissions?.[section.id]?.[perm] || false
-                                  }
-                                  onChange={() =>
-                                    handlePermissionChange(section.id, perm)
-                                  }
-                                  id={`${section.id}-${perm}`}
-                                />
-                                <label
-                                  className="form-check-label text-muted"
-                                  htmlFor={`${section.id}-${perm}`}
-                                >
-                                  {permissionNameMap[perm] || perm}
-                                </label>
-                              </div>
-                            ))}
+
+                    {isLoading ? (
+                      <ShimmerLoader />
+                    ) : (
+                      <div className="p-4">
+                        <div className="mb-4 row">
+                          <div className="col-md-4">
+                            <fieldset className="border border-black w-100 p-2 rounded mb-3">
+                              <legend className="float-none w-auto px-1 fs-6">
+                                Groups
+                              </legend>
+                              <Select
+                                options={groupOptions}
+                                value={groupOptions.find(
+                                  (option) => option.value === selectedGroup
+                                )}
+                                onChange={(selected) =>
+                                  setSelectedGroup(selected?.value || "")
+                                }
+                                placeholder="Select Group"
+                                isSearchable={true}
+                                styles={{
+                                  control: (base) => ({
+                                    ...base,
+                                    border: "none",
+                                    boxShadow: "none",
+                                    "&:hover": {
+                                      border: "none",
+                                    },
+                                  }),
+                                }}
+                              />
+                            </fieldset>
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4">
-                        <p>No permissions found</p>
+                        {permissionSections.length > 0 ? (
+                          permissionSections.map((section) => (
+                            <div key={section.id} className="mb-4">
+                              <h5 className="text-muted mb-3">{section.title}</h5>
+                              <div className="d-flex flex-wrap gap-4">
+                                {section.permissions.map((perm) => (
+                                  <div
+                                    className="form-check"
+                                    key={`${section.id}-${perm}`}
+                                  >
+                                    <input
+                                      className="form-check-input border border-black"
+                                      type="checkbox"
+                                      checked={
+                                        permissions?.[section.id]?.[perm] || false
+                                      }
+                                      onChange={() =>
+                                        handlePermissionChange(section.id, perm)
+                                      }
+                                      id={`${section.id}-${perm}`}
+                                    />
+                                    <label
+                                      className="form-check-label text-muted"
+                                      htmlFor={`${section.id}-${perm}`}
+                                    >
+                                      {permissionNameMap[perm] || perm}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-4">
+                            <p>No permissions found</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
+                </div>
+                <div>
+                  <AdminFooter />
+                </div>
               </div>
             </div>
-            <div>
-              <AdminFooter />
-            </div>
           </div>
-        </div>
-        </div>
         </div>
       </div>
     </>

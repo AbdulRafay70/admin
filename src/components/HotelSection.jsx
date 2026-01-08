@@ -49,7 +49,7 @@ const HotelSection = () => {
     setError(null);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await axios.get('https://api.saer.pk/api/daily-operations/', {
+      const response = await axios.get('http://127.0.0.1:8000/api/daily-operations/', {
         params: { date: selectedDate },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -66,7 +66,7 @@ const HotelSection = () => {
           booking_id: booking.booking_number,
           contact: booking.person_details?.[0]?.contact_number || '',
           hotel_name: hotel.hotel_name || hotel.self_hotel_name || 'N/A',
-          city: hotel.city_name || 'N/A',
+          city: (typeof hotel.hotel?.city === 'string' ? hotel.hotel.city : hotel.hotel?.city?.name) || 'N/A',
           check_in: hotel.check_in_date || '',
           check_out: hotel.check_out_date || '',
           status: booking.status.toLowerCase(),
@@ -156,7 +156,7 @@ const HotelSection = () => {
         const token = localStorage.getItem('accessToken');
         const cleanPaxId = selectedPaxId.replace('PAX-', '');
 
-        await axios.patch('https://api.saer.pk/api/daily-operations/update-status/', {
+        await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
           model_type: 'pax',
           item_id: cleanPaxId,
           fields: {
@@ -202,7 +202,7 @@ const HotelSection = () => {
       const token = localStorage.getItem('accessToken');
       const cleanPaxId = paxId.replace('PAX-', '');
 
-      await axios.patch('https://api.saer.pk/api/daily-operations/update-status/', {
+      await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
         model_type: 'pax',
         item_id: cleanPaxId,
         status: status,
@@ -604,7 +604,7 @@ const HotelSection = () => {
             const token = localStorage.getItem('accessToken');
             const cleanPaxId = paxId.replace('PAX-', '');
 
-            await axios.patch('https://api.saer.pk/api/daily-operations/update-status/', {
+            await axios.patch('http://127.0.0.1:8000/api/daily-operations/update-status/', {
               model_type: 'pax',
               item_id: cleanPaxId,
               status: status,

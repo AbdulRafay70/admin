@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Use Vite env variable when available, otherwise fall back to production backend.
 // Ensure the baseURL includes the `/api` prefix so `api.get('/agencies/')` => `${baseURL}/agencies/` targets `/api/agencies/`.
-const rawBase = import.meta.env.VITE_API_BASE || "https://api.saer.pk";
+const rawBase = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 const baseURL = rawBase.endsWith("/api") ? rawBase : rawBase.replace(/\/$/, "") + "/api";
 
 const api = axios.create({
@@ -40,7 +40,7 @@ api.interceptors.response.use(
       try {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
-      } catch (e) {}
+      } catch (e) { }
       // optional: window.location.href = '/login';
     }
     return Promise.reject(err);
@@ -68,12 +68,15 @@ export const setAuthToken = (token) => {
   }
 };
 
-export const getFinanceDashboard = (period = "today") => {
-  return api.get(`/finance/dashboard`, { params: { period } });
-};
+
 
 export const getUniversalList = (params = {}) => {
   return api.get("/universal/list/", { params });
+};
+
+// Get parent options (Organizations/Branches) for entity creation
+export const getParentOptions = (entityType) => {
+  return api.get("/parent-options/", { params: { type: entityType } });
 };
 
 export const registerUniversal = (data) => {
@@ -111,4 +114,39 @@ export const deleteRule = (id) => {
 
 export const toggleRuleStatus = (id) => {
   return api.patch(`/rules/${id}/toggle-status/`);
+};
+
+// Finance API functions
+export const getFinanceDashboard = (period = "today") => {
+  return api.get(`/finance/dashboard`, { params: { period } });
+};
+
+export const getProfitLossReport = (params = {}) => {
+  // The endpoint is at /reports/profit-loss (not /api/reports/profit-loss)
+  // Since baseURL includes /api, we need to go up one level
+  return api.get(`../reports/profit-loss`, { params });
+};
+
+export const getExpenses = (params = {}) => {
+  return api.get(`/finance/expense/list`, { params });
+};
+
+export const getLedger = (params = {}) => {
+  return api.get(`/finance/ledger/by-service`, { params });
+};
+
+export const getTaxReports = (params = {}) => {
+  return api.get(`../reports/fbr/summary`, { params });
+};
+
+export const getBalanceSheet = (params = {}) => {
+  return api.get(`/finance/balance-sheet`, { params });
+};
+
+export const getAuditTrail = (params = {}) => {
+  return api.get(`/finance/audit-trail`, { params });
+};
+
+export const submitManualPosting = (data) => {
+  return api.post(`/finance/manual/post`, data);
 };

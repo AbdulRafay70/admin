@@ -73,6 +73,18 @@ const Visa = () => {
   const [isAddingFlight, setIsAddingFlight] = useState(false);
   const [isAddingCity, setIsAddingCity] = useState(false);
 
+  // Booking Expiry Times - separate hours and minutes for better UX
+  const [groupExpiryHours, setGroupExpiryHours] = useState("0");
+  const [groupExpiryMinutes, setGroupExpiryMinutes] = useState("0");
+  const [umrahExpiryHours, setUmrahExpiryHours] = useState("0");
+  const [umrahExpiryMinutes, setUmrahExpiryMinutes] = useState("0");
+  const [customerExpiryHours, setCustomerExpiryHours] = useState("0");
+  const [customerExpiryMinutes, setCustomerExpiryMinutes] = useState("0");
+  const [customUmrahExpiryHours, setCustomUmrahExpiryHours] = useState("0");
+  const [customUmrahExpiryMinutes, setCustomUmrahExpiryMinutes] = useState("0");
+  const [isEditingExpiry, setIsEditingExpiry] = useState(false);
+  const [isSettingExpiry, setIsSettingExpiry] = useState(false);
+
   // Section 1: Riyal Rate
   const [riyalSettings, setRiyalSettings] = useState({
     rate: "",
@@ -101,7 +113,7 @@ const Visa = () => {
       const orgId = getOrgId();
       try {
         const response = await axios.get(
-          `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -145,7 +157,7 @@ const Visa = () => {
     try {
       // First try to fetch existing rate to determine if we should update
       const existingResponse = await axios.get(
-        `https://api.saer.pk/api/riyal-rates/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/riyal-rates/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -156,7 +168,7 @@ const Visa = () => {
       if (existingResponse.data && existingResponse.data.length > 0) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/riyal-rates/${existingResponse.data[0].id}/?organization=${orgId}`,
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -172,7 +184,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          "https://api.saer.pk/api/riyal-rates/",
+          "http://127.0.0.1:8000/api/riyal-rates/",
           {
             ...riyalSettings,
             rate: parseFloat(riyalSettings.rate),
@@ -246,7 +258,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/shirkas/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/shirkas/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -276,7 +288,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "https://api.saer.pk/api/shirkas/",
+        "http://127.0.0.1:8000/api/shirkas/",
         {
           name: shirkaName,
           organization: orgId,
@@ -312,7 +324,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `https://api.saer.pk/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/shirkas/${editingShirkaId}/?organization=${orgId}`,
         {
           name: shirkaName,
           organization: orgId,
@@ -349,7 +361,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/shirkas/${removeShirka}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/shirkas/${removeShirka}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -402,7 +414,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/cities/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -428,7 +440,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/small-sectors/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -463,7 +475,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "https://api.saer.pk/api/small-sectors/",
+        "http://127.0.0.1:8000/api/small-sectors/",
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
@@ -532,7 +544,7 @@ const Visa = () => {
 
     try {
       await axios.put(
-        `https://api.saer.pk/api/small-sectors/${editingSectorId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/${editingSectorId}/?organization=${orgId}`,
         {
           contact_name: contactName,
           contact_number: contactNumberSector,
@@ -584,7 +596,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/small-sectors/${removeSector}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/${removeSector}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -650,7 +662,7 @@ const Visa = () => {
     try {
       const orgId = getOrgId();
       const res = await axios.get(
-        `https://api.saer.pk/api/big-sectors/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setBigSectors(res.data);
@@ -667,7 +679,7 @@ const Visa = () => {
     try {
       const orgId = getOrgId();
       const res = await axios.get(
-        `https://api.saer.pk/api/small-sectors/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/small-sectors/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSmallSectors(res.data);
@@ -979,7 +991,7 @@ const Visa = () => {
       setIsVisaTypeLoading(true);
       const orgId = selectedOrg?.id || selectedOrg;
       const response = await axios.get(
-        `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -1029,8 +1041,8 @@ const Visa = () => {
       };
 
       const url = visaTypeId
-        ? `https://api.saer.pk/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
-        : `https://api.saer.pk/api/set-visa-type/?organization=${orgId}`;
+        ? `http://127.0.0.1:8000/api/set-visa-type/${visaTypeId}/?organization=${orgId}`
+        : `http://127.0.0.1:8000/api/set-visa-type/?organization=${orgId}`;
 
       const method = visaTypeId ? "put" : "post";
 
@@ -1085,7 +1097,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1156,13 +1168,13 @@ const Visa = () => {
     try {
       if (editingVisaPriceId) {
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaPriceId}/?organization=${orgId}`,
           visaPriceData
         );
         toast.success("Visa prices updated successfully!");
       } else {
         const response = await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData
         );
         setEditingVisaPriceId(response.data.id); // Store the new ID
@@ -1202,7 +1214,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1283,7 +1295,7 @@ const Visa = () => {
       if (editingVisaLongPriceId) {
         // Update existing price
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1296,7 +1308,7 @@ const Visa = () => {
       } else {
         // Create new price
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1342,7 +1354,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1406,7 +1418,7 @@ const Visa = () => {
     try {
       if (editingVisa28OnlyPriceId) {
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisa28OnlyPriceId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1418,7 +1430,7 @@ const Visa = () => {
         toast.success("Visa prices updated successfully!");
       } else {
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1466,7 +1478,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1531,7 +1543,7 @@ const Visa = () => {
       if (editingVisaLongOnlyId) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/${editingVisaLongOnlyId}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1544,7 +1556,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -1597,7 +1609,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1664,7 +1676,7 @@ const Visa = () => {
       if (editingTransportId) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-sector-prices/${editingTransportId}/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1677,7 +1689,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/transport-sector-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-sector-prices/?organization=${orgId}`,
           transportData,
           {
             headers: {
@@ -1741,7 +1753,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-sector-prices/${removeTransport}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1806,7 +1818,7 @@ const Visa = () => {
     try {
       const orgId = getOrgId();
       const response = await axios.get(
-        `https://api.saer.pk/api/transport-prices?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-prices?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1885,7 +1897,7 @@ const Visa = () => {
         // Verify the visa exists by trying to fetch it first
         try {
           await axios.get(
-            `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+            `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1898,7 +1910,7 @@ const Visa = () => {
 
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -1911,7 +1923,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
           visaTypeTwoPayload,
           {
             headers: {
@@ -2090,7 +2102,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2167,7 +2179,7 @@ const Visa = () => {
   //       // Verify the visa exists by trying to fetch it first
   //       try {
   //         await axios.get(
-  //           `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //           `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //           {
   //             headers: {
   //               Authorization: `Bearer ${token}`,
@@ -2182,7 +2194,7 @@ const Visa = () => {
 
   //       // Update existing
   //       await axios.put(
-  //         `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2195,7 +2207,7 @@ const Visa = () => {
   //     } else {
   //       // Create new
   //       await axios.post(
-  //         `https://api.saer.pk/api/umrah-visa-type-two/?organization=${orgId}`,
+  //         `http://127.0.0.1:8000/api/umrah-visa-type-two/?organization=${orgId}`,
   //         visaTypeTwoPayload,
   //         {
   //           headers: {
@@ -2228,7 +2240,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/hotels/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/hotels/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2325,7 +2337,7 @@ const Visa = () => {
       const orgId =
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       await axios.delete(
-        `https://api.saer.pk/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/umrah-visa-type-two/${editingVisaTypeTwoId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2448,7 +2460,7 @@ const Visa = () => {
         // Check if selectedVisaPrice exists first
         // Update existing visa price
         response = await axios.put(
-          `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2461,7 +2473,7 @@ const Visa = () => {
       } else {
         // Create new visa price
         response = await axios.post(
-          `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
           visaPriceData,
           {
             headers: {
@@ -2524,7 +2536,7 @@ const Visa = () => {
     setIsDeleting(true);
     try {
       await axios.delete(
-        `https://api.saer.pk/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/only-visa-prices/${selectedVisaPrice.id}/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Visa price deleted successfully");
@@ -2544,7 +2556,7 @@ const Visa = () => {
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/only-visa-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/only-visa-prices/?organization=${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // console.log("API Response:", response.data);
@@ -2683,7 +2695,7 @@ const Visa = () => {
   // Fetch vehicle types with proper sector data
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`https://api.saer.pk/api/transport-prices/?organization=${orgId}`, {
+  //     const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       },
@@ -2752,7 +2764,7 @@ const Visa = () => {
       if (editingVehicleTypeId) {
         // Update existing vehicle type
         await axios.put(
-          `https://api.saer.pk/api/transport-prices/${editingVehicleTypeId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-prices/${editingVehicleTypeId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2765,7 +2777,7 @@ const Visa = () => {
       } else {
         // Create new vehicle type
         await axios.post(
-          `https://api.saer.pk/api/transport-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -2790,7 +2802,7 @@ const Visa = () => {
   // ✅ Enhanced fetchVehicleTypes to handle API response structure
   const fetchVehicleTypes = async () => {
     try {
-      const response = await axios.get(`https://api.saer.pk/api/transport-prices/?organization=${orgId}`, {
+      const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -2873,7 +2885,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/transport-prices/${selectedVehicleTypeId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/transport-prices/${selectedVehicleTypeId}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2920,7 +2932,7 @@ const Visa = () => {
   // const fetchAllSectors = async () => {
   //   try {
   //     // Fetch small sectors using axios
-  //     const smallResponse = await axios.get(`https://api.saer.pk/api/sectors/?organization=${orgId}`);
+  //     const smallResponse = await axios.get(`http://127.0.0.1:8000/api/sectors/?organization=${orgId}`);
   //     const smallData = smallResponse.data;
   //     const smallSectors = (smallData.results || smallData).map(sector => ({
   //       ...sector,
@@ -2929,7 +2941,7 @@ const Visa = () => {
   //     }));
 
   //     // Fetch big sectors using axios
-  //     const bigResponse = await axios.get(`https://api.saer.pk/api/big-sectors/?organization=${orgId}`);
+  //     const bigResponse = await axios.get(`http://127.0.0.1:8000/api/big-sectors/?organization=${orgId}`);
   //     const bigData = bigResponse.data;
   //     const bigSectors = (bigData.results || bigData).map(sector => ({
   //       ...sector,
@@ -2947,7 +2959,7 @@ const Visa = () => {
   // Fetch vehicle types with axios
   // const fetchVehicleTypes = async () => {
   //   try {
-  //     const response = await axios.get(`https://api.saer.pk/api/transport-prices/?organization=${orgId}`);
+  //     const response = await axios.get(`http://127.0.0.1:8000/api/transport-prices/?organization=${orgId}`);
   //     const data = response.data;
   //     setVehicleTypes(data.results || data);
   //   } catch (error) {
@@ -3009,8 +3021,8 @@ const Visa = () => {
   const orgId = getOrgId();
 
   // API base URLs
-  const FOOD_PRICES_API_URL = `https://api.saer.pk/api/food-prices/?organization=${orgId}`;
-  const CITIES_API_URL = `https://api.saer.pk/api/cities/?organization=${orgId}`;
+  const FOOD_PRICES_API_URL = `http://127.0.0.1:8000/api/food-prices/?organization=${orgId}`;
+  const CITIES_API_URL = `http://127.0.0.1:8000/api/cities/?organization=${orgId}`;
 
   // Fetch food prices and cities on component mount
   useEffect(() => {
@@ -3086,7 +3098,7 @@ const Visa = () => {
       if (isEditing && currentId) {
         // Update existing record
         await axios.put(
-          `https://api.saer.pk/api/food-prices/${currentId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/food-prices/${currentId}/?organization=${orgId}`,
           dataToSend,
           {
             headers: {
@@ -3162,7 +3174,7 @@ const Visa = () => {
       try {
         setLoading(true);
         await axios.delete(
-          `https://api.saer.pk/api/food-prices/${id}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/food-prices/${id}/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3216,7 +3228,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3237,7 +3249,7 @@ const Visa = () => {
     const orgId = getOrgId();
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/cities/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3295,7 +3307,7 @@ const Visa = () => {
       if (editingZiaratId) {
         // Update existing
         await axios.put(
-          `https://api.saer.pk/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/ziarat-prices/${editingZiaratId}/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3308,7 +3320,7 @@ const Visa = () => {
       } else {
         // Create new
         await axios.post(
-          `https://api.saer.pk/api/ziarat-prices/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/ziarat-prices/?organization=${orgId}`,
           ziaratData,
           {
             headers: {
@@ -3339,7 +3351,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/ziarat-prices/${id}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/ziarat-prices/${id}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3413,8 +3425,6 @@ const Visa = () => {
   const [removeCity, setRemoveCity] = useState("");
 
   // Section 10: Booking expire time
-  const [groupExpiry, setGroupExpiry] = useState("");
-  const [umrahExpiry, setUmrahExpiry] = useState("");
   const [removeExpirySetting, setRemoveExpirySetting] = useState("");
 
   const [showModal, setShowModal] = useState(false);
@@ -3453,7 +3463,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/airlines/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/airlines/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3506,7 +3516,7 @@ const Visa = () => {
 
     try {
       const response = await axios.post(
-        "https://api.saer.pk/api/airlines/",
+        "http://127.0.0.1:8000/api/airlines/",
         formData,
         {
           headers: {
@@ -3541,7 +3551,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/airlines/${removeFlight}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/airlines/${removeFlight}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3580,7 +3590,7 @@ const Visa = () => {
       }
 
       await axios.put(
-        `https://api.saer.pk/api/airlines/${editingFlightId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/airlines/${editingFlightId}/?organization=${orgId}`,
         formData,
         {
           headers: {
@@ -3610,7 +3620,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
       await axios.put(
-        `https://api.saer.pk/api/cities/${editingCityId}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/${editingCityId}/?organization=${orgId}`,
         {
           name: cityName,
           code: cityCode,
@@ -3650,7 +3660,7 @@ const Visa = () => {
 
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/cities/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3682,7 +3692,7 @@ const Visa = () => {
 
     try {
       await axios.post(
-        "https://api.saer.pk/api/cities/",
+        "http://127.0.0.1:8000/api/cities/",
         {
           name: cityName,
           code: cityCode,
@@ -3716,7 +3726,7 @@ const Visa = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/cities/${removeCity}/?organization=${orgId}`,
+        `http://127.0.0.1:8000/api/cities/${removeCity}/?organization=${orgId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3736,7 +3746,7 @@ const Visa = () => {
     }
   };
 
-  const [isSettingExpiry, setIsSettingExpiry] = useState(false);
+
   const [expiryId, setExpiryId] = useState(null); // Add state to track expiry record ID
 
   // Fetch existing expiry times on component mount
@@ -3746,7 +3756,7 @@ const Visa = () => {
         typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
       try {
         const response = await axios.get(
-          `https://api.saer.pk/api/booking-expiry/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/booking-expiry/?organization=${orgId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3757,8 +3767,22 @@ const Visa = () => {
         if (response.data && response.data.length > 0) {
           const expiryData = response.data[0];
           setExpiryId(expiryData.id);
-          setUmrahExpiry(expiryData.umrah_expiry_time?.toString() || "");
-          setGroupExpiry(expiryData.ticket_expiry_time?.toString() || "");
+          // Convert total minutes to hours and minutes for display
+          const umrahTotal = expiryData.umrah_expiry_time || 0;
+          setUmrahExpiryHours(Math.floor(umrahTotal / 60).toString());
+          setUmrahExpiryMinutes((umrahTotal % 60).toString());
+
+          const groupTotal = expiryData.ticket_expiry_time || 0;
+          setGroupExpiryHours(Math.floor(groupTotal / 60).toString());
+          setGroupExpiryMinutes((groupTotal % 60).toString());
+
+          const customerTotal = expiryData.customer_expiry_time || 0;
+          setCustomerExpiryHours(Math.floor(customerTotal / 60).toString());
+          setCustomerExpiryMinutes((customerTotal % 60).toString());
+
+          const customUmrahTotal = expiryData.custom_umrah_expiry_time || 0;
+          setCustomUmrahExpiryHours(Math.floor(customUmrahTotal / 60).toString());
+          setCustomUmrahExpiryMinutes((customUmrahTotal % 60).toString());
         }
       } catch (error) {
         console.error("Error fetching expiry times:", error);
@@ -3772,25 +3796,38 @@ const Visa = () => {
     const orgId =
       typeof selectedOrg === "object" ? selectedOrg.id : selectedOrg;
 
-    // Validate inputs
-    if (!groupExpiry || !umrahExpiry) {
-      toast.warning("Please enter both expiry times");
+    // Validate inputs - at least one field must have a value
+    const hasGroupExpiry = groupExpiryHours || groupExpiryMinutes;
+    const hasUmrahExpiry = umrahExpiryHours || umrahExpiryMinutes;
+    const hasCustomerExpiry = customerExpiryHours || customerExpiryMinutes;
+    const hasCustomUmrahExpiry = customUmrahExpiryHours || customUmrahExpiryMinutes;
+
+    if (!hasGroupExpiry || !hasUmrahExpiry || !hasCustomerExpiry || !hasCustomUmrahExpiry) {
+      toast.warning("Please enter all expiry times");
       return;
     }
 
     setIsSettingExpiry(true);
 
     try {
+      // Convert hours and minutes to total minutes
+      const groupTotalMinutes = (parseInt(groupExpiryHours) || 0) * 60 + (parseInt(groupExpiryMinutes) || 0);
+      const umrahTotalMinutes = (parseInt(umrahExpiryHours) || 0) * 60 + (parseInt(umrahExpiryMinutes) || 0);
+      const customerTotalMinutes = (parseInt(customerExpiryHours) || 0) * 60 + (parseInt(customerExpiryMinutes) || 0);
+      const customUmrahTotalMinutes = (parseInt(customUmrahExpiryHours) || 0) * 60 + (parseInt(customUmrahExpiryMinutes) || 0);
+
       const payload = {
-        umrah_expiry_time: parseInt(umrahExpiry),
-        ticket_expiry_time: parseInt(groupExpiry),
+        umrah_expiry_time: umrahTotalMinutes,
+        ticket_expiry_time: groupTotalMinutes,
+        customer_expiry_time: customerTotalMinutes,
+        custom_umrah_expiry_time: customUmrahTotalMinutes,
         organization: orgId,
       };
 
       if (expiryId) {
         // Update existing record
         await axios.put(
-          `https://api.saer.pk/api/booking-expiry/${expiryId}/?organization=${orgId}`,
+          `http://127.0.0.1:8000/api/booking-expiry/${expiryId}/?organization=${orgId}`,
           payload,
           {
             headers: {
@@ -3803,7 +3840,7 @@ const Visa = () => {
       } else {
         // Create new record
         const response = await axios.post(
-          "https://api.saer.pk/api/booking-expiry/",
+          "http://127.0.0.1:8000/api/booking-expiry/",
           payload,
           {
             headers: {
@@ -3835,7 +3872,7 @@ const Visa = () => {
   const [editingCityId, setEditingCityId] = useState(null);
   const [isEditingCity, setIsEditingCity] = useState(false);
 
-  const [isEditingExpiry, setIsEditingExpiry] = useState(false);
+
 
   const [isEditingOnlyVisa, setIsEditingOnlyVisa] = useState(false);
 
@@ -7099,42 +7136,170 @@ const Visa = () => {
                         <h4 className="fw-bold mb-3">
                           Set time for booking expire
                         </h4>
-                        <div className="col-12 d-flex flex-wrap gap-3">
-                          {/* Group Tickets Expiry */}
-                          <div>
-                            <label htmlFor="" className="Control-label">
-                              Expiry for Group tickets (hours)
-                            </label>
-                            <input
-                              type="number"
-                              className="form-control rounded shadow-none  px-1 py-2"
-                              placeholder="Write Time Hrs"
-                              value={groupExpiry}
-                              onChange={(e) => setGroupExpiry(e.target.value)}
-                            />
-                          </div>
+                        <div className="col-12">
+                          <div className="row g-3">
+                            {/* Group Tickets Expiry */}
+                            <div className="col-md-6">
+                              <div className="card p-3 h-100">
+                                <label htmlFor="" className="Control-label d-block fw-bold mb-2">
+                                  ✈️ Expiry for Group Tickets
+                                </label>
+                                <div className="d-flex gap-2 align-items-center">
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="999"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Hours"
+                                      style={{ width: '80px' }}
+                                      value={groupExpiryHours}
+                                      onChange={(e) => setGroupExpiryHours(e.target.value)}
+                                    />
+                                    <small className="text-muted">Hours</small>
+                                  </div>
+                                  <span>:</span>
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Mins"
+                                      style={{ width: '80px' }}
+                                      value={groupExpiryMinutes}
+                                      onChange={(e) => setGroupExpiryMinutes(e.target.value)}
+                                    />
+                                    <small className="text-muted">Minutes</small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div> {/* Close col-md-6 for Group Tickets */}
 
-                          {/* Umrah Expiry */}
-                          <div>
-                            <label htmlFor="" className="Control-label">
-                              Expiry for Umrah (hours)
-                            </label>
-                            <input
-                              type="number"
-                              className="form-control rounded shadow-none  px-1 py-2"
-                              placeholder="Write Time Hrs"
-                              value={umrahExpiry}
-                              onChange={(e) => setUmrahExpiry(e.target.value)}
-                            />
-                          </div>
+                            {/* Umrah Expiry */}
+                            <div className="col-md-6">
+                              <div className="card p-3 h-100">
+                                <label htmlFor="" className="Control-label d-block fw-bold mb-2">
+                                  🕌 Expiry for Umrah Packages
+                                </label>
+                                <div className="d-flex gap-2 align-items-center">
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="999"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Hours"
+                                      style={{ width: '80px' }}
+                                      value={umrahExpiryHours}
+                                      onChange={(e) => setUmrahExpiryHours(e.target.value)}
+                                    />
+                                    <small className="text-muted">Hours</small>
+                                  </div>
+                                  <span>:</span>
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Mins"
+                                      style={{ width: '80px' }}
+                                      value={umrahExpiryMinutes}
+                                      onChange={(e) => setUmrahExpiryMinutes(e.target.value)}
+                                    />
+                                    <small className="text-muted">Minutes</small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div> {/* Close col-md-6 for Umrah */}
 
-                          {/* Action Buttons */}
+                            {/* Customer Booking Expiry */}
+                            <div className="col-md-6">
+                              <div className="card p-3 h-100">
+                                <label htmlFor="" className="Control-label d-block fw-bold mb-2">
+                                  👤 Expiry for Customer Bookings (Public)
+                                </label>
+                                <div className="d-flex gap-2 align-items-center">
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="999"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Hours"
+                                      style={{ width: '80px' }}
+                                      value={customerExpiryHours}
+                                      onChange={(e) => setCustomerExpiryHours(e.target.value)}
+                                    />
+                                    <small className="text-muted">Hours</small>
+                                  </div>
+                                  <span>:</span>
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Mins"
+                                      style={{ width: '80px' }}
+                                      value={customerExpiryMinutes}
+                                      onChange={(e) => setCustomerExpiryMinutes(e.target.value)}
+                                    />
+                                    <small className="text-muted">Minutes</small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div> {/* Close col-md-6 for Customer Booking */}
+
+                            {/* Custom Umrah Booking Expiry */}
+                            <div className="col-md-6">
+                              <div className="card p-3 h-100">
+                                <label htmlFor="" className="Control-label d-block fw-bold mb-2">
+                                  📋 Expiry for Custom Umrah Packages
+                                </label>
+                                <div className="d-flex gap-2 align-items-center">
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="999"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Hours"
+                                      style={{ width: '80px' }}
+                                      value={customUmrahExpiryHours}
+                                      onChange={(e) => setCustomUmrahExpiryHours(e.target.value)}
+                                    />
+                                    <small className="text-muted">Hours</small>
+                                  </div>
+                                  <span>:</span>
+                                  <div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      className="form-control rounded shadow-none px-2 py-2"
+                                      placeholder="Mins"
+                                      style={{ width: '80px' }}
+                                      value={customUmrahExpiryMinutes}
+                                      onChange={(e) => setCustomUmrahExpiryMinutes(e.target.value)}
+                                    />
+                                    <small className="text-muted">Minutes</small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div> {/* Close col-md-6 for Custom Umrah */}
+
+                          </div> {/* Close row g-3 */}
+                        </div> {/* Close col-12 */}
+
+                        {/* Action Buttons */}
+                        <div className="col-12">
                           <div className="d-flex align-items-center gap-2 mb-3">
                             {!isEditingExpiry && (
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => setIsEditingExpiry(true)}
-                                disabled={!groupExpiry || !umrahExpiry}
                               >
                                 Edit
                               </button>
@@ -7160,9 +7325,9 @@ const Visa = () => {
                               </>
                             )}
                           </div>
-                        </div>
-                      </div>
-                    </div>
+                        </div> {/* Close col-12 for action buttons */}
+                      </div> {/* Close row */}
+                    </div> {/* Close p-lg-4 pt-4 */}
                   </div>
                   <div>
                     <AdminFooter />

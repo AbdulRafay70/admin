@@ -14,7 +14,7 @@ const EditHotelDetails = () => {
     const [alert, setAlert] = useState(null);
     const [cities, setCities] = useState([]);
     const [categories, setCategories] = useState([]);
-    
+
     const [formData, setFormData] = useState({
         city: '',
         name: '',
@@ -61,7 +61,7 @@ const EditHotelDetails = () => {
 
     const fetchCities = async () => {
         try {
-            const res = await axios.get('https://api.saer.pk/api/cities/', {
+            const res = await axios.get('http://127.0.0.1:8000/api/cities/', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
@@ -73,7 +73,7 @@ const EditHotelDetails = () => {
 
     const fetchCategories = async () => {
         try {
-            const res = await axios.get('https://api.saer.pk/api/hotel-categories/', {
+            const res = await axios.get('http://127.0.0.1:8000/api/hotel-categories/', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
@@ -95,19 +95,19 @@ const EditHotelDetails = () => {
         try {
             const storedOrgId = localStorage.getItem('organizationId') || '11'; // Default to 11 for testing
             console.log('Fetching hotel with organization:', storedOrgId);
-            const url = `https://api.saer.pk/api/hotels/${id}/?organization=${storedOrgId}`;
-            
+            const url = `http://127.0.0.1:8000/api/hotels/${id}/?organization=${storedOrgId}`;
+
             const res = await axios.get(url, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const hotel = res.data;
-            
+
             // Store organization ID from hotel data for future requests
             setOrganizationId(hotel.owner_organization_id);
             if (!localStorage.getItem('organizationId')) {
                 localStorage.setItem('organizationId', hotel.owner_organization_id);
             }
-            
+
             setFormData({
                 city: hotel.city || '',
                 name: hotel.name || '',
@@ -131,7 +131,7 @@ const EditHotelDetails = () => {
                 email: contact.email || ''
             }));
             setContacts(mappedContacts);
-            
+
             setPhotos(hotel.photos_data || []);
             setVideo(hotel.video || '');
         } catch (e) {
@@ -167,7 +167,7 @@ const EditHotelDetails = () => {
     const handlePhotoUpload = (e) => {
         const files = Array.from(e.target.files);
         setNewPhotoFiles(prev => [...prev, ...files]);
-        
+
         // Create preview URLs
         const newPhotoPreviews = files.map(file => ({
             id: `new-${Date.now()}-${Math.random()}`,
@@ -194,7 +194,7 @@ const EditHotelDetails = () => {
 
         try {
             const formDataToSend = new FormData();
-            
+
             // Append basic fields
             Object.keys(formData).forEach(key => {
                 formDataToSend.append(key, formData[key]);
@@ -220,9 +220,9 @@ const EditHotelDetails = () => {
             });
 
             const url = organizationId
-                ? `https://api.saer.pk/api/hotels/${id}/?organization=${organizationId}`
-                : `https://api.saer.pk/api/hotels/${id}/`;
-            
+                ? `http://127.0.0.1:8000/api/hotels/${id}/?organization=${organizationId}`
+                : `http://127.0.0.1:8000/api/hotels/${id}/`;
+
             await axios.patch(url, formDataToSend, {
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -54,7 +54,7 @@ const EditHotelAvailabilityAndPrices = () => {
         const organizationId = orgData?.id;
 
         const response = await axios.get(
-          `https://api.saer.pk/api/hotels/${id}/`,
+          `http://127.0.0.1:8000/api/hotels/${id}/`,
           {
             params: { organization: organizationId },
             headers: {
@@ -460,7 +460,7 @@ const EditHotelAvailabilityAndPrices = () => {
         prices: preparePriceDataForAPI(),
       };
 
-      await axios.patch(`https://api.saer.pk/api/hotels/${id}/`, data, {
+      await axios.patch(`http://127.0.0.1:8000/api/hotels/${id}/`, data, {
         params: { organization: organizationId },
         headers: {
           "Content-Type": "application/json",
@@ -506,7 +506,7 @@ const EditHotelAvailabilityAndPrices = () => {
   }
 
   return (
-   <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
       <div className="row g-0">
         {/* Sidebar */}
         <div className="col-12 col-lg-2">

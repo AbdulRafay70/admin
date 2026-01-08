@@ -197,7 +197,7 @@ const AddDepositForm = () => {
             // fallback: stringify the whole payment object once
             candidates.push(JSON.stringify(p));
           } catch (e) {
-            try { candidates.push(String(p)); } catch (_) {}
+            try { candidates.push(String(p)); } catch (_) { }
           }
           const hay = candidates.join(' ').toLowerCase();
           if (hay.indexOf(q) === -1) return false;
@@ -281,13 +281,13 @@ const AddDepositForm = () => {
       const userId = decoded?.user_id || decoded?.user || decoded?.id;
       if (!userId) return null;
 
-      const resp = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
+      const resp = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const user = resp.data || null;
       if (user) {
         setCurrentUser(user);
-        try { localStorage.setItem('currentUser', JSON.stringify(user)); } catch (e) {}
+        try { localStorage.setItem('currentUser', JSON.stringify(user)); } catch (e) { }
 
         // If no selectedOrganization is set, try to infer from user payload
         const existingSel = localStorage.getItem('selectedOrganization');
@@ -298,7 +298,7 @@ const AddDepositForm = () => {
           else if (Array.isArray(user.organization_details) && user.organization_details.length) orgId = (user.organization_details[0].id || user.organization_details[0]);
 
           if (orgId && Number(orgId) > 0) {
-            try { localStorage.setItem('selectedOrganization', JSON.stringify({ id: Number(orgId) })); } catch (e) {}
+            try { localStorage.setItem('selectedOrganization', JSON.stringify({ id: Number(orgId) })); } catch (e) { }
           }
         }
       }
@@ -361,7 +361,7 @@ const AddDepositForm = () => {
     try {
       const orgId = getOrgId();
       const token = localStorage.getItem('accessToken');
-      const resp = await axios.get(`https://api.saer.pk/api/bank-accounts/?organization=${orgId}`, {
+      const resp = await axios.get(`http://127.0.0.1:8000/api/bank-accounts/?organization=${orgId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
@@ -403,7 +403,7 @@ const AddDepositForm = () => {
       const token = localStorage.getItem('accessToken');
       const params = new URLSearchParams();
       if (orgId) params.append('organization', orgId);
-      const baseUrl = `https://api.saer.pk/api/payments/?${params.toString()}`;
+      const baseUrl = `http://127.0.0.1:8000/api/payments/?${params.toString()}`;
       const items = await fetchAllPages(baseUrl, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       setPayments(items);
       setCurrentPage(1);
@@ -421,7 +421,7 @@ const AddDepositForm = () => {
     try {
       if (!agencyId) { setPayments([]); setLoadingPayments(false); return; }
       const token = localStorage.getItem('accessToken');
-      const url = `https://api.saer.pk/api/payments/by-agency/${agencyId}/payments/`;
+      const url = `http://127.0.0.1:8000/api/payments/by-agency/${agencyId}/payments/`;
       const items = await fetchAllPages(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       setPayments(items);
       setCurrentPage(1);
@@ -462,7 +462,7 @@ const AddDepositForm = () => {
       console.debug('fetchAgencies - orgId:', orgId);
       const token = localStorage.getItem('accessToken');
       if (!orgId) { setAgencies([]); return; }
-      const resp = await axios.get(`https://api.saer.pk/api/agencies/?organization=${orgId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await axios.get(`http://127.0.0.1:8000/api/agencies/?organization=${orgId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencies(items);
     } catch (err) {
@@ -477,7 +477,7 @@ const AddDepositForm = () => {
       const orgId = getOrgId();
       const token = localStorage.getItem('accessToken');
       // Always fetch all agencies for search
-      const resp = await axios.get(`https://api.saer.pk/api/agencies/`, { params: { search: query, organization: orgId }, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const resp = await axios.get(`http://127.0.0.1:8000/api/agencies/`, { params: { search: query, organization: orgId }, headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencySearchResults(items);
       setShowAgencySearchDropdown(true);
@@ -492,7 +492,7 @@ const AddDepositForm = () => {
     try {
       if (!agencyId) { setAgencyAccounts([]); return; }
       const token = localStorage.getItem('accessToken');
-      const url = `https://api.saer.pk/api/bank-accounts/by-agency/${agencyId}/`;
+      const url = `http://127.0.0.1:8000/api/bank-accounts/by-agency/${agencyId}/`;
       const resp = await axios.get(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       const items = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
       setAgencyAccounts(items);
@@ -569,9 +569,9 @@ const AddDepositForm = () => {
         formPayload.append('amount', String(amount));
         formPayload.append('remarks', formData.notes || '');
         formPayload.append('status', 'pending');
-  // Do not generate a transaction number on the frontend; let the backend assign it.
-  // Append only if user explicitly provided one in the formData.
-  if (formData.transaction_number) formPayload.append('transaction_number', String(formData.transaction_number));
+        // Do not generate a transaction number on the frontend; let the backend assign it.
+        // Append only if user explicitly provided one in the formData.
+        if (formData.transaction_number) formPayload.append('transaction_number', String(formData.transaction_number));
         if (Number(orgId) && Number(orgId) > 0) formPayload.append('organization', String(Number(orgId)));
         // determine branch: prefer branch of selected agency, otherwise branchStored/decoded
         let branchToSend = branchId;
@@ -613,7 +613,7 @@ const AddDepositForm = () => {
           formPayload.append('image', slipFile);
         }
 
-        const resp = await axios.post('https://api.saer.pk/api/payments/', formPayload, {
+        const resp = await axios.post('http://127.0.0.1:8000/api/payments/', formPayload, {
           headers: {
             Authorization: token ? `Bearer ${token}` : undefined,
             // Let the browser set Content-Type with boundary for multipart
@@ -671,7 +671,7 @@ const AddDepositForm = () => {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
         let res = null;
         if (enableApi) {
-          res = await axios.get('https://api.saer.pk/api/admin/payment-rules/', { headers });
+          res = await axios.get('http://127.0.0.1:8000/api/admin/payment-rules/', { headers });
         }
         const rules = res ? (Array.isArray(res.data) ? res.data : (res.data.results || [])) : [];
         if (!mounted) return;
@@ -743,14 +743,14 @@ const AddDepositForm = () => {
     try {
       setRowLoading(paymentId, true);
       const token = localStorage.getItem('accessToken');
-      const url = `https://api.saer.pk/api/admin/payments/${paymentId}/approve/`;
+      const url = `http://127.0.0.1:8000/api/admin/payments/${paymentId}/approve/`;
       await axios.post(url, {}, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       await fetchPayments();
-  showNotification('success', 'Payment approved');
+      showNotification('success', 'Payment approved');
     } catch (err) {
       console.error('Failed to approve payment', err, err?.response?.data);
-  const msg = err?.response?.data ? JSON.stringify(err.response.data) : err.message;
-  showNotification('danger', 'Failed to approve payment: ' + msg);
+      const msg = err?.response?.data ? JSON.stringify(err.response.data) : err.message;
+      showNotification('danger', 'Failed to approve payment: ' + msg);
     } finally {
       setRowLoading(paymentId, false);
     }
@@ -763,20 +763,20 @@ const AddDepositForm = () => {
     try {
       setRowLoading(paymentId, true);
       const token = localStorage.getItem('accessToken');
-      const url = `https://api.saer.pk/api/payments/${paymentId}/`;
+      const url = `http://127.0.0.1:8000/api/payments/${paymentId}/`;
       await axios.patch(url, { status: 'Rejected' }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       await fetchPayments();
-  showNotification('success', 'Payment rejected');
+      showNotification('success', 'Payment rejected');
     } catch (err) {
       console.error('Failed to reject payment', err, err?.response?.data);
-  const msg = err?.response?.data ? JSON.stringify(err.response.data) : err.message;
-  showNotification('danger', 'Failed to reject payment: ' + msg);
+      const msg = err?.response?.data ? JSON.stringify(err.response.data) : err.message;
+      showNotification('danger', 'Failed to reject payment: ' + msg);
     } finally {
       setRowLoading(paymentId, false);
     }
   };
 
-  
+
 
 
   return (

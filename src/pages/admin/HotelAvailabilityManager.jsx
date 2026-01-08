@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../../utils/Api";
 import { jwtDecode } from 'jwt-decode';
+import HotelRulesSection from "../../components/HotelRulesSection";
 
 const HotelAvailabilityManager = () => {
   const navigate = useNavigate();
@@ -242,7 +243,7 @@ const HotelAvailabilityManager = () => {
   const organizationId = parsedOrg?.id ?? defaultOrgFromEnv ?? null;
 
   // API base used to normalize media URLs (keep consistent across gallery + table thumbnails)
-  const apiBaseGlobal = (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, '')) || 'https://api.saer.pk';
+  const apiBaseGlobal = (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, '')) || 'http://127.0.0.1:8000';
   const normalizeMediaUrlGlobal = (rawUrl) => {
     if (!rawUrl) return '';
     try {
@@ -2287,6 +2288,9 @@ const HotelAvailabilityManager = () => {
                 {alert.message}
               </Alert>
             )}
+
+            {/* Hotel Rules Section - Before Filters */}
+            <HotelRulesSection />
 
             {/* Statistics Cards */}
             <Row className="mb-4">

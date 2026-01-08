@@ -39,7 +39,7 @@ const AdminLogin = () => {
     }
 
     try {
-      const response = await fetch("https://api.saer.pk/api/token/", {
+      const response = await fetch("http://127.0.0.1:8000/api/token/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -64,7 +64,7 @@ const AdminLogin = () => {
 
       // Check user profile type
       const userResponse = await fetch(
-        `https://api.saer.pk/api/users/${userId}/`,
+        `http://127.0.0.1:8000/api/users/${userId}/`,
         {
           headers: { Authorization: `Bearer ${data.access}` },
         }
@@ -73,9 +73,10 @@ const AdminLogin = () => {
       const userData = await userResponse.json();
       const userType = userData?.profile?.type;
 
-      if (["agent", "subagent"].includes(userType)) {
+      // Only block regular agents from admin panel, allow subagents (branch users)
+      if (userType === "agent") {
         throw new Error(
-          "Agents and Subagents are not allowed to log in from Admin Panel."
+          "Agents are not allowed to log in from Admin Panel."
         );
       }
 
@@ -108,7 +109,7 @@ const AdminLogin = () => {
     >
       <div>
         <div className="p-3">
-          <img src={logo} alt="SAER PK Logo" style={{height:"40px", width:"150px"}} />
+          <img src={logo} alt="SAER PK Logo" style={{ height: "40px", width: "150px" }} />
         </div>
         <div className="d-flex justify-content-center align-items-center">
           <div
@@ -143,42 +144,42 @@ const AdminLogin = () => {
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
                   <label htmlFor="" className="form-label">
-                      Email address
-                    </label>
-                    <input
-                      type="email"
-                      className="form-control rounded shadow-none  px-1 py-2"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      placeholder="bhullar@gmail.com"
-                      disabled={isLoading} // Disable during loading
-                    />
+                    Email address
+                  </label>
+                  <input
+                    type="email"
+                    className="form-control rounded shadow-none  px-1 py-2"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="bhullar@gmail.com"
+                    disabled={isLoading} // Disable during loading
+                  />
                 </div>
 
                 <div className="mb-3 position-relative">
                   <label htmlFor="" className="form-label">
-                  
-                      Password
-                    </label>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      className="form-control rounded shadow-none  px-2 py-2"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      placeholder="********"
-                      disabled={isLoading} // Disable during loading
-                    />
-                    <span
-                      className="position-absolute top-50 end-0 translate-middle-y pe-3"
-                      style={{ cursor: "pointer" }}
-                      onClick={() =>
-                        !isLoading && setShowPassword(!showPassword)
-                      }
-                    >
-                      {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                    </span>
+
+                    Password
+                  </label>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="form-control rounded shadow-none  px-2 py-2"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="********"
+                    disabled={isLoading} // Disable during loading
+                  />
+                  <span
+                    className="position-absolute top-50 end-0 translate-middle-y pe-3"
+                    style={{ cursor: "pointer" }}
+                    onClick={() =>
+                      !isLoading && setShowPassword(!showPassword)
+                    }
+                  >
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </span>
                 </div>
 
                 <div className="d-flex justify-content-between align-items-center mb-3">

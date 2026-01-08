@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
+import DashboardRulesSection from "../../components/DashboardRulesSection";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   ArrowDown,
@@ -108,10 +109,10 @@ const Dashboard = () => {
           <td
             key={day}
             className={`text-center p-2 ${isCurrentMonth
-                ? isToday
-                  ? "bg-primary text-white rounded"
-                  : ""
-                : "text-muted"
+              ? isToday
+                ? "bg-primary text-white rounded"
+                : ""
+              : "text-muted"
               }`}
             style={{
               cursor: isCurrentMonth ? "pointer" : "default",
@@ -154,8 +155,8 @@ const Dashboard = () => {
                       key={index}
                       to={tab.path}
                       className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Dashboard"
-                          ? "text-primary fw-semibold"
-                          : "text-muted"
+                        ? "text-primary fw-semibold"
+                        : "text-muted"
                         }`}
                       style={{ backgroundColor: "transparent" }}
                     >
@@ -812,6 +813,11 @@ const Dashboard = () => {
                       </div>
                     </div>
                     {/* ))} */}
+
+                    {/* Rules Display */}
+                    <div className="mt-4">
+                      <DashboardRulesSection />
+                    </div>
                   </div>
                 </div>
               </div>

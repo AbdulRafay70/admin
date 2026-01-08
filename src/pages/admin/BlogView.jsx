@@ -36,7 +36,7 @@ const BlogView = () => {
         try {
             setLoading(true);
             // First try to fetch by slug using query parameter
-            const listResponse = await axios.get('https://api.saer.pk/api/blog/blogs/', {
+            const listResponse = await axios.get('http://127.0.0.1:8000/api/blog/blogs/', {
                 params: { slug },
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -54,7 +54,7 @@ const BlogView = () => {
             if (blogItem) {
                 // Fetch full details with sections and comments
                 try {
-                    const detailResponse = await axios.get(`https://api.saer.pk/api/blog/blogs/${blogItem.id}/`, {
+                    const detailResponse = await axios.get(`http://127.0.0.1:8000/api/blog/blogs/${blogItem.id}/`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     setBlog(detailResponse.data);
@@ -82,7 +82,7 @@ const BlogView = () => {
 
     const handleLike = async () => {
         try {
-            await axios.post(`https://api.saer.pk/api/blog/blogs/${blog.id}/like/`, {}, {
+            await axios.post(`http://127.0.0.1:8000/api/blog/blogs/${blog.id}/like/`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setLiked(!liked);
@@ -101,7 +101,7 @@ const BlogView = () => {
 
         try {
             setSubmittingComment(true);
-            await axios.post(`https://api.saer.pk/api/blog/blogs/${blog.id}/comments/`, {
+            await axios.post(`http://127.0.0.1:8000/api/blog/blogs/${blog.id}/comments/`, {
                 author_name: newComment.name,
                 author_email: newComment.email,
                 body: newComment.comment

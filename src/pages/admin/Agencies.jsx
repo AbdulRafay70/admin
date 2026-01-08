@@ -116,14 +116,14 @@ const Agencies = () => {
     try {
       // First get the agency details to find the associated user
       const agencyResponse = await axios.get(
-        `https://api.saer.pk/api/agencies/${agencyId}/`,
+        `http://127.0.0.1:8000/api/agencies/${agencyId}/`,
         axiosConfig
       );
 
       // Then get the user details if available
       if (agencyResponse.data.user) {
         const userResponse = await axios.get(
-          `https://api.saer.pk/api/users/${agencyResponse.data.user}/`,
+          `http://127.0.0.1:8000/api/users/${agencyResponse.data.user}/`,
           axiosConfig
         );
 
@@ -158,8 +158,8 @@ const Agencies = () => {
       address: agency.address || "",
       email: agency.email || "",
       agreement_status: agency.agreement_status || true,
-      branch: branchId,
-      logo: agency.logo || null, // Add this line
+      branch: agency.branch,
+      logo: agency.logo || null,
     });
 
     await fetchMainAgentData(agency.id); // Pass agency ID to fetch data
@@ -168,8 +168,8 @@ const Agencies = () => {
 
   // Update handleSubmit to properly handle organizations and branches
   const handleSubmit = async () => {
-    if (!branchId) {
-      alert("Please select a branch first from your profile");
+    if (!agencyForm.branch) {
+      alert("Please select a branch");
       return;
     }
 
@@ -184,7 +184,7 @@ const Agencies = () => {
       formData.append("address", agencyForm.address);
       formData.append("email", agencyForm.email);
       formData.append("agreement_status", agencyForm.agreement_status);
-      formData.append("branch", branchId);
+      formData.append("branch", agencyForm.branch);
 
       if (agencyForm.logo && typeof agencyForm.logo !== "string") {
         formData.append("logo", agencyForm.logo);
@@ -212,12 +212,12 @@ const Agencies = () => {
 
       if (editingId) {
         await axios.put(
-          `https://api.saer.pk/api/agencies/${editingId}/`,
+          `http://127.0.0.1:8000/api/agencies/${editingId}/`,
           formData,
           config
         );
       } else {
-        await axios.post("https://api.saer.pk/api/agencies/", formData, config);
+        await axios.post("http://127.0.0.1:8000/api/agencies/", formData, config);
       }
 
       localStorage.removeItem(AGENCIES_CACHE_KEY);
@@ -247,7 +247,7 @@ const Agencies = () => {
         setAgencies(JSON.parse(cachedData));
       } else {
         const response = await axios.get(
-          "https://api.saer.pk/api/agencies/",
+          "http://127.0.0.1:8000/api/agencies/",
           axiosConfig
         );
         const data = response.data || [];
@@ -271,7 +271,7 @@ const Agencies = () => {
   const fetchAgencyDetails = async (id) => {
     try {
       const response = await axios.get(
-        `https://api.saer.pk/api/agencies/${id}/`,
+        `http://127.0.0.1:8000/api/agencies/${id}/`,
         axiosConfig
       );
       if (response.data.contacts) {
@@ -321,20 +321,36 @@ const Agencies = () => {
   // Filter agencies based on search term and status
   // In your Agencies component, update the filteredAgencies memo:
 
+  // State for branches and branch map
+  const [branches, setBranches] = useState([]);
+  const [branchMap, setBranchMap] = useState({});
+
+  // Fetch branches
+  const fetchBranches = async () => {
+    try {
+      const response = await axios.get(
+        "http://127.0.0.1:8000/api/branches/",
+        axiosConfig
+      );
+      const data = response.data || [];
+      setBranches(data);
+
+      // Create branch map for quick lookup
+      const map = {};
+      data.forEach((branch) => (map[branch.id] = branch.name));
+      setBranchMap(map);
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      setBranches([]);
+    }
+  };
+
   const filteredAgencies = useMemo(() => {
     let result = agencies;
 
-    // Filter by branch - convert both IDs to numbers for comparison
-    if (branchId) {
-      const currentBranchId = Number(branchId); // Convert localStorage string to number
-      result = result.filter(agency => {
-        // Ensure agency.branch exists and convert to number
-        const agencyBranchId = agency.branch ? Number(agency.branch) : null;
-        return agencyBranchId === currentBranchId;
-      });
-    }
+    // NO branch filtering - show ALL agencies from all branches
 
-    // Apply search filter
+    // Apply search filter (include branch name in search)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
@@ -343,7 +359,8 @@ const Agencies = () => {
           (agency.ageny_name && agency.ageny_name.toLowerCase().includes(term)) ||
           (agency.phone_number && agency.phone_number.toLowerCase().includes(term)) ||
           (agency.address && agency.address.toLowerCase().includes(term)) ||
-          (agency.email && agency.email.toLowerCase().includes(term))
+          (agency.email && agency.email.toLowerCase().includes(term)) ||
+          (branchMap[agency.branch] && branchMap[agency.branch].toLowerCase().includes(term))
       );
     }
 
@@ -354,7 +371,7 @@ const Agencies = () => {
 
     setTotalPages(Math.ceil(result.length / PAGE_SIZE));
     return result;
-  }, [agencies, searchTerm, statusFilter, branchId]);
+  }, [agencies, searchTerm, statusFilter, branchMap]);
 
   // Paginate agencies
   const paginatedAgencies = useMemo(() => {
@@ -379,7 +396,7 @@ const Agencies = () => {
       address: "",
       email: "",
       agreement_status: true,
-      branch: branchId,
+      branch: "",
     });
     setShowModal(true);
   };
@@ -437,7 +454,7 @@ const Agencies = () => {
     setIsSubmitting(true);
     try {
       await axios.patch(
-        `https://api.saer.pk/api/agencies/${currentAgencyId}/`,
+        `http://127.0.0.1:8000/api/agencies/${currentAgencyId}/`,
         { contacts: contentForm.contacts },
         axiosConfig
       );
@@ -465,7 +482,7 @@ const Agencies = () => {
       setIsLoading(true);
       try {
         await axios.delete(
-          `https://api.saer.pk/api/agencies/${id}/`,
+          `http://127.0.0.1:8000/api/agencies/${id}/`,
           axiosConfig
         );
 
@@ -484,6 +501,7 @@ const Agencies = () => {
 
   useEffect(() => {
     fetchAgencies();
+    fetchBranches();
   }, [refreshTrigger]);
 
   // Navigation tabs
@@ -515,35 +533,35 @@ const Agencies = () => {
         `}
       </style>
       <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
-      <div className="row g-0">
-        {/* Sidebar */}
-        <div className="col-12 col-lg-2">
-          <Sidebar />
-        </div>
-        {/* Main Content */}
-        <div className="col-12 col-lg-10">
-          <div className="container">
-            <Header />
-            <div className="px-3 px-lg-4 my-3">
-              {/* Navigation Tabs */}
-              <div className="row ">
-                <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-                  <nav className="nav flex-wrap gap-2">
-                    {tabs.map((tab, index) => (
-                      <NavLink
-                        key={index}
-                        to={tab.path}
-                        className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Agencies"
-                          ? "text-primary fw-semibold"
-                          : "text-muted"
-                          }`}
-                        style={{ backgroundColor: "transparent" }}
-                      >
-                        {tab.name}
-                      </NavLink>
-                    ))}
-                  </nav>
-                  {/* <div className="d-flex align-items-center gap-3">
+        <div className="row g-0">
+          {/* Sidebar */}
+          <div className="col-12 col-lg-2">
+            <Sidebar />
+          </div>
+          {/* Main Content */}
+          <div className="col-12 col-lg-10">
+            <div className="container">
+              <Header />
+              <div className="px-3 px-lg-4 my-3">
+                {/* Navigation Tabs */}
+                <div className="row ">
+                  <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
+                    <nav className="nav flex-wrap gap-2">
+                      {tabs.map((tab, index) => (
+                        <NavLink
+                          key={index}
+                          to={tab.path}
+                          className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Agencies"
+                            ? "text-primary fw-semibold"
+                            : "text-muted"
+                            }`}
+                          style={{ backgroundColor: "transparent" }}
+                        >
+                          {tab.name}
+                        </NavLink>
+                      ))}
+                    </nav>
+                    {/* <div className="d-flex align-items-center gap-3">
                     {branchId && (
                       <div className="badge bg-primary">
                         Branch:{" "}
@@ -552,131 +570,133 @@ const Agencies = () => {
                       </div>
                     )}
                   </div> */}
-                  <div className="input-group" style={{ maxWidth: "300px" }}>
-                    <span className="input-group-text">
-                      <Search />
-                    </span>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Search name, address, phone, etc"
-                      value={searchTerm}
-                      onChange={handleSearchChange}
-                    />
+                    <div className="input-group" style={{ maxWidth: "300px" }}>
+                      <span className="input-group-text">
+                        <Search />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search name, address, phone, etc"
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-3 bg-white my-3 rounded-3 shadow-sm">
-                <div className="d-flex flex-wrap gap-2 justify-content-between">
-                  <div>
-                    <h5 className="fw-semibold mb-0">All Agencies</h5>
+                <div className="p-3 bg-white my-3 rounded-3 shadow-sm">
+                  <div className="d-flex flex-wrap gap-2 justify-content-between">
+                    <div>
+                      <h5 className="fw-semibold mb-0">All Agencies</h5>
+                      <p className="text-muted mb-0">
+                        Showing all agencies from all branches
+                      </p>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleShowCreate}
+                        disabled={isLoading || isSubmitting}
+                      >
+                        {isLoading ? (
+                          <Spinner size="sm" animation="border" />
+                        ) : (
+                          "Add Agency"
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleShowCreate}
-                      disabled={isLoading || isSubmitting}
-                    >
-                      {isLoading ? (
-                        <Spinner size="sm" animation="border" />
+
+                  <div className="d-flex justify-content-end mt-2 align-items-center mb-3 flex-wrap gap-2">
+                    <Dropdown>
+                      <Dropdown.Toggle
+                        variant=""
+                        disabled={isLoading || isSubmitting}
+                      >
+                        <Funnel size={16} className="me-1" />
+                        Filters
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {statusOptions.map((status, idx) => (
+                          <Dropdown.Item
+                            key={idx}
+                            onClick={() => setStatusFilter(status)}
+                            active={statusFilter === status}
+                          >
+                            {status}
+                          </Dropdown.Item>
+                        ))}
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="p-3">
+                      <ShimmerLoader />
+                    </div>
+                  ) : (
+                    <>
+                      {filteredAgencies.length === 0 ? (
+                        <div className="text-center py-5">
+                          <p>No agencies found</p>
+                          <Button
+                            variant="primary"
+                            onClick={() => setRefreshTrigger((prev) => prev + 1)}
+                          >
+                            Refresh
+                          </Button>
+                        </div>
                       ) : (
-                        "Add Agency"
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="d-flex justify-content-end mt-2 align-items-center mb-3 flex-wrap gap-2">
-                  <Dropdown>
-                    <Dropdown.Toggle
-                      variant=""
-                      disabled={isLoading || isSubmitting}
-                    >
-                      <Funnel size={16} className="me-1" />
-                      Filters
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
-                      {statusOptions.map((status, idx) => (
-                        <Dropdown.Item
-                          key={idx}
-                          onClick={() => setStatusFilter(status)}
-                          active={statusFilter === status}
-                        >
-                          {status}
-                        </Dropdown.Item>
-                      ))}
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </div>
-
-                {isLoading ? (
-                  <div className="p-3">
-                    <ShimmerLoader />
-                  </div>
-                ) : (
-                  <>
-                    {filteredAgencies.length === 0 ? (
-                      <div className="text-center py-5">
-                        <p>No agencies found</p>
-                        <Button
-                          variant="primary"
-                          onClick={() => setRefreshTrigger((prev) => prev + 1)}
-                        >
-                          Refresh
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <Table
-                          hover
-                          responsive
-                          className="align-middle text-center"
-                        >
-                          <thead>
-                            <tr>
-                              <th>ID</th>
-                              <th>Name</th>
-                              <th>Agency Name</th>
-                              <th>Phone</th>
-                              <th>Email</th>
-                              <th>Address</th>
-                              <th>Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {paginatedAgencies.map((agency) => (
-                              <tr key={agency.id}>
-                                <td>
-                                  <Link
-                                    to={{
-                                      pathname: `/partners/message/${agency.id}`,
-                                      state: { agencyData: agency },
-                                    }}
-                                    style={{
-                                      cursor: "pointer",
-                                      textDecoration: "underline",
-                                    }}
-                                  >
-                                    {agency.id}
-                                  </Link>
-                                </td>
-                                <td>{agency.name || "N/A"}</td>
-                                <td>{agency.ageny_name || "N/A"}</td>
-                                <td>{agency.phone_number || "N/A"}</td>
-                                <td>{agency.email || "N/A"}</td>
-                                <td>{agency.address || "N/A"}</td>
-                                <td>
-                                  <Dropdown>
-                                    <Dropdown.Toggle
-                                      variant="link"
-                                      className="text-decoration-none p-0"
-                                      disabled={isSubmitting}
+                        <>
+                          <Table
+                            hover
+                            responsive
+                            className="align-middle text-center"
+                          >
+                            <thead>
+                              <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Agency Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Address</th>
+                                <th>Branch</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paginatedAgencies.map((agency) => (
+                                <tr key={agency.id}>
+                                  <td>
+                                    <Link
+                                      to={`/partners/agencies/detail/${agency.id}`}
+                                      style={{
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                      }}
                                     >
-                                      <Gear size={18} />
-                                    </Dropdown.Toggle>
-                                    <Dropdown.Menu>
-                                      {/* <Dropdown.Item
+                                      {agency.id}
+                                    </Link>
+                                  </td>
+                                  <td>{agency.name || "N/A"}</td>
+                                  <td>{agency.ageny_name || "N/A"}</td>
+                                  <td>{agency.phone_number || "N/A"}</td>
+                                  <td>{agency.email || "N/A"}</td>
+                                  <td>{agency.address || "N/A"}</td>
+                                  <td>{branchMap[agency.branch] || "N/A"}</td>
+                                  <td>
+                                    <Dropdown>
+                                      <Dropdown.Toggle
+                                        variant="link"
+                                        className="text-decoration-none p-0"
+                                        disabled={isSubmitting}
+                                      >
+                                        <Gear size={18} />
+                                      </Dropdown.Toggle>
+                                      <Dropdown.Menu>
+                                        {/* <Dropdown.Item
                                       className="text-primary"
                                       onClick={() =>
                                         handleShowContent(agency.id)
@@ -685,93 +705,93 @@ const Agencies = () => {
                                     >
                                       Add Contacts
                                     </Dropdown.Item> */}
-                                      <Dropdown.Item
-                                        className="text-success"
-                                        onClick={() => handleShowEdit(agency)}
-                                      >
-                                        Edit
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => handleDelete(agency.id)}
-                                        className="text-danger"
-                                        disabled={isSubmitting}
-                                      >
-                                        Delete
-                                      </Dropdown.Item>
-                                    </Dropdown.Menu>
-                                  </Dropdown>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </Table>
+                                        <Dropdown.Item
+                                          className="text-success"
+                                          onClick={() => handleShowEdit(agency)}
+                                        >
+                                          Edit
+                                        </Dropdown.Item>
+                                        <Dropdown.Item
+                                          onClick={() => handleDelete(agency.id)}
+                                          className="text-danger"
+                                          disabled={isSubmitting}
+                                        >
+                                          Delete
+                                        </Dropdown.Item>
+                                      </Dropdown.Menu>
+                                    </Dropdown>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
 
-                        <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
-                          <div className="d-flex flex-wrap align-items-center">
-                            <span className="me-2">
-                              Showing {paginatedAgencies.length} of{" "}
-                              {filteredAgencies.length} agencies
-                            </span>
-                          </div>
-                          <nav>
-                            <ul className="pagination pagination-sm mb-0">
-                              <li
-                                className={`page-item ${currentPage === 1 ? "disabled" : ""
-                                  }`}
-                              >
-                                <button
-                                  className="page-link"
-                                  onClick={() =>
-                                    handlePageChange(currentPage - 1)
-                                  }
-                                  disabled={currentPage === 1}
-                                >
-                                  Previous
-                                </button>
-                              </li>
-                              {Array.from(
-                                { length: totalPages },
-                                (_, i) => i + 1
-                              ).map((page) => (
+                          <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-3">
+                            <div className="d-flex flex-wrap align-items-center">
+                              <span className="me-2">
+                                Showing {paginatedAgencies.length} of{" "}
+                                {filteredAgencies.length} agencies
+                              </span>
+                            </div>
+                            <nav>
+                              <ul className="pagination pagination-sm mb-0">
                                 <li
-                                  key={page}
-                                  className={`page-item ${currentPage === page ? "active" : ""
+                                  className={`page-item ${currentPage === 1 ? "disabled" : ""
                                     }`}
                                 >
                                   <button
                                     className="page-link"
-                                    onClick={() => handlePageChange(page)}
+                                    onClick={() =>
+                                      handlePageChange(currentPage - 1)
+                                    }
+                                    disabled={currentPage === 1}
                                   >
-                                    {page}
+                                    Previous
                                   </button>
                                 </li>
-                              ))}
-                              <li
-                                className={`page-item ${currentPage === totalPages ? "disabled" : ""
-                                  }`}
-                              >
-                                <button
-                                  className="page-link"
-                                  onClick={() =>
-                                    handlePageChange(currentPage + 1)
-                                  }
-                                  disabled={currentPage === totalPages}
+                                {Array.from(
+                                  { length: totalPages },
+                                  (_, i) => i + 1
+                                ).map((page) => (
+                                  <li
+                                    key={page}
+                                    className={`page-item ${currentPage === page ? "active" : ""
+                                      }`}
+                                  >
+                                    <button
+                                      className="page-link"
+                                      onClick={() => handlePageChange(page)}
+                                    >
+                                      {page}
+                                    </button>
+                                  </li>
+                                ))}
+                                <li
+                                  className={`page-item ${currentPage === totalPages ? "disabled" : ""
+                                    }`}
                                 >
-                                  Next
-                                </button>
-                              </li>
-                            </ul>
-                          </nav>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
+                                  <button
+                                    className="page-link"
+                                    onClick={() =>
+                                      handlePageChange(currentPage + 1)
+                                    }
+                                    disabled={currentPage === totalPages}
+                                  >
+                                    Next
+                                  </button>
+                                </li>
+                              </ul>
+                            </nav>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div>
+                  <AdminFooter />
+                </div>
               </div>
-              <div>
-                <AdminFooter />
-              </div>
-            </div>
             </div>
           </div>
         </div>
@@ -880,7 +900,31 @@ const Agencies = () => {
                 )}
               </div>
 
-              <input type="hidden" name="branch" value={branchId || ""} />
+              <div className="mb-3">
+                <label htmlFor="branchSelect" className="Control-label">
+                  Branch <span className="text-danger">*</span>
+                </label>
+                <select
+                  id="branchSelect"
+                  name="branch"
+                  className="form-select rounded shadow-none px-1 py-2"
+                  value={agencyForm.branch || ""}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">-- Select Branch --</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.branch_code || `ID: ${branch.id}`})
+                    </option>
+                  ))}
+                </select>
+                {branches.length === 0 && (
+                  <small className="text-muted">
+                    No branches available. Please create a branch first.
+                  </small>
+                )}
+              </div>
 
               <div className="row">
                 <div className="col-md-6 d-flex align-items-center mb-3">

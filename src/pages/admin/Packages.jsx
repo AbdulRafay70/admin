@@ -130,7 +130,7 @@ const UmrahPackage = () => {
             const decoded = jwtDecode(token);
             const userId = decoded.user_id || decoded.id;
 
-            const userRes = await axios.get(`https://api.saer.pk/api/users/${userId}/`, {
+            const userRes = await axios.get(`http://127.0.0.1:8000/api/users/${userId}/`, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
@@ -155,28 +155,28 @@ const UmrahPackage = () => {
 
         const [packageRes, hotelsRes, ticketsRes, airlinesRes] =
           await Promise.all([
-            axios.get("https://api.saer.pk/api/umrah-packages/", {
+            axios.get("http://127.0.0.1:8000/api/umrah-packages/", {
               params: { organization: orgId, include_past: filters.includePast ? true : undefined },
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
             }),
-            axios.get("https://api.saer.pk/api/hotels/", {
+            axios.get("http://127.0.0.1:8000/api/hotels/", {
               params: { organization: orgId },
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
             }),
-            axios.get("https://api.saer.pk/api/tickets/", {
+            axios.get("http://127.0.0.1:8000/api/tickets/", {
               params: { organization: orgId },
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
             }),
-            axios.get("https://api.saer.pk/api/airlines/", {
+            axios.get("http://127.0.0.1:8000/api/airlines/", {
               params: { organization: orgId },
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -454,8 +454,8 @@ const UmrahPackage = () => {
 
     const totalInfant = Number(infantTicket) + Number(infantVisa || 0);
 
-    const adultVisaForDiscount = pkgPick(['adault_visa_price', 'adult_visa_price']) || 0;
-    const childVisaForDiscount = pkgPick(['child_visa_price']) || 0;
+    const adultVisaForDiscount = pkgPick(['adault_visa_selling_price', 'adault_visa_price', 'adult_visa_selling_price', 'adult_visa_price']) || 0;
+    const childVisaForDiscount = pkgPick(['child_visa_selling_price', 'child_visa_price']) || 0;
     const childDiscount = Math.max(0, adultVisaForDiscount - childVisaForDiscount);
 
     console.log('🔍 CHILD DISCOUNT DEBUG:', {
@@ -538,7 +538,7 @@ const UmrahPackage = () => {
 
     try {
       await axios.delete(
-        `https://api.saer.pk/api/umrah-packages/${packageId}/`,
+        `http://127.0.0.1:8000/api/umrah-packages/${packageId}/`,
         {
           params: { organization: organizationId },
           headers: {
@@ -869,6 +869,29 @@ const UmrahPackage = () => {
                                 airline,
                               } = computePackageTotals(pkg, hotels, airlines, tickets);
 
+                              // Debug: Log room type values to console
+                              console.log(`Package: ${pkg.title}`, {
+                                is_sharing_active: pkg.is_sharing_active,
+                                is_quaint_active: pkg.is_quaint_active,
+                                is_quad_active: pkg.is_quad_active,
+                                is_triple_active: pkg.is_triple_active,
+                                is_double_active: pkg.is_double_active,
+                                types: {
+                                  sharing: typeof pkg.is_sharing_active,
+                                  quaint: typeof pkg.is_quaint_active,
+                                  quad: typeof pkg.is_quad_active,
+                                  triple: typeof pkg.is_triple_active,
+                                  double: typeof pkg.is_double_active,
+                                }
+                              });
+
+                              // Helper function to check if room type is active
+                              const isRoomTypeActive = (value) => {
+                                if (value === true || value === 'true' || value === 1 || value === '1') return true;
+                                if (value === false || value === 'false' || value === 0 || value === '0' || value === null || value === undefined) return false;
+                                return Boolean(value);
+                              };
+
                               const matchedAirline = airlines.find(
                                 (a) => a.code?.toLowerCase() === airline?.code?.toLowerCase()
                               );
@@ -882,17 +905,20 @@ const UmrahPackage = () => {
                                           <div>
                                             <h4 className="card-title mb-1 fw-bold">
                                               {pkg?.title || "Umrah Package"}
-
                                             </h4>
-                                            {/* {!pkg.is_active && (
-                                        <span className="badge bg-danger">Inactive</span>
-                                      )}
-                                      {pkg.is_partial_payment_active && (
-                                        <span className="badge bg-warning text-dark ms-1">Partial Payment</span>
-                                      )}
-                                      {pkg.is_service_charge_active && (
-                                        <span className="badge bg-info text-dark ms-1">Service Charge</span>
-                                      )} */}
+                                            {/* Package Status Badges */}
+                                            {!pkg.is_active && (
+                                              <span className="badge bg-danger me-2">Inactive</span>
+                                            )}
+                                            {pkg.is_active && (
+                                              <span className="badge bg-success me-2">Active</span>
+                                            )}
+                                            {pkg.is_partial_payment_active && (
+                                              <span className="badge bg-warning text-dark me-2">Partial Payment</span>
+                                            )}
+                                            {pkg.is_service_charge_active && (
+                                              <span className="badge bg-info text-dark me-2">Service Charge</span>
+                                            )}
                                           </div>
                                           {matchedAirline?.logo && (
                                             <img
@@ -945,57 +971,57 @@ const UmrahPackage = () => {
                                           </div>
                                         </div>
 
-                                        {/* Pricing Section */}
+                                        {/* Pricing Section - Only show active room types */}
                                         <div className="row mb-3 text-center text-dark">
-                                          {/* {pkg.is_sharing_active && ( */}
-                                          <div className="col-6 col-sm-4 col-md-2 mb-3">
-                                            <strong className="d-block">SHARING</strong>
-                                            <div className="fw-bold text-primary">
-                                              Rs. {totalSharing.toLocaleString()}/.
+                                          {isRoomTypeActive(pkg.is_sharing_active) && (
+                                            <div className="col-6 col-sm-4 col-md-2 mb-3">
+                                              <strong className="d-block">SHARING</strong>
+                                              <div className="fw-bold text-primary">
+                                                Rs. {totalSharing.toLocaleString()}/.
+                                              </div>
+                                              <small className="text-muted">per adult</small>
                                             </div>
-                                            <small className="text-muted">per adult</small>
-                                          </div>
-                                          {/* )} */}
+                                          )}
 
-                                          {/* {pkg.is_quaint_active && ( */}
-                                          <div className="col-6 col-sm-4 col-md-2 mb-3">
-                                            <strong className="d-block">QUINT</strong>
-                                            <div className="fw-bold text-primary">
-                                              Rs. {totalQuint.toLocaleString()}/.
+                                          {isRoomTypeActive(pkg.is_quaint_active) && (
+                                            <div className="col-6 col-sm-4 col-md-2 mb-3">
+                                              <strong className="d-block">QUINT</strong>
+                                              <div className="fw-bold text-primary">
+                                                Rs. {totalQuint.toLocaleString()}/.
+                                              </div>
+                                              <small className="text-muted">per adult</small>
                                             </div>
-                                            <small className="text-muted">per adult</small>
-                                          </div>
-                                          {/* )} */}
+                                          )}
 
-                                          {/* {pkg.is_quad_active && ( */}
-                                          <div className="col-6 col-sm-4 col-md-2 mb-3">
-                                            <strong className="d-block">QUAD BED</strong>
-                                            <div className="fw-bold text-primary">
-                                              Rs. {totalQuad.toLocaleString()}/.
+                                          {isRoomTypeActive(pkg.is_quad_active) && (
+                                            <div className="col-6 col-sm-4 col-md-2 mb-3">
+                                              <strong className="d-block">QUAD BED</strong>
+                                              <div className="fw-bold text-primary">
+                                                Rs. {totalQuad.toLocaleString()}/.
+                                              </div>
+                                              <small className="text-muted">per adult</small>
                                             </div>
-                                            <small className="text-muted">per adult</small>
-                                          </div>
-                                          {/* )} */}
+                                          )}
 
-                                          {/* {pkg.is_triple_active && ( */}
-                                          <div className="col-6 col-sm-4 col-md-2 mb-3">
-                                            <strong className="d-block">TRIPLE BED</strong>
-                                            <div className="fw-bold text-primary">
-                                              Rs. {totalTriple.toLocaleString()}/.
+                                          {isRoomTypeActive(pkg.is_triple_active) && (
+                                            <div className="col-6 col-sm-4 col-md-2 mb-3">
+                                              <strong className="d-block">TRIPLE BED</strong>
+                                              <div className="fw-bold text-primary">
+                                                Rs. {totalTriple.toLocaleString()}/.
+                                              </div>
+                                              <small className="text-muted">per adult</small>
                                             </div>
-                                            <small className="text-muted">per adult</small>
-                                          </div>
-                                          {/* )} */}
+                                          )}
 
-                                          {/* {pkg.is_double_active && ( */}
-                                          <div className="col-6 col-sm-4 col-md-2 mb-3">
-                                            <strong className="d-block">DOUBLE BED</strong>
-                                            <div className="fw-bold text-primary">
-                                              Rs. {totalDouble.toLocaleString()}/.
+                                          {isRoomTypeActive(pkg.is_double_active) && (
+                                            <div className="col-6 col-sm-4 col-md-2 mb-3">
+                                              <strong className="d-block">DOUBLE BED</strong>
+                                              <div className="fw-bold text-primary">
+                                                Rs. {totalDouble.toLocaleString()}/.
+                                              </div>
+                                              <small className="text-muted">per adult</small>
                                             </div>
-                                            <small className="text-muted">per adult</small>
-                                          </div>
-                                          {/* )} */}
+                                          )}
 
                                           <div className="col-6 col-sm-4 col-md-2 mb-3">
                                             <strong className="d-block">PER INFANT</strong>
@@ -1005,11 +1031,13 @@ const UmrahPackage = () => {
                                             <small className="text-muted">per PEX</small>
                                           </div>
 
-                                          <div className="col-12 mt-2">
-                                            <small className="text-muted">
-                                              Per Child <span className="text-primary fw-bold">Rs {childDiscount.toLocaleString()}/.</span> discount.
-                                            </small>
-                                          </div>
+                                          {childDiscount > 0 && (
+                                            <div className="col-12 mt-2">
+                                              <small className="text-muted">
+                                                Per Child <span className="text-primary fw-bold">Rs {childDiscount.toLocaleString()}/.</span> discount.
+                                              </small>
+                                            </div>
+                                          )}
                                         </div>
 
                                         {/* Buttons */}
