@@ -1392,7 +1392,7 @@ const Partners = ({ embed = false }) => {
                           <p className="mb-1">
                             <strong>Agency:</strong>{" "}
                             {partnerForm.agencies && partnerForm.agencies.length > 0
-                              ? agencies.find(a => a.id === partnerForm.agencies[0])?.name ||
+                              ? agencies.find(a => a.id === partnerForm.agencies[0])?.ageny_name ||
                               `Agency ID: ${partnerForm.agencies[0]}`
                               : "Not assigned"}
                           </p>
@@ -1450,7 +1450,7 @@ const Partners = ({ embed = false }) => {
                         .filter(agency => agency.branch === selectedBranchForAgency)
                         .map((agency) => ({
                           value: agency.id,
-                          label: agency.name,
+                          label: agency.ageny_name || agency.name,
                         }))}
                       value={
                         partnerForm.agencies &&
@@ -1458,6 +1458,8 @@ const Partners = ({ embed = false }) => {
                           ? {
                             value: partnerForm.agencies[0],
                             label: agencies.find(
+                              (a) => a.id === partnerForm.agencies[0]
+                            )?.ageny_name || agencies.find(
                               (a) => a.id === partnerForm.agencies[0]
                             )?.name,
                           }
