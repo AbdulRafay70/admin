@@ -749,8 +749,12 @@ const RoleAndPermissions = () => {
                   className=" shadow-none px-1 py-2"
                 >
                   <option value="">Select Type</option>
-                  <option value="agents">Agent</option>
+                  <option value="admin">Admin</option>
+                  {/* <option value="superadmin">Super Admin</option> */}
+                  <option value="agent">Agent</option>
+                  {/* <option value="area-agent">Area Agent</option> */}
                   <option value="employee">Employee</option>
+                  <option value="subagent">Branch</option>
                 </Form.Select>
               </div>
 

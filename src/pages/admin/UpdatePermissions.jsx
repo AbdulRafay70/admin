@@ -44,7 +44,35 @@ const UpdateGroupPermissions = () => {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [permissionSearchTerm, setPermissionSearchTerm] = useState("");
   const dropdownRef = useRef(null);
+  const [collapsedSections, setCollapsedSections] = useState({});
+
+  // Category metadata for icons and colors
+  const categoryMetadata = {
+    'Package': { icon: '📦', color: '#0d6efd', label: 'Packages' },
+    'Hotel': { icon: '🏨', color: '#198754', label: 'Hotels' },
+    'Ticket': { icon: '✈️', color: '#fd7e14', label: 'Tickets' },
+    'Booking': { icon: '📋', color: '#6f42c1', label: 'Bookings' },
+    'User': { icon: '👥', color: '#0dcaf0', label: 'Users' },
+    'Organization': { icon: '🏢', color: '#212529', label: 'Organizations' },
+    'Branch': { icon: '🏪', color: '#20c997', label: 'Branches' },
+    'Agency': { icon: '🏛️', color: '#d63384', label: 'Agencies' },
+    'Permission': { icon: '🔐', color: '#6610f2', label: 'Permissions' },
+    'Commission Group': { icon: '👨‍👩‍👧‍👦', color: '#fd7e14', label: 'Commission Group' },
+    'Ziyarat': { icon: '🕌', color: '#198754', label: 'Ziyarat' },
+    'Transport': { icon: '🚌', color: '#0dcaf0', label: 'Transport' },
+    'Food': { icon: '🍽️', color: '#ffc107', label: 'Food Service' },
+    'Finance': { icon: '💰', color: '#28a745', label: 'Finance' },
+    'Lead': { icon: '📞', color: '#17a2b8', label: 'Leads' },
+    'Customer': { icon: '👤', color: '#6c757d', label: 'Customers' },
+    'Content': { icon: '📝', color: '#6f42c1', label: 'Content' },
+    'Marketing': { icon: '📢', color: '#e83e8c', label: 'Marketing' },
+    'HR': { icon: '👔', color: '#fd7e14', label: 'Human Resources' },
+    'Operations': { icon: '⚙️', color: '#20c997', label: 'Operations' },
+    'System': { icon: '🔧', color: '#6c757d', label: 'System & Logs' },
+    'Uncategorized': { icon: '📁', color: '#adb5bd', label: 'Uncategorized' }
+  };
 
   // Fetch all permissions once when component mounts
   useEffect(() => {
@@ -67,18 +95,171 @@ const UpdateGroupPermissions = () => {
         });
         setPermissionNameMap(nameMap);
 
+        // Keyword to category mapping - categorize based on keywords in permission codenames
+        const keywordToCategoryMap = {
+          // Specific compound keywords (check these first)
+          'commissiongroup': 'Commission Group',
+          'discountgroup': 'Finance',
+
+          // Booking related
+          'booking': 'Booking',
+
+          // Package related
+          'package': 'Package',
+
+          // Hotel related
+          'hotel': 'Hotel',
+          'room': 'Hotel',
+          'bed': 'Hotel',
+          'sector': 'Hotel',
+
+          // Ticket & Airlines related
+          'ticket': 'Ticket',
+          'airport': 'Ticket',
+          'flight': 'Ticket',
+          'airline': 'Ticket',
+          'stopover': 'Ticket',
+
+          // Ziyarat related
+          'ziyarat': 'Ziyarat',
+          'ziarat': 'Ziyarat',
+
+          // Transport related
+          'transport': 'Transport',
+          'vehicle': 'Transport',
+
+          // Food related
+          'food': 'Food',
+
+          // Organization structure
+          'organization': 'Organization',
+          'branch': 'Branch',
+          'agency': 'Agency',
+          'reseller': 'Agency',
+
+          // User & Auth
+          'user': 'User',
+          'group': 'Commission Group',
+          'permission': 'Permission',
+          'profile': 'User',
+
+          // Lead & Customer
+          'lead': 'Lead',
+          'followup': 'Lead',
+          'passport': 'Lead',
+          'customer': 'Customer',
+
+          // Finance & Banking
+          'expense': 'Finance',
+          'financial': 'Finance',
+          'ledger': 'Finance',
+          'transaction': 'Finance',
+          'loan': 'Finance',
+          'commission': 'Finance',
+          'discount': 'Finance',
+          'fine': 'Finance',
+          'bank': 'Finance',
+          'payment': 'Finance',
+          'account': 'Finance',
+          'markup': 'Finance',
+          'visa': 'Finance',
+
+          // HR
+          'attendance': 'HR',
+          'leave': 'HR',
+          'employee': 'HR',
+
+          // Content & Forms
+          'blog': 'Content',
+          'form': 'Content',
+          'dynamic': 'Content',
+          'submission': 'Content',
+
+          // Marketing
+          'promotion': 'Marketing',
+
+          // Operations
+          'operation': 'Operations',
+          'movement': 'Operations',
+          'pax': 'Operations',
+          'internal': 'Operations',
+          'passenger': 'Operations',
+
+          // System & Logs
+          'audit': 'System',
+          'log': 'System',
+          'session': 'System',
+          'token': 'System',
+          'contenttype': 'System',
+          'city': 'System',
+          'registration': 'System',
+          'rule': 'System',
+          'sequence': 'System',
+          'universal': 'System',
+
+          // HR additions
+          'punctuality': 'HR',
+          'salary': 'HR',
+
+          // Finance additions
+          'riyal': 'Finance',
+          'rate': 'Finance',
+
+          // Agency additions
+          'resell': 'Agency',
+          'shirka': 'Agency',
+        };
+
         const grouped = allPerms.reduce((acc, perm) => {
           let panel = "Uncategorized";
-          if (typeof perm.content_type === "string" && perm.content_type) {
-            const parts = perm.content_type.split("|");
-            panel =
-              parts.length >= 2 ? parts[1].trim() : perm.content_type.trim();
-          } else if (
-            perm.content_type &&
-            typeof perm.content_type === "object"
-          ) {
-            panel = perm.content_type.model || "Uncategorized";
+
+          // Extract category from permission codename
+          // Permission codenames are like: add_hotel, view_booking, change_user
+          const codename = (perm.codename || '').toLowerCase();
+
+          // Check each keyword to find a match
+          for (const [keyword, category] of Object.entries(keywordToCategoryMap)) {
+            if (codename.includes(keyword)) {
+              panel = category;
+              break;
+            }
           }
+
+          // Fallback: try to extract from content_type if no keyword match
+          if (panel === "Uncategorized") {
+            if (typeof perm.content_type === "string" && perm.content_type) {
+              const parts = perm.content_type.split("|");
+              const modelName = parts.length >= 2 ? parts[1].trim().toLowerCase() : perm.content_type.trim().toLowerCase();
+
+              // Check if model name matches any keyword
+              for (const [keyword, category] of Object.entries(keywordToCategoryMap)) {
+                if (modelName.includes(keyword)) {
+                  panel = category;
+                  break;
+                }
+              }
+
+              // If still uncategorized, capitalize the model name as category
+              if (panel === "Uncategorized" && modelName) {
+                panel = modelName.charAt(0).toUpperCase() + modelName.slice(1);
+              }
+            } else if (perm.content_type && typeof perm.content_type === "object") {
+              const modelName = (perm.content_type.model || "").toLowerCase();
+
+              // Check if model name matches any keyword
+              for (const [keyword, category] of Object.entries(keywordToCategoryMap)) {
+                if (modelName.includes(keyword)) {
+                  panel = category;
+                  break;
+                }
+              }
+
+              if (panel === "Uncategorized") {
+                panel = perm.content_type.model || "Uncategorized";
+              }
+            }
+          }
+
           if (!acc[panel]) acc[panel] = [];
           acc[panel].push(perm.codename);
           return acc;
@@ -99,6 +280,13 @@ const UpdateGroupPermissions = () => {
             permissions: grouped[panel].sort(),
           }));
         setPermissionSections(sections);
+
+        // Initialize all sections as collapsed
+        const initialCollapsedState = {};
+        sections.forEach(section => {
+          initialCollapsedState[section.id] = true; // true means collapsed
+        });
+        setCollapsedSections(initialCollapsedState);
       } catch (err) {
         console.error("Error fetching permissions:", err);
         toast.error("Failed to load permissions");
@@ -135,12 +323,13 @@ const UpdateGroupPermissions = () => {
         const cachedPermissions = localStorage.getItem(permissionsCacheKey);
         const cachedTimestamp = localStorage.getItem(timestampKey);
 
+        // TEMPORARILY DISABLED: Force fresh fetch to ensure all groups are loaded
         // If we have cached data that's not expired, use it
-        if (cachedGroups && cachedPermissions && cachedTimestamp && cachedTimestamp > oneHourAgo) {
-          setGroups(JSON.parse(cachedGroups));
-          setAllGroupPermissions(JSON.parse(cachedPermissions));
-          return;
-        }
+        // if (cachedGroups && cachedPermissions && cachedTimestamp && cachedTimestamp > oneHourAgo) {
+        //   setGroups(JSON.parse(cachedGroups));
+        //   setAllGroupPermissions(JSON.parse(cachedPermissions));
+        //   return;
+        // }
 
         // Fetch fresh data
         const [groupsRes, permsRes] = await Promise.all([
@@ -152,12 +341,18 @@ const UpdateGroupPermissions = () => {
           })
         ]);
 
-        // Filter groups by organization
+
+        // Filter groups by organization - include groups for current org AND global groups (no org set)
         const filteredGroups = orgId
           ? groupsRes.data.filter(
-            (group) => group.extended?.organization === orgId
+            (group) => !group.extended?.organization || group.extended?.organization === orgId
           )
           : groupsRes.data;
+
+        console.log('All groups from API:', groupsRes.data);
+        console.log('Current org ID:', orgId);
+        console.log('Filtered groups:', filteredGroups);
+
 
         setGroups(filteredGroups);
 
@@ -258,6 +453,78 @@ const UpdateGroupPermissions = () => {
         },
       };
     });
+  };
+
+  // Toggle section collapse/expand
+  const toggleSection = (sectionId) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  // Handle category-level select all
+  const handleCategorySelectAll = (sectionId, isChecked) => {
+    const section = permissionSections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    // Filter permissions based on search term
+    const filteredPerms = section.permissions.filter(perm => {
+      const permName = permissionNameMap[perm] || perm;
+      const searchLower = permissionSearchTerm.toLowerCase();
+      return permName.toLowerCase().includes(searchLower) ||
+        perm.toLowerCase().includes(searchLower);
+    });
+
+    setGroupPermissions(prev => {
+      let newPerms;
+      if (isChecked) {
+        // Add all filtered permissions from this category
+        newPerms = [...new Set([...prev, ...filteredPerms])];
+      } else {
+        // Remove all filtered permissions from this category
+        newPerms = prev.filter(p => !filteredPerms.includes(p));
+      }
+
+      if (selectedGroup) {
+        setAllGroupPermissions(prevAll => ({
+          ...prevAll,
+          [selectedGroup]: newPerms
+        }));
+      }
+
+      return newPerms;
+    });
+
+    // Update permissions state
+    setPermissions(prev => {
+      const newPerms = { ...prev };
+      filteredPerms.forEach(perm => {
+        newPerms[sectionId][perm] = isChecked;
+      });
+      return newPerms;
+    });
+  };
+
+  // Get category metadata
+  const getCategoryMeta = (sectionId) => {
+    return categoryMetadata[sectionId] || categoryMetadata['Uncategorized'];
+  };
+
+  // Calculate selected count for a category
+  const getCategorySelectedCount = (section) => {
+    const filteredPerms = section.permissions.filter(perm => {
+      const permName = permissionNameMap[perm] || perm;
+      const searchLower = permissionSearchTerm.toLowerCase();
+      return permName.toLowerCase().includes(searchLower) ||
+        perm.toLowerCase().includes(searchLower);
+    });
+
+    const selectedCount = filteredPerms.filter(perm =>
+      permissions?.[section.id]?.[perm] || false
+    ).length;
+
+    return { selected: selectedCount, total: filteredPerms.length };
   };
 
   const handleUpdatePermissions = async () => {
@@ -467,39 +734,166 @@ const UpdateGroupPermissions = () => {
                               />
                             </fieldset>
                           </div>
+                          <div className="col-md-8">
+                            <fieldset className="border border-black w-100 p-2 rounded mb-3">
+                              <legend className="float-none w-auto px-1 fs-6">
+                                Search Permissions
+                              </legend>
+                              <input
+                                type="text"
+                                className="form-control border-0 shadow-none"
+                                placeholder="Search by permission name or code..."
+                                value={permissionSearchTerm}
+                                onChange={(e) => setPermissionSearchTerm(e.target.value)}
+                              />
+                            </fieldset>
+                          </div>
                         </div>
+
                         {permissionSections.length > 0 ? (
-                          permissionSections.map((section) => (
-                            <div key={section.id} className="mb-4">
-                              <h5 className="text-muted mb-3">{section.title}</h5>
-                              <div className="d-flex flex-wrap gap-4">
-                                {section.permissions.map((perm) => (
-                                  <div
-                                    className="form-check"
-                                    key={`${section.id}-${perm}`}
-                                  >
-                                    <input
-                                      className="form-check-input border border-black"
-                                      type="checkbox"
-                                      checked={
-                                        permissions?.[section.id]?.[perm] || false
-                                      }
-                                      onChange={() =>
-                                        handlePermissionChange(section.id, perm)
-                                      }
-                                      id={`${section.id}-${perm}`}
-                                    />
-                                    <label
-                                      className="form-check-label text-muted"
-                                      htmlFor={`${section.id}-${perm}`}
-                                    >
-                                      {permissionNameMap[perm] || perm}
-                                    </label>
+                          <div className="accordion" id="permissionsAccordion">
+                            {permissionSections.map((section) => {
+                              // Filter permissions based on search term
+                              const filteredPermissions = section.permissions.filter(perm => {
+                                const permName = permissionNameMap[perm] || perm;
+                                const searchLower = permissionSearchTerm.toLowerCase();
+                                return permName.toLowerCase().includes(searchLower) ||
+                                  perm.toLowerCase().includes(searchLower);
+                              });
+
+                              // Skip sections with no matching permissions
+                              if (filteredPermissions.length === 0) return null;
+
+                              const categoryMeta = getCategoryMeta(section.id);
+                              const { selected, total } = getCategorySelectedCount(section);
+                              const isCollapsed = collapsedSections[section.id];
+                              const allSelected = selected === total && total > 0;
+
+                              return (
+                                <div key={section.id} className="card mb-3 border">
+                                  {/* Category Header */}
+                                  <div className="card-header bg-light p-3">
+                                    <div className="d-flex justify-content-between align-items-center">
+                                      <div className="d-flex align-items-center gap-3 flex-grow-1">
+                                        {/* Collapse Toggle Button */}
+                                        <button
+                                          className="btn btn-sm btn-link text-decoration-none p-0"
+                                          onClick={() => toggleSection(section.id)}
+                                          style={{ fontSize: '1.2rem' }}
+                                        >
+                                          {isCollapsed ? '▶' : '▼'}
+                                        </button>
+
+                                        {/* Category Icon and Name */}
+                                        <div className="d-flex align-items-center gap-2">
+                                          <span style={{ fontSize: '1.5rem' }}>{categoryMeta.icon}</span>
+                                          <h6 className="mb-0 fw-bold" style={{ color: categoryMeta.color }}>
+                                            {categoryMeta.label}
+                                          </h6>
+                                        </div>
+
+                                        {/* Selected Count Badge */}
+                                        <span
+                                          className={`badge ${selected === total && total > 0 ? 'bg-success' : 'bg-secondary'}`}
+                                          style={{ fontSize: '0.85rem' }}
+                                        >
+                                          {selected}/{total} selected
+                                        </span>
+                                      </div>
+
+                                      {/* Select All Checkbox */}
+                                      <div className="form-check">
+                                        <input
+                                          type="checkbox"
+                                          className="form-check-input border border-dark"
+                                          id={`select-all-${section.id}`}
+                                          checked={allSelected}
+                                          onChange={(e) => handleCategorySelectAll(section.id, e.target.checked)}
+                                          style={{ cursor: 'pointer' }}
+                                        />
+                                        <label
+                                          className="form-check-label small text-muted"
+                                          htmlFor={`select-all-${section.id}`}
+                                          style={{ cursor: 'pointer' }}
+                                        >
+                                          Select All
+                                        </label>
+                                      </div>
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))
+
+                                  {/* Category Body - Permissions Table */}
+                                  {!isCollapsed && (
+                                    <div className="card-body p-0">
+                                      <div className="table-responsive">
+                                        <table className="table table-hover table-sm mb-0 align-middle">
+                                          <thead className="table-light">
+                                            <tr>
+                                              <th style={{ width: "50px" }} className="text-center">
+                                                <input
+                                                  type="checkbox"
+                                                  className="form-check-input border border-dark"
+                                                  checked={allSelected}
+                                                  onChange={(e) => handleCategorySelectAll(section.id, e.target.checked)}
+                                                  title="Select/Deselect All in Category"
+                                                />
+                                              </th>
+                                              <th>Permission Name</th>
+                                              <th>Code</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {filteredPermissions.map((perm, permIndex) => (
+                                              <tr key={`${section.id}-${perm}-${permIndex}`}>
+                                                <td className="text-center">
+                                                  <input
+                                                    className="form-check-input border border-dark"
+                                                    type="checkbox"
+                                                    checked={permissions?.[section.id]?.[perm] || false}
+                                                    onChange={() => handlePermissionChange(section.id, perm)}
+                                                    id={`${section.id}-${perm}-${permIndex}`}
+                                                  />
+                                                </td>
+                                                <td>
+                                                  <label
+                                                    className="mb-0 w-100"
+                                                    htmlFor={`${section.id}-${perm}-${permIndex}`}
+                                                    style={{ cursor: "pointer" }}
+                                                  >
+                                                    {permissionNameMap[perm] || perm}
+                                                  </label>
+                                                </td>
+                                                <td>
+                                                  <code className="text-muted small">{perm}</code>
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* No Results Message */}
+                            {permissionSections.every(section =>
+                              section.permissions.filter(perm => {
+                                const permName = permissionNameMap[perm] || perm;
+                                const searchLower = permissionSearchTerm.toLowerCase();
+                                return permName.toLowerCase().includes(searchLower) ||
+                                  perm.toLowerCase().includes(searchLower);
+                              }).length === 0
+                            ) && (
+                                <div className="text-center py-5">
+                                  <p className="text-muted mb-0">
+                                    <i className="bi bi-search me-2"></i>
+                                    No permissions found matching "{permissionSearchTerm}"
+                                  </p>
+                                </div>
+                              )}
+                          </div>
                         ) : (
                           <div className="text-center py-4">
                             <p>No permissions found</p>

@@ -79,6 +79,7 @@ import HotelFloorManagement from "./pages/admin/HotelFloorManagement";
 import AssignRoom from "./pages/admin/AssignRoom";
 
 import PrivateRoute from "./components/PrivateRoute";
+import { PermissionProvider } from "./context/PermissionContext";
 
 import EditHotelDetail from "./pages/admin/EditHotelDetail";
 import EditHotelPrice from "./pages/admin/EditHotelPrice";
@@ -102,336 +103,337 @@ import PaymentsPage from "./pages/hr/PaymentsPage";
 
 function App() {
   return (
-    <div className="d-flex">
-      <Container fluid className="p-0">
-        <Routes>
-          {/* Admin Side */}
-          <Route path="/login" element={<AdminLogin />} />
+    <PermissionProvider>
+      <div className="d-flex">
+        <Container fluid className="p-0">
+          <Routes>
+            {/* Admin Side */}
+            <Route path="/login" element={<AdminLogin />} />
 
-          <Route
-            path="/"
-            element={<Navigate to="/dashboard" replace />}
-          />
+            <Route
+              path="/"
+              element={<Navigate to="/dashboard" replace />}
+            />
 
-          {/* Redirect legacy/top-level links to partners subpaths so
+            {/* Redirect legacy/top-level links to partners subpaths so
               both `/discounts` and `/admin/discounts` (when basename=/admin)
               resolve correctly. This avoids the "No routes matched" warning. */}
-          <Route path="/discounts" element={<Navigate to="/partners/discounts" replace />} />
-          {/* /portal redirect removed */}
-          <Route path="/branche" element={<Navigate to="/partners/branche" replace />} />
+            <Route path="/discounts" element={<Navigate to="/partners/discounts" replace />} />
+            {/* /portal redirect removed */}
+            <Route path="/branche" element={<Navigate to="/partners/branche" replace />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <Dashboard />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/dashboard/logs"
-            element={
-              <PrivateRoute>
-                <Logs />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/packages"
-            element={
-              <PrivateRoute>
-                <Packages />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/packages/add-packages"
-            element={
-              <PrivateRoute>
-                <AddPackages />
-              </PrivateRoute>
-            }
-          />
-          <Route path="/packages/edit/:id" element={<PrivateRoute>
-            <AddPackages mode="edit" />
-          </PrivateRoute>} />
+            <Route
+              path="/dashboard"
+              element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/dashboard/logs"
+              element={
+                <PrivateRoute>
+                  <Logs />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/packages"
+              element={
+                <PrivateRoute>
+                  <Packages />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/packages/add-packages"
+              element={
+                <PrivateRoute>
+                  <AddPackages />
+                </PrivateRoute>
+              }
+            />
+            <Route path="/packages/edit/:id" element={<PrivateRoute>
+              <AddPackages mode="edit" />
+            </PrivateRoute>} />
 
-          <Route path="/packages/details/:id"
-            element={
-              <PrivateRoute>
-                <PackageDetails />
-              </PrivateRoute>}
-          />
+            <Route path="/packages/details/:id"
+              element={
+                <PrivateRoute>
+                  <PackageDetails />
+                </PrivateRoute>}
+            />
 
-          <Route
-            path="/packages/visa-and-other"
-            element={
-              <PrivateRoute>
-                <VisaAndOther />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels"
-            element={
-              <PrivateRoute>
-                <Hotels />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels/EditDetails/:id"
-            element={
-              <PrivateRoute>
-                <EditHotelDetail />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels/edit-details/:id"
-            element={
-              <PrivateRoute>
-                <EditHotelDetails />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels/EditPrices/:id"
-            element={
-              <PrivateRoute>
-                <EditHotelPrice />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels/edit-pricing/:id"
-            element={
-              <PrivateRoute>
-                <EditHotelPricing />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels/editAv/:id"
-            element={
-              <PrivateRoute>
-                <EditHotelAv />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotels/add-hotels"
-            element={
-              <PrivateRoute>
-                <AddHotels />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotel-floor-management"
-            element={
-              <PrivateRoute>
-                <HotelFloorManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/assign-room"
-            element={
-              <PrivateRoute>
-                <AssignRoom />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/intimation"
-            element={
-              <PrivateRoute>
-                <IntimationTable />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners"
-            element={
-              <PrivateRoute>
-                <Partners />
-              </PrivateRoute>
-            }
-          />
-          {/* Duplicate partners routes with /admin prefix to support mounts under /admin */}
-          <Route
-            path="/admin/partners"
-            element={
-              <PrivateRoute>
-                <Partners />
-              </PrivateRoute>
-            }
-          />
-          {/* Messages page removed */}
-          <Route
-            path="/partners/organization"
-            element={
-              <PrivateRoute>
-                <Organization />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/organization"
-            element={
-              <PrivateRoute>
-                <Organization />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/organization-links"
-            element={
-              <PrivateRoute>
-                <OrganizationLinks />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/organization-links"
-            element={
-              <PrivateRoute>
-                <OrganizationLinks />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/role-permissions"
-            element={
-              <PrivateRoute>
-                <RoleAndPermissions />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/role-permissions"
-            element={
-              <PrivateRoute>
-                <RoleAndPermissions />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/role-permissions/update-permissions"
-            element={
-              <PrivateRoute>
-                <UpdateGroupPermissions />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/role-permissions/update-permissions"
-            element={
-              <PrivateRoute>
-                <UpdateGroupPermissions />
-              </PrivateRoute>
-            }
-          />
-          {/* Request page removed from partners navigation */}
-          <Route
-            path="/partners/discounts"
-            element={
-              <PrivateRoute>
-                <Discounts />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/discounts"
-            element={
-              <PrivateRoute>
-                <Discounts />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/discounts/update-discountss"
-            element={
-              <PrivateRoute>
-                <DiscountsPermissions />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/discounts/update-discountss"
-            element={
-              <PrivateRoute>
-                <DiscountsPermissions />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/branche"
-            element={
-              <PrivateRoute>
-                <Branches />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/branche"
-            element={
-              <PrivateRoute>
-                <Branches />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/branche/detail/:id"
-            element={
-              <PrivateRoute>
-                <BranchesDetails />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/branche/detail/:id"
-            element={
-              <PrivateRoute>
-                <BranchesDetails />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/agencies"
-            element={
-              <PrivateRoute>
-                <Agencies />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/agencies"
-            element={
-              <PrivateRoute>
-                <Agencies />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/agencies/detail/:id"
-            element={
-              <PrivateRoute>
-                <AgencyDetail />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/agencies/detail/:id"
-            element={
-              <PrivateRoute>
-                <AgencyDetail />
-              </PrivateRoute>
-            }
-          />
-          {/* Agencies removed from global partners navigation */}
-          {/* <Route
+            <Route
+              path="/packages/visa-and-other"
+              element={
+                <PrivateRoute>
+                  <VisaAndOther />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels"
+              element={
+                <PrivateRoute>
+                  <Hotels />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels/EditDetails/:id"
+              element={
+                <PrivateRoute>
+                  <EditHotelDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels/edit-details/:id"
+              element={
+                <PrivateRoute>
+                  <EditHotelDetails />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels/EditPrices/:id"
+              element={
+                <PrivateRoute>
+                  <EditHotelPrice />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels/edit-pricing/:id"
+              element={
+                <PrivateRoute>
+                  <EditHotelPricing />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels/editAv/:id"
+              element={
+                <PrivateRoute>
+                  <EditHotelAv />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels/add-hotels"
+              element={
+                <PrivateRoute>
+                  <AddHotels />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotel-floor-management"
+              element={
+                <PrivateRoute>
+                  <HotelFloorManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/assign-room"
+              element={
+                <PrivateRoute>
+                  <AssignRoom />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/intimation"
+              element={
+                <PrivateRoute>
+                  <IntimationTable />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners"
+              element={
+                <PrivateRoute>
+                  <Partners />
+                </PrivateRoute>
+              }
+            />
+            {/* Duplicate partners routes with /admin prefix to support mounts under /admin */}
+            <Route
+              path="/admin/partners"
+              element={
+                <PrivateRoute>
+                  <Partners />
+                </PrivateRoute>
+              }
+            />
+            {/* Messages page removed */}
+            <Route
+              path="/partners/organization"
+              element={
+                <PrivateRoute>
+                  <Organization />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/organization"
+              element={
+                <PrivateRoute>
+                  <Organization />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/organization-links"
+              element={
+                <PrivateRoute>
+                  <OrganizationLinks />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/organization-links"
+              element={
+                <PrivateRoute>
+                  <OrganizationLinks />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/role-permissions"
+              element={
+                <PrivateRoute>
+                  <RoleAndPermissions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/role-permissions"
+              element={
+                <PrivateRoute>
+                  <RoleAndPermissions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/role-permissions/update-permissions"
+              element={
+                <PrivateRoute>
+                  <UpdateGroupPermissions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/role-permissions/update-permissions"
+              element={
+                <PrivateRoute>
+                  <UpdateGroupPermissions />
+                </PrivateRoute>
+              }
+            />
+            {/* Request page removed from partners navigation */}
+            <Route
+              path="/partners/discounts"
+              element={
+                <PrivateRoute>
+                  <Discounts />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/discounts"
+              element={
+                <PrivateRoute>
+                  <Discounts />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/discounts/update-discountss"
+              element={
+                <PrivateRoute>
+                  <DiscountsPermissions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/discounts/update-discountss"
+              element={
+                <PrivateRoute>
+                  <DiscountsPermissions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/branche"
+              element={
+                <PrivateRoute>
+                  <Branches />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/branche"
+              element={
+                <PrivateRoute>
+                  <Branches />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/branche/detail/:id"
+              element={
+                <PrivateRoute>
+                  <BranchesDetails />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/branche/detail/:id"
+              element={
+                <PrivateRoute>
+                  <BranchesDetails />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/agencies"
+              element={
+                <PrivateRoute>
+                  <Agencies />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/agencies"
+              element={
+                <PrivateRoute>
+                  <Agencies />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/agencies/detail/:id"
+              element={
+                <PrivateRoute>
+                  <AgencyDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/agencies/detail/:id"
+              element={
+                <PrivateRoute>
+                  <AgencyDetail />
+                </PrivateRoute>
+              }
+            />
+            {/* Agencies removed from global partners navigation */}
+            {/* <Route
               path="/partners/group"
               element={
                 <PrivateRoute>
@@ -439,265 +441,265 @@ function App() {
                 </PrivateRoute>
               }
             /> */}
-          <Route
-            path="/partners/empolye"
-            element={
-              <PrivateRoute>
-                <Empolye />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/empolye"
-            element={
-              <PrivateRoute>
-                <Empolye />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/markup"
-            element={
-              <PrivateRoute>
-                <MarkupManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/markup"
-            element={
-              <PrivateRoute>
-                <MarkupManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/commission-rules"
-            element={
-              <PrivateRoute>
-                <CommissionManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/commission-rules"
-            element={
-              <PrivateRoute>
-                <CommissionManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/commission-rules/assign-values"
-            element={
-              <PrivateRoute>
-                <CommissionAssignValues />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/commission-rules/assign-values"
-            element={
-              <PrivateRoute>
-                <CommissionAssignValues />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/partners/markup/assign-values"
-            element={
-              <PrivateRoute>
-                <MarkupAssignValues />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/partners/markup/assign-values"
-            element={
-              <PrivateRoute>
-                <MarkupAssignValues />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/customer-management"
-            element={
-              <PrivateRoute>
-                <CustomerManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/employees"
-            element={
-              <PrivateRoute>
-                <EmployeesPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr"
-            element={
-              <PrivateRoute>
-                <HrDashboard />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/employees/:id"
-            element={
-              <PrivateRoute>
-                <EmployeeProfile />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/attendance"
-            element={
-              <PrivateRoute>
-                <AttendancePage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/movements"
-            element={
-              <PrivateRoute>
-                <MovementsPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/commissions"
-            element={
-              <PrivateRoute>
-                <CommissionsPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/punctuality"
-            element={
-              <PrivateRoute>
-                <PunctualityPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/approvals"
-            element={
-              <PrivateRoute>
-                <ApprovalsPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hr/payments"
-            element={
-              <PrivateRoute>
-                <PaymentsPage />
-              </PrivateRoute>
-            }
-          />
-          {/* Portal page removed from partners navigation */}
-          {/* top-level /portal route removed — portal is now accessed under /partners/portal */}
-          <Route
-            path="/ticket-booking"
-            element={
-              <PrivateRoute>
-                <TicketBooking />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/ticket-booking/detail/:id"
-            element={
-              <PrivateRoute>
-                <TicketDetail />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/ticket-booking/add-ticket"
-            element={
-              <PrivateRoute>
-                <AddTicket />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/payment"
-            element={
-              <PrivateRoute>
-                <Payment />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/payment/add-payment"
-            element={
-              <PrivateRoute>
-                <AddPayment />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/payment/bank-accounts"
-            element={
-              <PrivateRoute>
-                <BankAccounts />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/payment/pending-payments"
-            element={
-              <PrivateRoute>
-                <PendingPayments />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/payment/booking-history"
-            element={
-              <PrivateRoute>
-                <BookingHistory />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/payment/kuickpay"
-            element={
-              <PrivateRoute>
-                <Kuickpay />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/finance"
-            element={
-              <PrivateRoute>
-                <Finance />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/finance/*"
-            element={
-              <PrivateRoute>
-                <Finance />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/order-delivery/*"
-            element={
-              <PrivateRoute>
-                <OrderDeliverySystem />
-              </PrivateRoute>
-            }
-          />
-          {/* <Route
+            <Route
+              path="/partners/empolye"
+              element={
+                <PrivateRoute>
+                  <Empolye />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/empolye"
+              element={
+                <PrivateRoute>
+                  <Empolye />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/markup"
+              element={
+                <PrivateRoute>
+                  <MarkupManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/markup"
+              element={
+                <PrivateRoute>
+                  <MarkupManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/commission-rules"
+              element={
+                <PrivateRoute>
+                  <CommissionManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/commission-rules"
+              element={
+                <PrivateRoute>
+                  <CommissionManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/commission-rules/assign-values"
+              element={
+                <PrivateRoute>
+                  <CommissionAssignValues />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/commission-rules/assign-values"
+              element={
+                <PrivateRoute>
+                  <CommissionAssignValues />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/markup/assign-values"
+              element={
+                <PrivateRoute>
+                  <MarkupAssignValues />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/markup/assign-values"
+              element={
+                <PrivateRoute>
+                  <MarkupAssignValues />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/customer-management"
+              element={
+                <PrivateRoute>
+                  <CustomerManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/employees"
+              element={
+                <PrivateRoute>
+                  <EmployeesPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr"
+              element={
+                <PrivateRoute>
+                  <HrDashboard />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/employees/:id"
+              element={
+                <PrivateRoute>
+                  <EmployeeProfile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/attendance"
+              element={
+                <PrivateRoute>
+                  <AttendancePage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/movements"
+              element={
+                <PrivateRoute>
+                  <MovementsPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/commissions"
+              element={
+                <PrivateRoute>
+                  <CommissionsPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/punctuality"
+              element={
+                <PrivateRoute>
+                  <PunctualityPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/approvals"
+              element={
+                <PrivateRoute>
+                  <ApprovalsPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hr/payments"
+              element={
+                <PrivateRoute>
+                  <PaymentsPage />
+                </PrivateRoute>
+              }
+            />
+            {/* Portal page removed from partners navigation */}
+            {/* top-level /portal route removed — portal is now accessed under /partners/portal */}
+            <Route
+              path="/ticket-booking"
+              element={
+                <PrivateRoute>
+                  <TicketBooking />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/ticket-booking/detail/:id"
+              element={
+                <PrivateRoute>
+                  <TicketDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/ticket-booking/add-ticket"
+              element={
+                <PrivateRoute>
+                  <AddTicket />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/payment"
+              element={
+                <PrivateRoute>
+                  <Payment />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/payment/add-payment"
+              element={
+                <PrivateRoute>
+                  <AddPayment />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/payment/bank-accounts"
+              element={
+                <PrivateRoute>
+                  <BankAccounts />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/payment/pending-payments"
+              element={
+                <PrivateRoute>
+                  <PendingPayments />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/payment/booking-history"
+              element={
+                <PrivateRoute>
+                  <BookingHistory />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/payment/kuickpay"
+              element={
+                <PrivateRoute>
+                  <Kuickpay />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/finance"
+              element={
+                <PrivateRoute>
+                  <Finance />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/finance/*"
+              element={
+                <PrivateRoute>
+                  <Finance />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/order-delivery/*"
+              element={
+                <PrivateRoute>
+                  <OrderDeliverySystem />
+                </PrivateRoute>
+              }
+            />
+            {/* <Route
             path="/order-delivery/ticketing"
             element={
               <PrivateRoute>
@@ -705,23 +707,23 @@ function App() {
               </PrivateRoute>
             }
           /> */}
-          <Route
-            path="/order-delivery/ticketing/:orderNo"
-            element={
-              <PrivateRoute>
-                <TicketOrderList />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/order-delivery/ticketing/invoice/:orderNo/"
-            element={
-              <PrivateRoute>
-                <OrderDeliveryDetailInvoice />
-              </PrivateRoute>
-            }
-          />
-          {/* <Route
+            <Route
+              path="/order-delivery/ticketing/:orderNo"
+              element={
+                <PrivateRoute>
+                  <TicketOrderList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/order-delivery/ticketing/invoice/:orderNo/"
+              element={
+                <PrivateRoute>
+                  <OrderDeliveryDetailInvoice />
+                </PrivateRoute>
+              }
+            />
+            {/* <Route
             path="/order-delivery/un-paid-orders"
             element={
               <PrivateRoute>
@@ -729,325 +731,326 @@ function App() {
               </PrivateRoute>
             }
           /> */}
-          <Route
-            path="/profile"
-            element={
-              <PrivateRoute>
-                <ProfilePage />
-              </PrivateRoute>
-            }
-          />
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <ProfilePage />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Redirect legacy commission-management routes to partners/commission-rules */}
-          <Route
-            path="/commission-management"
-            element={<Navigate to="/partners/commission-rules" replace />}
-          />
-          <Route
-            path="/commission-management/assign-values"
-            element={<Navigate to="/partners/commission-rules/assign-values" replace />}
-          />
+            {/* Redirect legacy commission-management routes to partners/commission-rules */}
+            <Route
+              path="/commission-management"
+              element={<Navigate to="/partners/commission-rules" replace />}
+            />
+            <Route
+              path="/commission-management/assign-values"
+              element={<Navigate to="/partners/commission-rules/assign-values" replace />}
+            />
 
-          {/* Hotel Outsourcing Routes */}
-          <Route
-            path="/hotel-outsourcing"
-            element={
-              <PrivateRoute>
-                <HotelOutsourcing />
-              </PrivateRoute>
-            }
-          />
+            {/* Hotel Outsourcing Routes */}
+            <Route
+              path="/hotel-outsourcing"
+              element={
+                <PrivateRoute>
+                  <HotelOutsourcing />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Blog Management Routes */}
-          <Route
-            path="/blog-management"
-            element={
-              <PrivateRoute>
-                <BlogManagement />
-              </PrivateRoute>
-            }
-          />
+            {/* Blog Management Routes */}
+            <Route
+              path="/blog-management"
+              element={
+                <PrivateRoute>
+                  <BlogManagement />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Lead Management Routes */}
-          <Route
-            path="/customer-leads"
-            element={
-              <PrivateRoute>
-                <CustomerLead />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/lead-management"
-            element={
-              <PrivateRoute>
-                <LeadManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/passport-leads"
-            element={
-              <PrivateRoute>
-                <PassportLeads />
-              </PrivateRoute>
-            }
-          />
+            {/* Lead Management Routes */}
+            <Route
+              path="/customer-leads"
+              element={
+                <PrivateRoute>
+                  <CustomerLead />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/lead-management"
+              element={
+                <PrivateRoute>
+                  <LeadManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/passport-leads"
+              element={
+                <PrivateRoute>
+                  <PassportLeads />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Pax Movement Tracking Routes */}
-          <Route
-            path="/pax-movement"
-            element={
-              <PrivateRoute>
-                <PaxMovementTracking />
-              </PrivateRoute>
-            }
-          />
+            {/* Pax Movement Tracking Routes */}
+            <Route
+              path="/pax-movement"
+              element={
+                <PrivateRoute>
+                  <PaxMovementTracking />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Kuickpay Integration Routes */}
-          <Route
-            path="/kuickpay"
-            element={
-              <PrivateRoute>
-                <Kuickpay />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/kuickpay/settings"
-            element={
-              <PrivateRoute>
-                <KuickpaySettings />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/kuickpay/transactions"
-            element={
-              <PrivateRoute>
-                <KuickpayTransactions />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/kuickpay/webhook-logs"
-            element={
-              <PrivateRoute>
-                <KuickpayWebhookLogs />
-              </PrivateRoute>
-            }
-          />
+            {/* Kuickpay Integration Routes */}
+            <Route
+              path="/kuickpay"
+              element={
+                <PrivateRoute>
+                  <Kuickpay />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/kuickpay/settings"
+              element={
+                <PrivateRoute>
+                  <KuickpaySettings />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/kuickpay/transactions"
+              element={
+                <PrivateRoute>
+                  <KuickpayTransactions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/kuickpay/webhook-logs"
+              element={
+                <PrivateRoute>
+                  <KuickpayWebhookLogs />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Form Builder System Routes */}
-          <Route
-            path="/form-builder"
-            element={
-              <PrivateRoute>
-                <FormBuilder />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/form-list"
-            element={
-              <PrivateRoute>
-                <FormList />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/universal-register"
-            element={
-              <PrivateRoute>
-                <UniversalRegister />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/agency-relations"
-            element={
-              <PrivateRoute>
-                <AgencyRelations />
-              </PrivateRoute>
-            }
-          />
+            {/* Form Builder System Routes */}
+            <Route
+              path="/form-builder"
+              element={
+                <PrivateRoute>
+                  <FormBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/form-list"
+              element={
+                <PrivateRoute>
+                  <FormList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/universal-register"
+              element={
+                <PrivateRoute>
+                  <UniversalRegister />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/agency-relations"
+              element={
+                <PrivateRoute>
+                  <AgencyRelations />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Rules Management Routes */}
-          <Route
-            path="/rules-management"
-            element={
-              <PrivateRoute>
-                <RulesManagement />
-              </PrivateRoute>
-            }
-          />
+            {/* Rules Management Routes */}
+            <Route
+              path="/rules-management"
+              element={
+                <PrivateRoute>
+                  <RulesManagement />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Daily Operations Routes */}
-          <Route
-            path="/daily-operations"
-            element={
-              <PrivateRoute>
-                <DailyOperations />
-              </PrivateRoute>
-            }
-          />
+            {/* Daily Operations Routes */}
+            <Route
+              path="/daily-operations"
+              element={
+                <PrivateRoute>
+                  <DailyOperations />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Unified Management Systems Routes */}
-          <Route
-            path="/unified-financial-hub"
-            element={
-              <PrivateRoute>
-                <UnifiedFinancialHub />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/unified-hotel-management"
-            element={
-              <PrivateRoute>
-                <UnifiedHotelManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/unified-lead-management"
-            element={
-              <PrivateRoute>
-                <UnifiedLeadManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/unified-operations-hub"
-            element={
-              <PrivateRoute>
-                <UnifiedOperationsHub />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/unified-system-management"
-            element={
-              <PrivateRoute>
-                <UnifiedSystemManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/unified-user-management"
-            element={
-              <PrivateRoute>
-                <UnifiedUserManagement />
-              </PrivateRoute>
-            }
-          />
+            {/* Unified Management Systems Routes */}
+            <Route
+              path="/unified-financial-hub"
+              element={
+                <PrivateRoute>
+                  <UnifiedFinancialHub />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/unified-hotel-management"
+              element={
+                <PrivateRoute>
+                  <UnifiedHotelManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/unified-lead-management"
+              element={
+                <PrivateRoute>
+                  <UnifiedLeadManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/unified-operations-hub"
+              element={
+                <PrivateRoute>
+                  <UnifiedOperationsHub />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/unified-system-management"
+              element={
+                <PrivateRoute>
+                  <UnifiedSystemManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/unified-user-management"
+              element={
+                <PrivateRoute>
+                  <UnifiedUserManagement />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Universal System Routes */}
-          <Route
-            path="/universal-list"
-            element={
-              <PrivateRoute>
-                <UniversalList />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/universal-register"
-            element={
-              <PrivateRoute>
-                <UniversalRegister />
-              </PrivateRoute>
-            }
-          />
+            {/* Universal System Routes */}
+            <Route
+              path="/universal-list"
+              element={
+                <PrivateRoute>
+                  <UniversalList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/universal-register"
+              element={
+                <PrivateRoute>
+                  <UniversalRegister />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Additional Hotel Management Routes */}
-          <Route
-            path="/hotel-availability-manager"
-            element={
-              <PrivateRoute>
-                <HotelAvailabilityManager />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/hotel-availability"
-            element={
-              <PrivateRoute>
-                <HotelAvailability />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/add-hotel"
-            element={
-              <PrivateRoute>
-                <AddHotelPage />
-              </PrivateRoute>
-            }
-          />
+            {/* Additional Hotel Management Routes */}
+            <Route
+              path="/hotel-availability-manager"
+              element={
+                <PrivateRoute>
+                  <HotelAvailabilityManager />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotel-availability"
+              element={
+                <PrivateRoute>
+                  <HotelAvailability />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/add-hotel"
+              element={
+                <PrivateRoute>
+                  <AddHotelPage />
+                </PrivateRoute>
+              }
+            />
 
-          {/* Agency Profile Routes */}
-          <Route
-            path="/agency-profile/:id"
-            element={
-              <PrivateRoute>
-                <AgencyProfile />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/agency-profile"
-            element={
-              <PrivateRoute>
-                <AgencyProfile />
-              </PrivateRoute>
-            }
-          />
-          {/* Blog System Routes */}
-          <Route
-            path="/blogs"
-            element={
-              <PrivateRoute>
-                <BlogManagement />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/blogs/builder/:id"
-            element={
-              <PrivateRoute>
-                <BlogBuilder />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/blog-builder/:id"
-            element={
-              <PrivateRoute>
-                <BlogBuilder />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/blogs/view/:slug"
-            element={
-              <PrivateRoute>
-                <BlogView />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/blog-view/:slug"
-            element={
-              <PrivateRoute>
-                <BlogView />
-              </PrivateRoute>
-            }
-          />
+            {/* Agency Profile Routes */}
+            <Route
+              path="/agency-profile/:id"
+              element={
+                <PrivateRoute>
+                  <AgencyProfile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/agency-profile"
+              element={
+                <PrivateRoute>
+                  <AgencyProfile />
+                </PrivateRoute>
+              }
+            />
+            {/* Blog System Routes */}
+            <Route
+              path="/blogs"
+              element={
+                <PrivateRoute>
+                  <BlogManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blogs/builder/:id"
+              element={
+                <PrivateRoute>
+                  <BlogBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blog-builder/:id"
+              element={
+                <PrivateRoute>
+                  <BlogBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blogs/view/:slug"
+              element={
+                <PrivateRoute>
+                  <BlogView />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blog-view/:slug"
+              element={
+                <PrivateRoute>
+                  <BlogView />
+                </PrivateRoute>
+              }
+            />
 
-        </Routes>
-      </Container>
-    </div >
+          </Routes>
+        </Container>
+      </div>
+    </PermissionProvider>
   );
 }
 

@@ -10,6 +10,7 @@ import axios from "axios";
 import Select from "react-select";
 import { jwtDecode } from "jwt-decode";
 import AdminFooter from "../../components/AdminFooter";
+import { usePermissions } from "../../context/PermissionContext";
 
 const ShimmerLoader = () => {
   return (
@@ -34,6 +35,8 @@ const ShimmerLoader = () => {
 };
 
 const Partners = ({ embed = false }) => {
+  // Get permission checking functions
+  const { hasPermission, hasAnyPermission, loading: permissionsLoading } = usePermissions();
   const PARTNERS_CACHE_KEY = "partners_cache";
   const AGENCIES_CACHE_KEY = "agencies_cache";
   const GROUPS_CACHE_KEY = "groups_cache";
