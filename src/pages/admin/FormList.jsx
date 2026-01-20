@@ -4,10 +4,12 @@ import { Plus, Edit2, Trash2, Eye, Search, Copy, CheckCircle, AlertCircle, Layer
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import '../../styles/form-system.css';
+import { usePermission } from '../../contexts/EnhancedPermissionContext';
 
 const FormList = () => {
+  const { hasPermission } = usePermission();
   const [activeTab, setActiveTab] = useState('list');
-  
+
   // Demo Forms Data
   const [forms, setForms] = useState([
     {
@@ -185,10 +187,12 @@ const FormList = () => {
                   <h2 className="mb-1">Custom Lead Forms</h2>
                   <p className="text-muted mb-0">Create & manage forms for blogs and standalone pages</p>
                 </div>
-                <Button variant="primary" size="sm" href="/form-builder">
-                  <Plus size={18} className="me-2" />
-                  Create Form
-                </Button>
+                {hasPermission('add_form_admin') && (
+                  <Button variant="primary" size="sm" href="/form-builder">
+                    <Plus size={18} className="me-2" />
+                    Create Form
+                  </Button>
+                )}
               </div>
             </Col>
           </Row>
@@ -321,7 +325,9 @@ const FormList = () => {
                         <th>Fields</th>
                         <th>Submissions</th>
                         <th>Created</th>
-                        <th>Actions</th>
+                        {(hasPermission('edit_form_admin') || hasPermission('delete_form_admin')) && (
+                          <th>Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -350,27 +356,33 @@ const FormList = () => {
                             <strong>{form.submissions}</strong>
                           </td>
                           <td><small>{form.created_at}</small></td>
-                          <td>
-                            <div className="action-buttons">
-                              <Button variant="outline-info" size="sm" onClick={() => handleViewForm(form)} title="View">
-                                <Eye size={16} />
-                              </Button>
-                              <Button variant="outline-primary" size="sm" href={`/form-builder/${form.id}`} title="Edit">
-                                <Edit2 size={16} />
-                              </Button>
-                              <Button
-                                variant="outline-danger"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedForm(form);
-                                  setShowDeleteModal(true);
-                                }}
-                                title="Delete"
-                              >
-                                <Trash2 size={16} />
-                              </Button>
-                            </div>
-                          </td>
+                          {(hasPermission('edit_form_admin') || hasPermission('delete_form_admin')) && (
+                            <td>
+                              <div className="action-buttons">
+                                <Button variant="outline-info" size="sm" onClick={() => handleViewForm(form)} title="View">
+                                  <Eye size={16} />
+                                </Button>
+                                {hasPermission('edit_form_admin') && (
+                                  <Button variant="outline-primary" size="sm" href={`/form-builder/${form.id}`} title="Edit">
+                                    <Edit2 size={16} />
+                                  </Button>
+                                )}
+                                {hasPermission('delete_form_admin') && (
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedForm(form);
+                                      setShowDeleteModal(true);
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={16} />
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

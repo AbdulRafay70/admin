@@ -33,7 +33,7 @@ const AgencyDetail = () => {
         try {
             // Fetch agency details
             const agencyResponse = await axios.get(
-                `http://127.0.0.1:8000/api/agencies/${id}/`,
+                `https://b2bapi.saer.pk/api/agencies/${id}/`,
                 axiosConfig
             );
             setAgency(agencyResponse.data);
@@ -41,7 +41,7 @@ const AgencyDetail = () => {
             // Fetch branch details if agency has a branch
             if (agencyResponse.data.branch) {
                 const branchResponse = await axios.get(
-                    `http://127.0.0.1:8000/api/branches/${agencyResponse.data.branch}/`,
+                    `https://b2bapi.saer.pk/api/branches/${agencyResponse.data.branch}/`,
                     axiosConfig
                 );
                 setBranch(branchResponse.data);
@@ -49,7 +49,7 @@ const AgencyDetail = () => {
 
             // Fetch all users and filter agents linked to this agency
             const usersResponse = await axios.get(
-                `http://127.0.0.1:8000/api/users/`,
+                `https://b2bapi.saer.pk/api/users/`,
                 axiosConfig
             );
 

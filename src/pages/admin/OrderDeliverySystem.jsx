@@ -51,7 +51,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         try {
           console.log("🔍 Trying agent bookings API...");
           const response = await fetch(
-            `http://127.0.0.1:8000/api/bookings/?booking_number=${orderNo}`, {
+            `https://b2bapi.saer.pk/api/bookings/?booking_number=${orderNo}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -78,7 +78,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
           try {
             console.log("🔍 Trying public bookings API...");
             const publicResponse = await fetch(
-              `http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`, {
+              `https://b2bapi.saer.pk/api/admin/public-bookings/?organization=${organizationId}&booking_number=${orderNo}`, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
@@ -119,7 +119,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
           console.log("🏢 Fetching agency for ID:", agencyId);
 
           const agencyResponse = await fetch(
-            `http://127.0.0.1:8000/api/agencies/?organization_id=${organizationId}&id=${agencyId}`, {
+            `https://b2bapi.saer.pk/api/agencies/?organization_id=${organizationId}&id=${agencyId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -165,7 +165,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         // Use dedicated approve action for public bookings
         console.log('Approving public booking:', bookingData.booking_number);
         response = await axios.post(
-          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/approve/`,
+          `https://b2bapi.saer.pk/api/admin/public-bookings/${bookingData.id}/approve/`,
           {},
           {
             headers: {
@@ -178,7 +178,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         // Use PATCH for agent bookings
         console.log('Approving agent booking:', bookingData.booking_number);
         response = await axios.patch(
-          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+          `https://b2bapi.saer.pk/api/bookings/${bookingData.id}/`,
           {
             status: 'Approved',
           },
@@ -226,7 +226,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         // Use dedicated reject action for public bookings
         console.log('Rejecting public booking:', bookingData.booking_number);
         response = await axios.patch(
-          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`,
+          `https://b2bapi.saer.pk/api/admin/public-bookings/${bookingData.id}/`,
           {
             status: 'Rejected',
             rejected_notes: rejectNote,
@@ -244,7 +244,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         // Use PATCH for agent bookings
         console.log('Rejecting agent booking:', bookingData.booking_number);
         response = await axios.patch(
-          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+          `https://b2bapi.saer.pk/api/bookings/${bookingData.id}/`,
           {
             status: 'Rejected',
             rejected_notes: rejectNote,
@@ -1083,7 +1083,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                 let response;
                 if (isPublicBooking) {
                   response = await axios.patch(
-                    `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`,
+                    `https://b2bapi.saer.pk/api/admin/public-bookings/${bookingData.id}/`,
                     {
                       status: 'Rejected',
                       rejected_notes: note,
@@ -1099,7 +1099,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                   );
                 } else {
                   response = await axios.patch(
-                    `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+                    `https://b2bapi.saer.pk/api/bookings/${bookingData.id}/`,
                     {
                       status: 'Rejected',
                       rejected_notes: note,
@@ -1158,7 +1158,7 @@ const TicketsInterface = ({ orderNo }) => {
         setLoading(true);
 
         // Fetch booking data
-        const bookingResponse = await fetch(`http://127.0.0.1:8000/api/bookings/?organization_id&booking_number=${orderNo}`);
+        const bookingResponse = await fetch(`https://b2bapi.saer.pk/api/bookings/?organization_id&booking_number=${orderNo}`);
         if (!bookingResponse.ok) {
           throw new Error('Failed to fetch booking data');
         }
@@ -1173,7 +1173,7 @@ const TicketsInterface = ({ orderNo }) => {
 
         if (booking && booking.agency) {
           // Fetch agency data
-          const agencyResponse = await fetch(`http://127.0.0.1:8000/api/agencies/?organization_id&id=${booking.agency}`);
+          const agencyResponse = await fetch(`https://b2bapi.saer.pk/api/agencies/?organization_id&id=${booking.agency}`);
           if (!agencyResponse.ok) {
             throw new Error('Failed to fetch agency data');
           }
@@ -1624,7 +1624,7 @@ const VisaApplicationInterface = ({ onClose }) => {
         try {
           console.log('🔍 Trying agent bookings API for visa page...');
           const bookingResponse = await axios.get(
-            `http://127.0.0.1:8000/api/bookings/`,
+            `https://b2bapi.saer.pk/api/bookings/`,
             {
               params: {
                 booking_number: orderNo,
@@ -1659,7 +1659,7 @@ const VisaApplicationInterface = ({ onClose }) => {
           try {
             console.log('🔍 Trying public bookings API for visa page...');
             const publicResponse = await axios.get(
-              `http://127.0.0.1:8000/api/admin/public-bookings/`,
+              `https://b2bapi.saer.pk/api/admin/public-bookings/`,
               {
                 params: {
                   booking_number: orderNo,
@@ -1702,7 +1702,7 @@ const VisaApplicationInterface = ({ onClose }) => {
         try {
           setShirkaLoading(true);
           const shirkaResponse = await axios.get(
-            `http://127.0.0.1:8000/api/shirkas/`,
+            `https://b2bapi.saer.pk/api/shirkas/`,
             {
               params: {
                 organization: organizationId,
@@ -1738,7 +1738,7 @@ const VisaApplicationInterface = ({ onClose }) => {
         // Fetch agency data
         if (booking.agency) {
           try {
-            const agencyResponse = await axios.get(`http://127.0.0.1:8000/api/agencies/?organization=${organizationId}&id=${booking.agency}`, {
+            const agencyResponse = await axios.get(`https://b2bapi.saer.pk/api/agencies/?organization=${organizationId}&id=${booking.agency}`, {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
@@ -2140,17 +2140,24 @@ const VisaApplicationInterface = ({ onClose }) => {
                                   // Determine which API to use based on booking type
                                   const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
                                   const apiEndpoint = isPublicBooking
-                                    ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
-                                    : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+                                    ? `https://b2bapi.saer.pk/api/admin/public-bookings/${bookingData.id}/`
+                                    : `https://b2bapi.saer.pk/api/bookings/${bookingData.id}/`;
 
                                   console.log(`Updating visa status for ${isPublicBooking ? 'public' : 'agent'} booking`);
 
                                   const response = await axios.patch(
                                     apiEndpoint,
                                     {
-                                      person_details: bookingData.person_details.map((p, idx) =>
-                                        idx === index ? { ...p, visa_status: newStatus } : p
-                                      )
+                                      agency_id: bookingData.agency?.id || bookingData.agency_id,
+                                      user_id: bookingData.user?.id || bookingData.user_id,
+                                      organization_id: bookingData.organization?.id || bookingData.organization_id,
+                                      branch_id: bookingData.branch?.id || bookingData.branch_id,
+                                      person_details: bookingData.person_details.map((p, idx) => {
+                                        const { booking, ...personWithoutBooking } = p;
+                                        return idx === index
+                                          ? { ...personWithoutBooking, visa_status: newStatus }
+                                          : personWithoutBooking;
+                                      })
                                     },
                                     {
                                       headers: {
@@ -2172,7 +2179,8 @@ const VisaApplicationInterface = ({ onClose }) => {
                                   }
                                 } catch (error) {
                                   console.error('Error updating visa status:', error);
-                                  alert('Error updating visa status. Please try again.');
+                                  console.error('Backend error response:', error.response?.data);
+                                  alert(`Error updating visa status: ${JSON.stringify(error.response?.data) || error.message}`);
                                 }
                               }}
                             >
@@ -2214,17 +2222,24 @@ const VisaApplicationInterface = ({ onClose }) => {
                     // Determine which API to use based on booking type
                     const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
                     const apiEndpoint = isPublicBooking
-                      ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
-                      : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+                      ? `https://b2bapi.saer.pk/api/admin/public-bookings/${bookingData.id}/`
+                      : `https://b2bapi.saer.pk/api/bookings/${bookingData.id}/`;
 
                     console.log(`Approving visa for ${isPublicBooking ? 'public' : 'agent'} booking`);
 
                     const response = await axios.patch(
                       apiEndpoint,
                       {
-                        person_details: bookingData.person_details.map((p, idx) =>
-                          selectedPassengers[idx] ? { ...p, visa_status: 'Approved' } : p
-                        )
+                        agency_id: bookingData.agency?.id || bookingData.agency_id,
+                        user_id: bookingData.user?.id || bookingData.user_id,
+                        organization_id: bookingData.organization?.id || bookingData.organization_id,
+                        branch_id: bookingData.branch?.id || bookingData.branch_id,
+                        person_details: bookingData.person_details.map((p, idx) => {
+                          const { booking, ...personWithoutBooking } = p;
+                          return selectedPassengers[idx]
+                            ? { ...personWithoutBooking, visa_status: 'Approved' }
+                            : personWithoutBooking;
+                        })
                       },
                       {
                         headers: {
@@ -2247,7 +2262,8 @@ const VisaApplicationInterface = ({ onClose }) => {
                     }
                   } catch (error) {
                     console.error('Error approving visa:', error);
-                    alert('Error approving visa. Please try again.');
+                    console.error('Backend error response:', error.response?.data);
+                    alert(`Error approving visa: ${JSON.stringify(error.response?.data) || error.message}`);
                   }
                 }}
               >
@@ -2330,14 +2346,14 @@ const OrderList = () => {
         // Fetch from both APIs in parallel
         const [agentResponse, publicResponse] = await Promise.all([
           // Agent bookings (excludes public bookings)
-          axios.get(`http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`, {
+          axios.get(`https://b2bapi.saer.pk/api/bookings/?organization=${organizationId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             }
           }),
           // Public bookings (filtered by organization)
-          axios.get(`http://127.0.0.1:8000/api/admin/public-bookings/?organization=${organizationId}`, {
+          axios.get(`https://b2bapi.saer.pk/api/admin/public-bookings/?organization=${organizationId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -2431,7 +2447,7 @@ const OrderList = () => {
         // Use dedicated confirm action for public bookings
         console.log('Confirming public booking:', order.booking_number);
         response = await axios.post(
-          `http://127.0.0.1:8000/api/admin/public-bookings/${order.id}/confirm/`,
+          `https://b2bapi.saer.pk/api/admin/public-bookings/${order.id}/confirm/`,
           {},
           {
             headers: {
@@ -2444,7 +2460,7 @@ const OrderList = () => {
         // Use PATCH for agent bookings
         console.log('Confirming agent booking:', order.booking_number);
         response = await axios.patch(
-          `http://127.0.0.1:8000/api/bookings/${order.id}/`,
+          `https://b2bapi.saer.pk/api/bookings/${order.id}/`,
           {
             status: 'Confirmed',
           },

@@ -28,8 +28,11 @@ import {
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import api from "../../utils/Api";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const RulesManagement = () => {
+  const { hasPermission } = usePermission();
+
   // State Management
   const [rules, setRules] = useState([]);
   const [filteredRules, setFilteredRules] = useState([]);
@@ -382,10 +385,12 @@ const RulesManagement = () => {
                     <BookOpen size={18} className="me-2" />
                     All Rules
                   </Button>
-                  <Button variant="primary" onClick={openCreateModal}>
-                    <Plus size={18} className="me-2" />
-                    Create New Rule
-                  </Button>
+                  {hasPermission('add_rule_admin') && (
+                    <Button variant="primary" onClick={openCreateModal}>
+                      <Plus size={18} className="me-2" />
+                      Create New Rule
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -533,7 +538,9 @@ const RulesManagement = () => {
                           <th className="d-none d-md-table-cell">Language</th>
                           <th>Status</th>
                           <th className="d-none d-xl-table-cell">Updated</th>
-                          <th>Actions</th>
+                          {(hasPermission('edit_rule_admin') || hasPermission('delete_rule_admin')) && (
+                            <th>Actions</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -593,34 +600,40 @@ const RulesManagement = () => {
                                   {formatDate(rule.updated_at)}
                                 </small>
                               </td>
-                              <td>
-                                <div className="d-flex gap-1">
-                                  <Button
-                                    variant="outline-primary"
-                                    size="sm"
-                                    onClick={() => openViewModal(rule)}
-                                    title="View"
-                                  >
-                                    <Eye size={14} />
-                                  </Button>
-                                  <Button
-                                    variant="outline-warning"
-                                    size="sm"
-                                    onClick={() => openEditModal(rule)}
-                                    title="Edit"
-                                  >
-                                    <Edit size={14} />
-                                  </Button>
-                                  <Button
-                                    variant="outline-danger"
-                                    size="sm"
-                                    onClick={() => handleDelete(rule.id)}
-                                    title="Delete"
-                                  >
-                                    <Trash2 size={14} />
-                                  </Button>
-                                </div>
-                              </td>
+                              {(hasPermission('edit_rule_admin') || hasPermission('delete_rule_admin')) && (
+                                <td>
+                                  <div className="d-flex gap-1">
+                                    <Button
+                                      variant="outline-primary"
+                                      size="sm"
+                                      onClick={() => openViewModal(rule)}
+                                      title="View"
+                                    >
+                                      <Eye size={14} />
+                                    </Button>
+                                    {hasPermission('edit_rule_admin') && (
+                                      <Button
+                                        variant="outline-warning"
+                                        size="sm"
+                                        onClick={() => openEditModal(rule)}
+                                        title="Edit"
+                                      >
+                                        <Edit size={14} />
+                                      </Button>
+                                    )}
+                                    {hasPermission('delete_rule_admin') && (
+                                      <Button
+                                        variant="outline-danger"
+                                        size="sm"
+                                        onClick={() => handleDelete(rule.id)}
+                                        title="Delete"
+                                      >
+                                        <Trash2 size={14} />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))
                         )}

@@ -2,21 +2,69 @@ import React from 'react';
 import { Nav } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import './PartnersTabs.css';
+import { usePermission } from '../contexts/EnhancedPermissionContext';
 
-const tabs = [
-  // use relative paths so tabs resolve under the current parent route (e.g. /admin/partners)
-  { name: 'Overview', path: '' },
-  { name: 'Organization', path: 'organization' },
-  { name: 'Role Permissions', path: 'role-permissions' },
-  { name: 'Discounts', path: 'discounts' },
-  { name: 'Organization Links', path: 'organization-links' },
-  { name: 'Branches', path: 'branche' },
-  { name: 'Agencies', path: 'agencies' },
-  { name: 'Markup', path: 'markup' },
-  { name: 'Commission Rules', path: 'commission-rules' },
+const allTabs = [
+  {
+    name: 'Overview',
+    path: '',
+    permissions: ['view_add_users_admin', 'view_users_admin']
+  },
+  {
+    name: 'Organization',
+    path: 'organization',
+    permissions: ['view_organization_admin', 'add_organization_admin', 'edit_organization_admin', 'delete_organization_admin']
+  },
+  {
+    name: 'Role Permissions',
+    path: 'role-permissions',
+    permissions: ['view_groups_admin', 'add_groups_admin', 'edit_groups_admin', 'delete_groups_admin', 'assign_permissions_to_groups_admin']
+  },
+  {
+    name: 'Discounts',
+    path: 'discounts',
+    permissions: ['view_discount_groups_admin', 'add_discount_groups_admin', 'edit_discount_groups_admin', 'delete_discount_groups_admin', 'assign_commission_to_discount_groups_admin']
+  },
+  {
+    name: 'Organization Links',
+    path: 'organization-links',
+    permissions: ['view_create_link_org_admin', 'add_create_link_org_admin', 'edit_create_link_org_admin', 'delete_create_link_org_admin', 'view_create_resell_request_admin', 'add_create_resell_request_admin', 'edit_create_resell_request_admin', 'delete_create_resell_request_admin']
+  },
+  {
+    name: 'Branches',
+    path: 'branche',
+    permissions: ['view_branch_admin', 'add_branch_admin', 'edit_branch_admin', 'delete_branch_admin']
+  },
+  {
+    name: 'Agencies',
+    path: 'agencies',
+    permissions: ['view_agency_admin', 'add_agency_admin', 'edit_agency_admin', 'delete_agency_admin']
+  },
+  {
+    name: 'Markup',
+    path: 'markup',
+    permissions: ['view_markup_add_group_admin', 'add_markup_add_group_admin', 'edit_markup_add_group_admin', 'delete_markup_add_group_admin', 'view_markup_assign_value_admin', 'add_markup_assign_value_admin', 'edit_markup_assign_value_admin', 'delete_markup_assign_value_admin']
+  },
+  {
+    name: 'Commission Rules',
+    path: 'commission-rules',
+    permissions: ['view_commission_add_group_admin', 'add_commission_add_group_admin', 'edit_commission_add_group_admin', 'delete_commission_add_group_admin', 'view_commission_assign_value_admin', 'add_commission_assign_value_admin', 'edit_commission_assign_value_admin', 'delete_commission_assign_value_admin']
+  },
 ];
 
 export default function PartnersTabs({ activeName }) {
+  const { hasAnyPermission } = usePermission();
+
+  // Filter tabs based on permissions
+  const visibleTabs = allTabs.filter(tab => {
+    // If tab has no permissions defined, show it to everyone
+    if (!tab.permissions || tab.permissions.length === 0) {
+      return true;
+    }
+    // Show tab if user has ANY of the required permissions
+    return hasAnyPermission(tab.permissions);
+  });
+
   // Always resolve partners tabs to absolute /partners paths so
   // the links work even when the app is mounted under a prefix
   // like /admin (e.g. current location /admin/partners).
@@ -33,7 +81,7 @@ export default function PartnersTabs({ activeName }) {
     <div className="partners-tabs-wrapper">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <nav className="partners-tabs-nav">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <NavLink
               key={tab.name}
               to={resolveTo(tab.path)}

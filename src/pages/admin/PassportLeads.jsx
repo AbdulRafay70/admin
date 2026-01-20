@@ -4,6 +4,7 @@ import { Container, Row, Col, Card, Form, Button, Badge, Modal, Tab, Tabs, Alert
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import CRMTabs from "../../components/CRMTabs";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 import axios from "axios";
 import {
   FileText,
@@ -34,6 +35,9 @@ import {
 const API_BASE_URL = "http://localhost:8000/api";
 
 const PassportLeads = () => {
+  // Permission hook
+  const { hasPermission } = usePermission();
+
   // ==================== STATE MANAGEMENT ====================
   // Core Data
   const [leads, setLeads] = useState([]);
@@ -716,10 +720,12 @@ const PassportLeads = () => {
                     </h2>
                     <p className="text-muted">Manage passport applications and follow-ups</p>
                   </div>
-                  <Button variant="primary" onClick={() => openLeadModal()}>
-                    <Plus size={18} className="me-2" />
-                    Add New Lead
-                  </Button>
+                  {hasPermission('add_passport_leads_admin') && (
+                    <Button variant="primary" onClick={() => openLeadModal()}>
+                      <Plus size={18} className="me-2" />
+                      Add New Lead
+                    </Button>
+                  )}
                 </div>
               </Col>
             </Row>
@@ -857,7 +863,7 @@ const PassportLeads = () => {
                           <th>Next Follow-up</th>
                           <th>Balance</th>
                           <th>Pax Count</th>
-                          <th>Actions</th>
+                          {(hasPermission('edit_passport_leads_admin') || hasPermission('delete_passport_leads_admin')) && <th>Actions</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -889,56 +895,62 @@ const PassportLeads = () => {
                                 {lead.pax_details?.length || lead.pax?.length || 0} PAX
                               </span>
                             </td>
-                            <td>
-                              <div className="d-flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline-primary"
-                                  onClick={() => openLeadModal(lead)}
-                                  title="Edit"
-                                >
-                                  <Edit2 size={14} />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline-info"
-                                  onClick={async () => {
-                                    try {
-                                      const response = await axios.get(`${API_BASE_URL}/passport-leads/${lead.id}/`, {
-                                        headers: { Authorization: `Bearer ${token}` }
-                                      });
-                                      setSelectedLead(response.data);
-                                      setShowViewModal(true);
-                                    } catch (error) {
-                                      console.error("Error fetching lead details:", error);
-                                      showAlert("danger", "Failed to fetch lead details");
-                                    }
-                                  }}
-                                  title="View Details"
-                                >
-                                  <Eye size={14} />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline-success"
-                                  onClick={() => {
-                                    setSelectedLead(lead);
-                                    showAlert("info", "Follow-up feature - coming soon!");
-                                  }}
-                                  title="Add Follow-up"
-                                >
-                                  <Bell size={14} />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline-danger"
-                                  onClick={() => deleteLead(lead.id)}
-                                  title="Delete"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </div>
-                            </td>
+                            {(hasPermission('edit_passport_leads_admin') || hasPermission('delete_passport_leads_admin')) && (
+                              <td>
+                                <div className="d-flex gap-1">
+                                  {hasPermission('edit_passport_leads_admin') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline-primary"
+                                      onClick={() => openLeadModal(lead)}
+                                      title="Edit"
+                                    >
+                                      <Edit2 size={14} />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline-info"
+                                    onClick={async () => {
+                                      try {
+                                        const response = await axios.get(`${API_BASE_URL}/passport-leads/${lead.id}/`, {
+                                          headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        setSelectedLead(response.data);
+                                        setShowViewModal(true);
+                                      } catch (error) {
+                                        console.error("Error fetching lead details:", error);
+                                        showAlert("danger", "Failed to fetch lead details");
+                                      }
+                                    }}
+                                    title="View Details"
+                                  >
+                                    <Eye size={14} />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline-success"
+                                    onClick={() => {
+                                      setSelectedLead(lead);
+                                      showAlert("info", "Follow-up feature - coming soon!");
+                                    }}
+                                    title="Add Follow-up"
+                                  >
+                                    <Bell size={14} />
+                                  </Button>
+                                  {hasPermission('delete_passport_leads_admin') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline-danger"
+                                      onClick={() => deleteLead(lead.id)}
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={14} />
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>

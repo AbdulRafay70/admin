@@ -18,6 +18,7 @@ import {
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import CRMTabs from "../../components/CRMTabs";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 import {
   Plus,
   Search,
@@ -42,6 +43,35 @@ import {
 import axios from "axios";
 
 const LeadManagement = () => {
+  // Permission hook
+  const { hasPermission } = usePermission();
+
+  // User data to check if user has branches
+  const [userData, setUserData] = useState(null);
+
+  // Fetch user data on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          // Decode JWT to get user data
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('JWT Payload for branch check:', payload); // Debug log
+          setUserData(payload);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Check if user has branches (is a branch/employee user)
+  // Only users with actual branches or subagents can add/edit leads
+  // Organization admins (staff without branches) should NOT be able to add/edit
+  const hasBranches = (userData?.branches && userData.branches.length > 0) ||
+    userData?.user_type === 'subagent';
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddRemarksModal, setShowAddRemarksModal] = useState(false);
@@ -1717,102 +1747,120 @@ const LeadManagement = () => {
                   <div className="col-12">
                     <nav>
                       <div className="nav d-flex flex-wrap gap-2 lead-management-nav">
-                        <button
-                          className={`nav-link btn btn-link ${activeTab === 'leads' ? 'fw-bold' : ''}`}
-                          onClick={() => setActiveTab('leads')}
-                          style={{
-                            color: activeTab === 'leads' ? '#1B78CE' : '#6c757d',
-                            textDecoration: 'none',
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'transparent',
-                            fontFamily: 'Poppins, sans-serif',
-                            borderBottom: activeTab === 'leads' ? '2px solid #1B78CE' : '2px solid transparent'
-                          }}
-                        >
-                          <FileText size={16} className="me-2" />
-                          Leads
-                        </button>
-                        <button
-                          className={`nav-link btn btn-link ${activeTab === 'loans' ? 'fw-bold' : ''}`}
-                          onClick={() => setActiveTab('loans')}
-                          style={{
-                            color: activeTab === 'loans' ? '#1B78CE' : '#6c757d',
-                            textDecoration: 'none',
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'transparent',
-                            fontFamily: 'Poppins, sans-serif',
-                            borderBottom: activeTab === 'loans' ? '2px solid #1B78CE' : '2px solid transparent'
-                          }}
-                        >
-                          <DollarSign size={16} className="me-2" />
-                          Loans
-                        </button>
-                        <button
-                          className={`nav-link btn btn-link ${activeTab === 'tasks' ? 'fw-bold' : ''}`}
-                          onClick={() => setActiveTab('tasks')}
-                          style={{
-                            color: activeTab === 'tasks' ? '#1B78CE' : '#6c757d',
-                            textDecoration: 'none',
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'transparent',
-                            fontFamily: 'Poppins, sans-serif',
-                            borderBottom: activeTab === 'tasks' ? '2px solid #1B78CE' : '2px solid transparent'
-                          }}
-                        >
-                          <BarChart3 size={16} className="me-2" />
-                          Tasks
-                        </button>
-                        <button
-                          className={`nav-link btn btn-link ${activeTab === 'followups' ? 'fw-bold' : ''}`}
-                          onClick={() => setActiveTab('followups')}
-                          style={{
-                            color: activeTab === 'followups' ? '#1B78CE' : '#6c757d',
-                            textDecoration: 'none',
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'transparent',
-                            fontFamily: 'Poppins, sans-serif',
-                            borderBottom: activeTab === 'followups' ? '2px solid #1B78CE' : '2px solid transparent'
-                          }}
-                        >
-                          <Clock size={16} className="me-2" />
-                          Follow-ups
-                        </button>
-                        <button
-                          className={`nav-link btn btn-link ${activeTab === 'closed' ? 'fw-bold' : ''}`}
-                          onClick={() => setActiveTab('closed')}
-                          style={{
-                            color: activeTab === 'closed' ? '#1B78CE' : '#6c757d',
-                            textDecoration: 'none',
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'transparent',
-                            fontFamily: 'Poppins, sans-serif',
-                            borderBottom: activeTab === 'closed' ? '2px solid #1B78CE' : '2px solid transparent'
-                          }}
-                        >
-                          <CheckCircle size={16} className="me-2" />
-                          Closed Leads
-                        </button>
-                        <button
-                          className={`nav-link btn btn-link ${activeTab === 'instant' ? 'fw-bold' : ''}`}
-                          onClick={() => setActiveTab('instant')}
-                          style={{
-                            color: activeTab === 'instant' ? '#1B78CE' : '#6c757d',
-                            textDecoration: 'none',
-                            padding: '0.5rem 1rem',
-                            border: 'none',
-                            background: 'transparent',
-                            fontFamily: 'Poppins, sans-serif',
-                            borderBottom: activeTab === 'instant' ? '2px solid #1B78CE' : '2px solid transparent'
-                          }}
-                        >
-                          <Zap size={16} className="me-2" />
-                          Instant
-                        </button>
+                        {/* Leads Tab - Only show if user has view_leads_admin permission */}
+                        {hasPermission('view_leads_admin') && (
+                          <button
+                            className={`nav-link btn btn-link ${activeTab === 'leads' ? 'fw-bold' : ''}`}
+                            onClick={() => setActiveTab('leads')}
+                            style={{
+                              color: activeTab === 'leads' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeTab === 'leads' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <FileText size={16} className="me-2" />
+                            Leads
+                          </button>
+                        )}
+                        {/* Loans Tab - Only show if user has view_loan_admin permission */}
+                        {hasPermission('view_loan_admin') && (
+                          <button
+                            className={`nav-link btn btn-link ${activeTab === 'loans' ? 'fw-bold' : ''}`}
+                            onClick={() => setActiveTab('loans')}
+                            style={{
+                              color: activeTab === 'loans' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeTab === 'loans' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <DollarSign size={16} className="me-2" />
+                            Loans
+                          </button>
+                        )}
+                        {/* Tasks Tab - Only show if user has view_tasks_admin permission */}
+                        {hasPermission('view_tasks_admin') && (
+                          <button
+                            className={`nav-link btn btn-link ${activeTab === 'tasks' ? 'fw-bold' : ''}`}
+                            onClick={() => setActiveTab('tasks')}
+                            style={{
+                              color: activeTab === 'tasks' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeTab === 'tasks' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <BarChart3 size={16} className="me-2" />
+                            Tasks
+                          </button>
+                        )}
+                        {/* Follow-ups Tab - Only show if user has view_leads_admin permission */}
+                        {hasPermission('view_leads_admin') && (
+                          <button
+                            className={`nav-link btn btn-link ${activeTab === 'followups' ? 'fw-bold' : ''}`}
+                            onClick={() => setActiveTab('followups')}
+                            style={{
+                              color: activeTab === 'followups' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeTab === 'followups' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <Clock size={16} className="me-2" />
+                            Follow-ups
+                          </button>
+                        )}
+                        {/* Closed Leads Tab - Only show if user has view_closed_leads_admin permission */}
+                        {hasPermission('view_closed_leads_admin') && (
+                          <button
+                            className={`nav-link btn btn-link ${activeTab === 'closed' ? 'fw-bold' : ''}`}
+                            onClick={() => setActiveTab('closed')}
+                            style={{
+                              color: activeTab === 'closed' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeTab === 'closed' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <CheckCircle size={16} className="me-2" />
+                            Closed Leads
+                          </button>
+                        )}
+                        {/* Instant Tab - Only show if user has view_instant_admin permission */}
+                        {hasPermission('view_instant_admin') && (
+                          <button
+                            className={`nav-link btn btn-link ${activeTab === 'instant' ? 'fw-bold' : ''}`}
+                            onClick={() => setActiveTab('instant')}
+                            style={{
+                              color: activeTab === 'instant' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeTab === 'instant' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <Zap size={16} className="me-2" />
+                            Instant
+                          </button>
+                        )}
                       </div>
                     </nav>
                   </div>
@@ -1979,14 +2027,22 @@ const LeadManagement = () => {
                               Clear Filters
                             </Button>
                           </div>
-                          {/* Add Lead Button */}
-                          <Button
-                            style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
-                            onClick={() => setShowAddModal(true)}
-                          >
-                            <Plus size={16} className="me-1" />
-                            Add Lead
-                          </Button>
+                          {/* Add Lead Button - Only show for branch/employee users */}
+                          {hasBranches ? (
+                            hasPermission('add_leads_admin') && (
+                              <Button
+                                style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                                onClick={() => setShowAddModal(true)}
+                              >
+                                <Plus size={16} className="me-1" />
+                                Add Lead
+                              </Button>
+                            )
+                          ) : (
+                            <div className="alert alert-warning mb-0 py-2 px-3" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                              <strong>Note:</strong> Login as Employee or Branch User to add leads
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2015,7 +2071,7 @@ const LeadManagement = () => {
                                 <th className="text-nowrap">Source</th>
                                 <th className="text-nowrap">Conversion</th>
                                 <th className="text-nowrap">Instant</th>
-                                <th className="text-nowrap">Actions</th>
+                                {hasBranches && hasPermission('edit_leads_admin') && <th className="text-nowrap">Actions</th>}
                               </tr>
                             </thead>
                             <tbody>
@@ -2074,41 +2130,43 @@ const LeadManagement = () => {
                                   <td>
                                     {lead.is_instant ? <Badge bg="danger" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Instant</Badge> : <Badge bg="secondary" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Not Instant</Badge>}
                                   </td>
-                                  <td>
-                                    <Dropdown>
-                                      <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
-                                        <MoreVertical size={16} />
-                                      </Dropdown.Toggle>
-                                      <Dropdown.Menu align="end">
-                                        <Dropdown.Item onClick={() => openViewModal(lead)}>
-                                          <Eye size={14} className="me-2" /> View
-                                        </Dropdown.Item>
-                                        <Dropdown.Item onClick={async () => {
-                                          try {
-                                            await axios.patch(`http://127.0.0.1:8000/api/leads/update/${lead.id}/`, { is_instant: !lead.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
-                                            showAlert('success', `Lead marked as ${!lead.is_instant ? 'Instant' : 'Not Instant'}`);
-                                            fetchLeads();
-                                            fetchLoans();
-                                            fetchTasks();
-                                          } catch (err) {
-                                            showAlert('danger', 'Failed to update instant status');
-                                          }
-                                        }}>
-                                          {lead.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
-                                        </Dropdown.Item>
-                                        <Dropdown.Divider />
-                                        <Dropdown.Item onClick={() => openCloseLeadModal(lead)}>
-                                          <CheckCircle size={14} className="me-2" /> {isTaskRecord(lead) ? 'Close Task' : 'Close Lead'}
-                                        </Dropdown.Item>
-                                        <Dropdown.Item onClick={() => openAddRemarksModal(lead)}>
-                                          <FileText size={14} className="me-2" /> Add Remarks
-                                        </Dropdown.Item>
-                                        <Dropdown.Item onClick={() => openNextFollowupModal(lead)}>
-                                          <Clock size={14} className="me-2" /> Next Follow up
-                                        </Dropdown.Item>
-                                      </Dropdown.Menu>
-                                    </Dropdown>
-                                  </td>
+                                  {hasBranches && hasPermission('edit_leads_admin') && (
+                                    <td>
+                                      <Dropdown>
+                                        <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
+                                          <MoreVertical size={16} />
+                                        </Dropdown.Toggle>
+                                        <Dropdown.Menu align="end">
+                                          <Dropdown.Item onClick={() => openViewModal(lead)}>
+                                            <Eye size={14} className="me-2" /> View
+                                          </Dropdown.Item>
+                                          <Dropdown.Item onClick={async () => {
+                                            try {
+                                              await axios.patch(`http://127.0.0.1:8000/api/leads/update/${lead.id}/`, { is_instant: !lead.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                              showAlert('success', `Lead marked as ${!lead.is_instant ? 'Instant' : 'Not Instant'}`);
+                                              fetchLeads();
+                                              fetchLoans();
+                                              fetchTasks();
+                                            } catch (err) {
+                                              showAlert('danger', 'Failed to update instant status');
+                                            }
+                                          }}>
+                                            {lead.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
+                                          </Dropdown.Item>
+                                          <Dropdown.Divider />
+                                          <Dropdown.Item onClick={() => openCloseLeadModal(lead)}>
+                                            <CheckCircle size={14} className="me-2" /> {isTaskRecord(lead) ? 'Close Task' : 'Close Lead'}
+                                          </Dropdown.Item>
+                                          <Dropdown.Item onClick={() => openAddRemarksModal(lead)}>
+                                            <FileText size={14} className="me-2" /> Add Remarks
+                                          </Dropdown.Item>
+                                          <Dropdown.Item onClick={() => openNextFollowupModal(lead)}>
+                                            <Clock size={14} className="me-2" /> Next Follow up
+                                          </Dropdown.Item>
+                                        </Dropdown.Menu>
+                                      </Dropdown>
+                                    </td>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>
@@ -2738,14 +2796,22 @@ const LeadManagement = () => {
                               Clear Filters
                             </Button>
                           </div>
-                          {/* Add Loan Button */}
-                          <Button
-                            style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
-                            onClick={() => setShowAddLoanModal(true)}
-                          >
-                            <Plus size={16} className="me-1" />
-                            Add Loan
-                          </Button>
+                          {/* Add Loan Button - Only show for branch/employee users */}
+                          {hasBranches ? (
+                            hasPermission('add_loan_admin') && (
+                              <Button
+                                style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                                onClick={() => setShowAddLoanModal(true)}
+                              >
+                                <Plus size={16} className="me-1" />
+                                Add Loan
+                              </Button>
+                            )
+                          ) : (
+                            <div className="alert alert-warning mb-0 py-2 px-3" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                              <strong>Note:</strong> Login as Employee or Branch User to add loans
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2762,7 +2828,7 @@ const LeadManagement = () => {
                             <th>Status</th>
                             <th>Recovered</th>
                             <th>Instant</th>
-                            <th>Actions</th>
+                            {hasBranches && hasPermission('edit_loan_admin') && <th>Actions</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -2790,45 +2856,47 @@ const LeadManagement = () => {
                               <td>
                                 {loan.is_instant ? <Badge bg="danger" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Instant</Badge> : <Badge bg="secondary" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Not Instant</Badge>}
                               </td>
-                              <td>
-                                <Dropdown>
-                                  <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
-                                    <MoreVertical size={16} />
-                                  </Dropdown.Toggle>
-                                  <Dropdown.Menu align="end">
-                                    <Dropdown.Item onClick={async () => {
-                                      try {
-                                        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, { is_instant: !loan.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
-                                        showAlert('success', `Loan marked as ${!loan.is_instant ? 'Instant' : 'Not Instant'}`);
-                                        fetchLeads();
-                                        fetchLoans();
-                                        fetchTasks();
-                                      } catch (err) {
-                                        showAlert('danger', 'Failed to update instant status');
-                                      }
-                                    }}>
-                                      {loan.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
-                                    </Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => handleLoanAddRemarks(loan)}>
-                                      <FileText size={14} className="me-2" /> Add Remarks
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => openAddBalanceModal(loan)}>
-                                      <DollarSign size={14} className="me-2" /> Add Balance
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => openRescheduleLoanModal(loan)}>
-                                      <Clock size={14} className="me-2" /> Reschedule
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => openClearLoanModal(loan)}>
-                                      <CheckCircle size={14} className="me-2" /> Clear Loan
-                                    </Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => openViewModal({ ...loan, loan_status: loan.status, loan_promise_date: loan.due_date })}>
-                                      <Eye size={14} className="me-2" /> View
-                                    </Dropdown.Item>
-                                  </Dropdown.Menu>
-                                </Dropdown>
-                              </td>
+                              {hasBranches && hasPermission('edit_loan_admin') && (
+                                <td>
+                                  <Dropdown>
+                                    <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
+                                      <MoreVertical size={16} />
+                                    </Dropdown.Toggle>
+                                    <Dropdown.Menu align="end">
+                                      <Dropdown.Item onClick={async () => {
+                                        try {
+                                          await axios.patch(`http://127.0.0.1:8000/api/leads/update/${loan.id}/`, { is_instant: !loan.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                          showAlert('success', `Loan marked as ${!loan.is_instant ? 'Instant' : 'Not Instant'}`);
+                                          fetchLeads();
+                                          fetchLoans();
+                                          fetchTasks();
+                                        } catch (err) {
+                                          showAlert('danger', 'Failed to update instant status');
+                                        }
+                                      }}>
+                                        {loan.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
+                                      </Dropdown.Item>
+                                      <Dropdown.Divider />
+                                      <Dropdown.Item onClick={() => handleLoanAddRemarks(loan)}>
+                                        <FileText size={14} className="me-2" /> Add Remarks
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => openAddBalanceModal(loan)}>
+                                        <DollarSign size={14} className="me-2" /> Add Balance
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => openRescheduleLoanModal(loan)}>
+                                        <Clock size={14} className="me-2" /> Reschedule
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => openClearLoanModal(loan)}>
+                                        <CheckCircle size={14} className="me-2" /> Clear Loan
+                                      </Dropdown.Item>
+                                      <Dropdown.Divider />
+                                      <Dropdown.Item onClick={() => openViewModal({ ...loan, loan_status: loan.status, loan_promise_date: loan.due_date })}>
+                                        <Eye size={14} className="me-2" /> View
+                                      </Dropdown.Item>
+                                    </Dropdown.Menu>
+                                  </Dropdown>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -2927,15 +2995,23 @@ const LeadManagement = () => {
                             >
                               Clear Filters
                             </Button>
+                            {/* Add Task Button - Only show for branch/employee users */}
+                            {hasBranches ? (
+                              hasPermission('add_tasks_admin') && (
+                                <Button
+                                  style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                                  onClick={() => { setEditingTaskId(null); setTaskForm({ mode: 'customer', customer_full_name: '', contact_number: '', whatsapp_number: '', email: '', task_description: '', task_type: 'call', assigned_to: '', status: 'pending', due_date: '', time: '', is_instant: false }); setShowAddTaskModal(true); }}
+                                >
+                                  <Plus size={16} className="me-1" />
+                                  Add Task
+                                </Button>
+                              )
+                            ) : (
+                              <div className="alert alert-warning mb-0 py-2 px-3" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                                <strong>Note:</strong> Login as Employee or Branch User to add tasks
+                              </div>
+                            )}
                           </div>
-                          {/* Add Task Button */}
-                          <Button
-                            style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
-                            onClick={() => { setEditingTaskId(null); setTaskForm({ mode: 'customer', customer_full_name: '', contact_number: '', whatsapp_number: '', email: '', task_description: '', task_type: 'call', assigned_to: '', status: 'pending', due_date: '', time: '', is_instant: false }); setShowAddTaskModal(true); }}
-                          >
-                            <Plus size={16} className="me-1" />
-                            Add Task
-                          </Button>
                         </div>
                       </div>
                     </div>
@@ -2952,7 +3028,7 @@ const LeadManagement = () => {
                             <th>Remarks</th>
                             <th>Status</th>
                             <th>Instant</th>
-                            <th>Actions</th>
+                            {hasBranches && hasPermission('edit_tasks_admin') && <th>Actions</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -2977,49 +3053,48 @@ const LeadManagement = () => {
                               <td>
                                 {task.is_instant ? <Badge bg="danger" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Instant</Badge> : <Badge bg="secondary" className="d-inline-flex align-items-center"><Zap size={14} className="me-1" /> Not Instant</Badge>}
                               </td>
-                              <td>
-                                <Dropdown>
-                                  <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
-                                    <MoreVertical size={16} />
-                                  </Dropdown.Toggle>
-                                  <Dropdown.Menu align="end">
-                                    <Dropdown.Item onClick={async () => {
-                                      try {
-                                        await axios.patch(`http://127.0.0.1:8000/api/leads/update/${task.id}/`, { is_instant: !task.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
-                                        showAlert('success', `Task marked as ${!task.is_instant ? 'Instant' : 'Not Instant'}`);
-                                        fetchLeads();
-                                        fetchLoans();
-                                        fetchTasks();
-                                      } catch (err) {
-                                        showAlert('danger', 'Failed to update instant status');
-                                      }
-                                    }}>
-                                      {task.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
-                                    </Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => openViewTaskModal(task)}>
-                                      <Eye size={14} className="me-2" /> View
-                                    </Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => openCloseLeadModal(task)}>
-                                      <CheckCircle size={14} className="me-2" /> {isTaskRecord(task) ? 'Close Task' : 'Close Lead'}
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => openAddRemarksModal(task)}>
-                                      <FileText size={14} className="me-2" /> Add Remarks
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => openNextFollowupModal(task)}>
-                                      <Clock size={14} className="me-2" /> Next Follow up
-                                    </Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => openEditTask(task)}>
-                                      <Edit2 size={14} className="me-2" /> Edit
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => { setSelectedLead(task); setShowDeleteModal(true); }}>
-                                      <Trash2 size={14} className="me-2" /> Delete
-                                    </Dropdown.Item>
-                                  </Dropdown.Menu>
-                                </Dropdown>
-                              </td>
+                              {hasBranches && hasPermission('edit_tasks_admin') && (
+                                <td>
+                                  <Dropdown>
+                                    <Dropdown.Toggle variant="link" size="sm" className="p-0 border-0">
+                                      <MoreVertical size={16} />
+                                    </Dropdown.Toggle>
+                                    <Dropdown.Menu align="end">
+                                      <Dropdown.Item onClick={async () => {
+                                        try {
+                                          await axios.patch(`http://127.0.0.1:8000/api/leads/update/${task.id}/`, { is_instant: !task.is_instant }, { headers: { Authorization: `Bearer ${token}` } });
+                                          showAlert('success', `Task marked as ${!task.is_instant ? 'Instant' : 'Not Instant'}`);
+                                          fetchLeads();
+                                          fetchLoans();
+                                          fetchTasks();
+                                        } catch (err) {
+                                          showAlert('danger', 'Failed to update instant status');
+                                        }
+                                      }}>
+                                        {task.is_instant ? 'Mark as Not Instant' : 'Mark as Instant'}
+                                      </Dropdown.Item>
+                                      <Dropdown.Divider />
+                                      <Dropdown.Item onClick={() => openViewTaskModal(task)}>
+                                        <Eye size={14} className="me-2" /> View
+                                      </Dropdown.Item>
+                                      <Dropdown.Divider />
+                                      <Dropdown.Item onClick={() => openCloseLeadModal(task)}>
+                                        <CheckCircle size={14} className="me-2" /> {isTaskRecord(task) ? 'Close Task' : 'Close Lead'}
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => openAddRemarksModal(task)}>
+                                        <FileText size={14} className="me-2" /> Add Remarks
+                                      </Dropdown.Item>
+                                      <Dropdown.Item onClick={() => openNextFollowupModal(task)}>
+                                        <Clock size={14} className="me-2" /> Next Follow up
+                                      </Dropdown.Item>
+                                      <Dropdown.Divider />
+                                      <Dropdown.Item onClick={() => openEditTask(task)}>
+                                        <Edit2 size={14} className="me-2" /> Edit
+                                      </Dropdown.Item>
+                                    </Dropdown.Menu>
+                                  </Dropdown>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -4037,7 +4112,7 @@ const LeadManagement = () => {
           </Modal.Footer>
         </Modal>
       </div>
-    </div>
+    </div >
   );
 };
 

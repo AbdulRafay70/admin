@@ -10,7 +10,7 @@ import axios from "axios";
 import Select from "react-select";
 import { jwtDecode } from "jwt-decode";
 import AdminFooter from "../../components/AdminFooter";
-import { usePermissions } from "../../context/PermissionContext";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const ShimmerLoader = () => {
   return (
@@ -36,7 +36,7 @@ const ShimmerLoader = () => {
 
 const Partners = ({ embed = false }) => {
   // Get permission checking functions
-  const { hasPermission, hasAnyPermission, loading: permissionsLoading } = usePermissions();
+  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermission();
   const PARTNERS_CACHE_KEY = "partners_cache";
   const AGENCIES_CACHE_KEY = "agencies_cache";
   const GROUPS_CACHE_KEY = "groups_cache";
@@ -782,17 +782,20 @@ const Partners = ({ embed = false }) => {
                       <h5 className="fw-semibold mb-0">All User's</h5>
                     </div>
                     <div className="d-flex flex-wrap gap-2">
-                      <button
-                        className="btn btn-primary"
-                        onClick={handleShowCreate}
-                        disabled={isLoading || isSubmitting}
-                      >
-                        {isLoading ? (
-                          <Spinner size="sm" animation="border" />
-                        ) : (
-                          "Add User's"
-                        )}
-                      </button>
+                      {/* Only show Add User button if user has view_add_users_admin permission */}
+                      {hasPermission('view_add_users_admin') && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={handleShowCreate}
+                          disabled={isLoading || isSubmitting}
+                        >
+                          {isLoading ? (
+                            <Spinner size="sm" animation="border" />
+                          ) : (
+                            "Add User's"
+                          )}
+                        </button>
+                      )}
                       <button
                         className="btn btn-primary"
                         disabled={isLoading || isSubmitting}

@@ -6,6 +6,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const tabs = [
   { name: "Umrah Package", path: "/packages" },
@@ -95,6 +96,7 @@ const ShimmerLoader = ({ count = 3 }) => {
 
 
 const UmrahPackage = () => {
+  const { hasPermission } = usePermission();
   const navigate = useNavigate();
 
   const [packageData, setPackageData] = useState([]);
@@ -777,13 +779,15 @@ const UmrahPackage = () => {
 
                       {/* Action Buttons */}
                       <div className="d-flex gap-2 mt-2 mt-md-0">
-                        <Link
-                          to="/packages/add-packages"
-                          className="btn text-white"
-                          style={{ background: "#1B78CE" }}
-                        >
-                          Add Package
-                        </Link>
+                        {hasPermission('add_package_admin') && (
+                          <Link
+                            to="/packages/add-packages"
+                            className="btn text-white"
+                            style={{ background: "#1B78CE" }}
+                          >
+                            Add Package
+                          </Link>
+                        )}
                         <Link
                           to=""
                           className="btn text-white"
@@ -1049,33 +1053,37 @@ const UmrahPackage = () => {
 
                                             return (
                                               <>
-                                                <button
-                                                  className="btn flex-fill text-white"
-                                                  style={{ background: "#1B78CE" }}
-                                                  onClick={() => {
-                                                    if (isExternal) {
-                                                      showForbiddenModal(forbiddenMessage);
-                                                      return;
-                                                    }
-                                                    navigate(`/packages/edit/${pkg.id}`);
-                                                  }}
-                                                >
-                                                  Edit
-                                                </button>
+                                                {hasPermission('edit_package_admin') && (
+                                                  <button
+                                                    className="btn flex-fill text-white"
+                                                    style={{ background: "#1B78CE" }}
+                                                    onClick={() => {
+                                                      if (isExternal) {
+                                                        showForbiddenModal(forbiddenMessage);
+                                                        return;
+                                                      }
+                                                      navigate(`/packages/edit/${pkg.id}`);
+                                                    }}
+                                                  >
+                                                    Edit
+                                                  </button>
+                                                )}
 
-                                                <button
-                                                  className="btn text-white flex-fill"
-                                                  style={{ background: "#1B78CE" }}
-                                                  onClick={() => {
-                                                    if (isExternal) {
-                                                      showForbiddenModal(forbiddenMessage);
-                                                      return;
-                                                    }
-                                                    handleDeletePackage(pkg.id);
-                                                  }}
-                                                >
-                                                  Delete
-                                                </button>
+                                                {hasPermission('delete_package_admin') && (
+                                                  <button
+                                                    className="btn text-white flex-fill"
+                                                    style={{ background: "#1B78CE" }}
+                                                    onClick={() => {
+                                                      if (isExternal) {
+                                                        showForbiddenModal(forbiddenMessage);
+                                                        return;
+                                                      }
+                                                      handleDeletePackage(pkg.id);
+                                                    }}
+                                                  >
+                                                    Delete
+                                                  </button>
+                                                )}
                                               </>
                                             );
                                           })()}

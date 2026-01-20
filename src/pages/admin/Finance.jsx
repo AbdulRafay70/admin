@@ -5,6 +5,7 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import AdminFooter from "../../components/AdminFooter";
 import { NavLink, useLocation } from "react-router-dom";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 // Add table styles for preventing text wrap
 const tableStyles = `
@@ -30,17 +31,24 @@ const tableStyles = `
 const Finance = () => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const { hasAnyPermission } = usePermission();
 
-  const tabs = [
-    { name: "Dashboard", path: "/finance", icon: <PieChart size={16} /> },
-    { name: "Profit & Loss", path: "/finance/profit-loss" },
-    { name: "Ledger", path: "/finance/ledger" },
-    { name: "Expenses", path: "/finance/expenses" },
-    { name: "Manual Posting", path: "/finance/manual-posting" },
-    { name: "Tax Reports", path: "/finance/tax-reports" },
-    { name: "Balance Sheet", path: "/finance/balance-sheet" },
-    { name: "Audit Trail", path: "/finance/audit-trail" },
+  const allTabs = [
+    { name: "Dashboard", path: "/finance", icon: <PieChart size={16} />, permissions: ['view_recent_transactions_admin'] },
+    { name: "Profit & Loss", path: "/finance/profit-loss", permissions: ['view_profit_loss_reports_admin'] },
+    { name: "Ledger", path: "/finance/ledger", permissions: ['view_financial_ledger_admin'] },
+    { name: "Expenses", path: "/finance/expenses", permissions: ['view_expense_management_admin', 'add_expense_management_admin', 'edit_expense_management_admin', 'delete_expense_management_admin'] },
+    { name: "Manual Posting", path: "/finance/manual-posting", permissions: ['view_manual_posting_admin', 'add_manual_posting_admin', 'edit_manual_posting_admin', 'delete_manual_posting_admin'] },
+    { name: "Tax Reports", path: "/finance/tax-reports", permissions: ['view_tax_reports_fbr_admin'] },
+    { name: "Balance Sheet", path: "/finance/balance-sheet", permissions: ['view_balance_sheet_admin'] },
+    { name: "Audit Trail", path: "/finance/audit-trail", permissions: ['view_audit_trail_admin'] },
   ];
+
+  // Filter tabs based on permissions
+  const tabs = allTabs.filter(tab => {
+    if (!tab.permissions) return true; // Always show tabs without permission requirements
+    return hasAnyPermission(tab.permissions); // Check if user has any of the required permissions
+  });
 
   // Determine which tab content to show based on current path
   const getActiveTab = () => {

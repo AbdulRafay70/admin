@@ -8,6 +8,7 @@ import { Bag } from "react-bootstrap-icons";
 import axios from "axios";
 import api from "../../utils/Api";
 import AdminFooter from "../../components/AdminFooter";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 // Helper function to get organization ID
 const getOrgId = (org) => {
@@ -1083,6 +1084,7 @@ const FlightCardShimmer = () => {
 };
 
 const TicketBooking = () => {
+  const { hasPermission } = usePermission();
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1120,10 +1122,14 @@ const TicketBooking = () => {
 
   const [airlineFilters, setAirlineFilters] = useState({});
 
-  const tabs = [
+  // Define all tabs
+  const allTabs = [
     { name: "Ticket Bookings", path: "/ticket-booking" },
-    { name: "Add Tickets", path: "/ticket-booking/add-ticket" },
+    { name: "Add Tickets", path: "/ticket-booking/add-ticket", permission: "add_ticket_admin" },
   ];
+
+  // Filter tabs based on permissions
+  const tabs = allTabs.filter(tab => !tab.permission || hasPermission(tab.permission));
 
   const [filteredTickets, setFilteredTickets] = useState([]);
 

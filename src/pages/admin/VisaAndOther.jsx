@@ -10,6 +10,7 @@ import AdminFooter from "../../components/AdminFooter";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const tabs = [
   { name: "Umrah Package", path: "/packages" },
@@ -17,6 +18,7 @@ const tabs = [
 ];
 
 const Visa = () => {
+  const { hasPermission } = usePermission();
   const token = localStorage.getItem("accessToken");
   const selectedOrg = JSON.parse(localStorage.getItem("selectedOrganization"));
 
@@ -4254,7 +4256,8 @@ const Visa = () => {
                               Food Rates In PKR
                             </label>
                           </div>
-                          {!isEditingRiyalRate && (
+                          {/* Riyal Rate Edit button - requires edit_riyal_rate_admin permission */}
+                          {!isEditingRiyalRate && hasPermission('edit_riyal_rate_admin') && (
                             <div className="d-flex align-items-center">
                               <button
                                 className="btn btn-outline-primary"
@@ -4265,7 +4268,7 @@ const Visa = () => {
                             </div>
                           )}
 
-                          {isEditingRiyalRate && (
+                          {isEditingRiyalRate && hasPermission('edit_riyal_rate_admin') && (
                             <div className="d-flex align-items-center gap-2 mb-3">
                               <button
                                 className="btn btn-primary px-3 py-2"
@@ -4318,17 +4321,20 @@ const Visa = () => {
                             />
                           </div>
                           <div className="d-flex align-items-end gap-2 mb-3">
-                            <button
-                              className="btn btn-primary px-3 py-2"
-                              onClick={
-                                editingShirkaId
-                                  ? handleUpdateShirka
-                                  : handleAddShirka
-                              }
-                              disabled={!shirkaName}
-                            >
-                              {editingShirkaId ? "Update Shirka" : "Add Shirka"}
-                            </button>
+                            {/* Shirka Add/Update button - requires add_shirka_admin or edit_shirka_admin permission */}
+                            {((editingShirkaId && hasPermission('edit_shirka_admin')) || (!editingShirkaId && hasPermission('add_shirka_admin'))) && (
+                              <button
+                                className="btn btn-primary px-3 py-2"
+                                onClick={
+                                  editingShirkaId
+                                    ? handleUpdateShirka
+                                    : handleAddShirka
+                                }
+                                disabled={!shirkaName}
+                              >
+                                {editingShirkaId ? "Update Shirka" : "Add Shirka"}
+                              </button>
+                            )}
                             {editingShirkaId && (
                               <button
                                 className="btn btn-outline-secondary px-3 py-2"
@@ -4370,15 +4376,18 @@ const Visa = () => {
                             </div>
                           </div>
                           <div className="d-flex align-items-end mb-3">
-                            <button
-                              className="btn btn-primary px-3 py-2"
-                              onClick={() =>
-                                removeShirka && setShowDeleteShirkaModal(true)
-                              }
-                              disabled={!removeShirka}
-                            >
-                              Remove Shirka
-                            </button>
+                            {/* Shirka Remove button - requires delete_shirka_admin permission */}
+                            {hasPermission('delete_shirka_admin') && (
+                              <button
+                                className="btn btn-primary px-3 py-2"
+                                onClick={() =>
+                                  removeShirka && setShowDeleteShirkaModal(true)
+                                }
+                                disabled={!removeShirka}
+                              >
+                                Remove Shirka
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4466,21 +4475,24 @@ const Visa = () => {
                             />
                           </div>
                           <div className="d-flex align-items-end gap-2 mb-3">
-                            <button
-                              className="btn btn-primary px-3 py-2"
-                              onClick={
-                                editingSectorId
-                                  ? handleUpdateSector
-                                  : handleAddSector
-                              }
-                              disabled={
-                                !departureCity ||
-                                !arrivalCity ||
-                                departureCity === arrivalCity
-                              }
-                            >
-                              {editingSectorId ? "Update Sector" : "Add Sector"}
-                            </button>
+                            {/* Sector Add/Update button - requires add_sector_admin or edit_sector_admin permission */}
+                            {((editingSectorId && hasPermission('edit_sector_admin')) || (!editingSectorId && hasPermission('add_sector_admin'))) && (
+                              <button
+                                className="btn btn-primary px-3 py-2"
+                                onClick={
+                                  editingSectorId
+                                    ? handleUpdateSector
+                                    : handleAddSector
+                                }
+                                disabled={
+                                  !departureCity ||
+                                  !arrivalCity ||
+                                  departureCity === arrivalCity
+                                }
+                              >
+                                {editingSectorId ? "Update Sector" : "Add Sector"}
+                              </button>
+                            )}
                             {editingSectorId && (
                               <button
                                 className="btn btn-outline-secondary px-3 py-2"
@@ -4514,15 +4526,18 @@ const Visa = () => {
                             </div>
                           </div>
                           <div className="d-flex align-items-end mb-3">
-                            <button
-                              className="btn btn-danger px-3 py-2"
-                              onClick={() =>
-                                removeSector && setShowDeleteSectorModal(true)
-                              }
-                              disabled={!removeSector}
-                            >
-                              Remove Sector
-                            </button>
+                            {/* Sector Remove button - requires delete_sector_admin permission */}
+                            {hasPermission('delete_sector_admin') && (
+                              <button
+                                className="btn btn-danger px-3 py-2"
+                                onClick={() =>
+                                  removeSector && setShowDeleteSectorModal(true)
+                                }
+                                disabled={!removeSector}
+                              >
+                                Remove Sector
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4625,21 +4640,27 @@ const Visa = () => {
                             )}
 
                             <div className="d-flex gap-2 mt-2">
-                              <button
-                                className="btn btn-primary"
-                                onClick={handleAdd}
-                                disabled={selectedSmallSectors.length === 0 || editingIdBig || !validateSelectedSectors().isValid}
-                              >
-                                Add BigSector
-                              </button>
+                              {/* Big Sector Add button - requires add_big_sector_admin permission */}
+                              {hasPermission('add_big_sector_admin') && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={handleAdd}
+                                  disabled={selectedSmallSectors.length === 0 || editingIdBig || !validateSelectedSectors().isValid}
+                                >
+                                  Add BigSector
+                                </button>
+                              )}
 
-                              <button
-                                className="btn btn-warning"
-                                onClick={handleUpdate}
-                                disabled={selectedSmallSectors.length === 0 || !editingIdBig || !validateSelectedSectors().isValid}
-                              >
-                                Update BigSector
-                              </button>
+                              {/* Big Sector Update button - requires edit_big_sector_admin permission */}
+                              {hasPermission('edit_big_sector_admin') && (
+                                <button
+                                  className="btn btn-warning"
+                                  onClick={handleUpdate}
+                                  disabled={selectedSmallSectors.length === 0 || !editingIdBig || !validateSelectedSectors().isValid}
+                                >
+                                  Update BigSector
+                                </button>
+                              )}
 
                               {editingIdBig && (
                                 <button
@@ -4673,13 +4694,16 @@ const Visa = () => {
                             </div>
 
                             <div className="d-flex gap-2 mt-2">
-                              <button
-                                className="btn btn-danger"
-                                onClick={handleDeleteBig}
-                                disabled={!removeId}
-                              >
-                                Delete BigSector
-                              </button>
+                              {/* Big Sector Delete button - requires delete_big_sector_admin permission */}
+                              {hasPermission('delete_big_sector_admin') && (
+                                <button
+                                  className="btn btn-danger"
+                                  onClick={handleDeleteBig}
+                                  disabled={!removeId}
+                                >
+                                  Delete BigSector
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -4884,7 +4908,8 @@ const Visa = () => {
                               </div>
 
                               <div className="d-flex align-items-center">
-                                {!isEditingVisa28 && (
+                                {/* Visa and Transport Rate Edit button - requires edit_visa_transport_rate_admin permission */}
+                                {!isEditingVisa28 && hasPermission('edit_visa_transport_rate_admin') && (
                                   <button
                                     className="btn btn-outline-primary"
                                     onClick={() => setIsEditingVisa28(true)}
@@ -4894,7 +4919,7 @@ const Visa = () => {
                                 )}
                               </div>
 
-                              {isEditingVisa28 && (
+                              {isEditingVisa28 && hasPermission('edit_visa_transport_rate_admin') && (
                                 <div className="d-flex align-items-center gap-2 mb-3">
                                   <button
                                     className="btn btn-primary px-3 py-2"
@@ -5000,7 +5025,8 @@ const Visa = () => {
                                 />
                               </div>
                               <div className="d-flex align-items-center">
-                                {!isEditingVisaLong && (
+                                {/* Long Term Visa Rate Edit button - requires edit_long_term_visa_rate_admin permission */}
+                                {!isEditingVisaLong && hasPermission('edit_long_term_visa_rate_admin') && (
                                   <button
                                     className="btn btn-outline-primary"
                                     onClick={() => setIsEditingVisaLong(true)}
@@ -5010,7 +5036,7 @@ const Visa = () => {
                                 )}
                               </div>
 
-                              {isEditingVisaLong && (
+                              {isEditingVisaLong && hasPermission('edit_long_term_visa_rate_admin') && (
                                 <div className="d-flex align-items-center gap-2 mb-3">
                                   <button
                                     className="btn btn-primary px-3 py-2"
@@ -5096,7 +5122,8 @@ const Visa = () => {
                                 />
                               </div>
                               <div className="d-flex align-items-center">
-                                {!isEditingVisa28Only && (
+                                {/* Only Visa Rate (28 days) Edit button - requires edit_only_visa_rate_admin permission */}
+                                {!isEditingVisa28Only && hasPermission('edit_only_visa_rate_admin') && (
                                   <button
                                     className="btn btn-outline-primary"
                                     onClick={() => setIsEditingVisa28Only(true)}
@@ -5105,7 +5132,7 @@ const Visa = () => {
                                   </button>
                                 )}
                               </div>
-                              {isEditingVisa28Only && (
+                              {isEditingVisa28Only && hasPermission('edit_only_visa_rate_admin') && (
                                 <div className="d-flex align-items-center gap-2 mb-3">
                                   <button
                                     className="btn btn-primary px-3 py-2"
@@ -5707,24 +5734,27 @@ const Visa = () => {
                                   </Modal.Footer>
                                 </Modal>
 
-                                <button
-                                  className="btn btn-primary"
-                                  onClick={handleVisaTypeTwoSubmit}
-                                  disabled={isSettingVisaTypeTwo}
-                                >
-                                  {isSettingVisaTypeTwo ? (
-                                    <>
-                                      <span className="spinner-border spinner-border-sm me-2"></span>
-                                      {editingVisaTypeTwoId
-                                        ? "Updating..."
-                                        : "Adding..."}
-                                    </>
-                                  ) : editingVisaTypeTwoId ? (
-                                    "Update Visa"
-                                  ) : (
-                                    "Add Visa"
-                                  )}
-                                </button>
+                                {/* Visa Add/Update button - requires add_visa_transport_rate_admin or edit_visa_transport_rate_admin permission */}
+                                {((editingVisaTypeTwoId && hasPermission('edit_visa_transport_rate_admin')) || (!editingVisaTypeTwoId && hasPermission('add_visa_transport_rate_admin'))) && (
+                                  <button
+                                    className="btn btn-primary"
+                                    onClick={handleVisaTypeTwoSubmit}
+                                    disabled={isSettingVisaTypeTwo}
+                                  >
+                                    {isSettingVisaTypeTwo ? (
+                                      <>
+                                        <span className="spinner-border spinner-border-sm me-2"></span>
+                                        {editingVisaTypeTwoId
+                                          ? "Updating..."
+                                          : "Adding..."}
+                                      </>
+                                    ) : editingVisaTypeTwoId ? (
+                                      "Update Visa"
+                                    ) : (
+                                      "Add Visa"
+                                    )}
+                                  </button>
+                                )}
 
                                 {/* Select Visa to Edit/Remove */}
                                 <div>
@@ -5742,16 +5772,19 @@ const Visa = () => {
                                   </div>
                                 </div>
 
-                                <button
-                                  className="btn btn-danger"
-                                  onClick={() =>
-                                    editingVisaTypeTwoId &&
-                                    setShowDeleteVisaModal(true)
-                                  }
-                                  disabled={!editingVisaTypeTwoId}
-                                >
-                                  Remove Visa
-                                </button>
+                                {/* Visa Remove button - requires delete_visa_transport_rate_admin permission */}
+                                {hasPermission('delete_visa_transport_rate_admin') && (
+                                  <button
+                                    className="btn btn-danger"
+                                    onClick={() =>
+                                      editingVisaTypeTwoId &&
+                                      setShowDeleteVisaModal(true)
+                                    }
+                                    disabled={!editingVisaTypeTwoId}
+                                  >
+                                    Remove Visa
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -5979,15 +6012,19 @@ const Visa = () => {
                                     </div>
 
                                     <div className="col-12 col-md-3 d-flex gap-2">
-                                      <button
-                                        className="btn btn-primary flex-grow-1"
-                                        onClick={handleSetOnlyVisaPrices}
-                                        disabled={isSettingOnlyVisa}
-                                      >
-                                        {isSettingOnlyVisa
-                                          ? selectedVisaPrice ? "Updating..." : "Saving..."
-                                          : selectedVisaPrice ? "Update" : "Save"}
-                                      </button>
+                                      {/* Only Visa Update/Save button - requires edit_only_visa_rate_admin or edit_long_term_visa_rate_admin based on selection */}
+                                      {((onlyVisaOption === 'only' && hasPermission('edit_only_visa_rate_admin')) ||
+                                        (onlyVisaOption === 'long_term' && hasPermission('edit_long_term_visa_rate_admin'))) && (
+                                          <button
+                                            className="btn btn-primary flex-grow-1"
+                                            onClick={handleSetOnlyVisaPrices}
+                                            disabled={isSettingOnlyVisa}
+                                          >
+                                            {isSettingOnlyVisa
+                                              ? selectedVisaPrice ? "Updating..." : "Saving..."
+                                              : selectedVisaPrice ? "Update" : "Save"}
+                                          </button>
+                                        )}
 
                                       <button
                                         className="btn btn-secondary"
@@ -6217,22 +6254,25 @@ const Visa = () => {
 
                               {/* Submit Button */}
                               <div className="d-flex align-items-end mb-3">
-                                <button
-                                  className="btn btn-primary px-3 py-2"
-                                  onClick={handleVehicleTypeSubmit}
-                                  disabled={isSubmittingVehicleType || !vehicleTypeName || !vehicleTypeType || !vehicleTypeSectorId}
-                                >
-                                  {isSubmittingVehicleType ? (
-                                    <>
-                                      <span className="spinner-border spinner-border-sm me-2"></span>
-                                      {editingVehicleTypeId ? "Updating..." : "Adding..."}
-                                    </>
-                                  ) : editingVehicleTypeId ? (
-                                    "Update Vehicle Type"
-                                  ) : (
-                                    "Add Vehicle Type"
-                                  )}
-                                </button>
+                                {/* Transport Price Add/Update button - requires add_transport_price_admin or edit_transport_price_admin permission */}
+                                {((editingVehicleTypeId && hasPermission('edit_transport_price_admin')) || (!editingVehicleTypeId && hasPermission('add_transport_price_admin'))) && (
+                                  <button
+                                    className="btn btn-primary px-3 py-2"
+                                    onClick={handleVehicleTypeSubmit}
+                                    disabled={isSubmittingVehicleType || !vehicleTypeName || !vehicleTypeType || !vehicleTypeSectorId}
+                                  >
+                                    {isSubmittingVehicleType ? (
+                                      <>
+                                        <span className="spinner-border spinner-border-sm me-2"></span>
+                                        {editingVehicleTypeId ? "Updating..." : "Adding..."}
+                                      </>
+                                    ) : editingVehicleTypeId ? (
+                                      "Update Vehicle Type"
+                                    ) : (
+                                      "Add Vehicle Type"
+                                    )}
+                                  </button>
+                                )}
                               </div>
 
                               {/* Select Existing Vehicle Type */}
@@ -6251,13 +6291,16 @@ const Visa = () => {
 
                               {/* Action Buttons */}
                               <div className="d-flex align-items-end gap-2 mb-3">
-                                <button
-                                  className="btn btn-danger px-3 py-2"
-                                  onClick={() => selectedVehicleTypeId && setShowDeleteVehicleTypeModal(true)}
-                                  disabled={!selectedVehicleTypeId}
-                                >
-                                  Delete Vehicle Type
-                                </button>
+                                {/* Transport Price Delete button - requires delete_transport_price_admin permission */}
+                                {hasPermission('delete_transport_price_admin') && (
+                                  <button
+                                    className="btn btn-danger px-3 py-2"
+                                    onClick={() => selectedVehicleTypeId && setShowDeleteVehicleTypeModal(true)}
+                                    disabled={!selectedVehicleTypeId}
+                                  >
+                                    Delete Vehicle Type
+                                  </button>
+                                )}
 
                                 <button
                                   className="btn btn-secondary px-3 py-2"
@@ -6489,27 +6532,30 @@ const Visa = () => {
                             </div>
 
                             <div className="col-md-3 gap-2 d-flex align-items-center">
-                              <button
-                                className="btn btn-primary"
-                                onClick={handleSubmitFood}
-                                disabled={
-                                  loading ||
-                                  !foodFormData.title ||
-                                  !foodFormData.min_pex ||
-                                  !foodFormData.per_pex
-                                }
-                              >
-                                {loading ? (
-                                  <>
-                                    <span className="spinner-border spinner-border-sm me-2"></span>
-                                    {isEditing ? "Updating..." : "Saving..."}
-                                  </>
-                                ) : isEditing ? (
-                                  "Update Food Price"
-                                ) : (
-                                  "Save Food Price"
-                                )}
-                              </button>
+                              {/* Food Price Add/Update button - requires add_food_price_admin or edit_food_price_admin permission */}
+                              {((isEditing && hasPermission('edit_food_price_admin')) || (!isEditing && hasPermission('add_food_price_admin'))) && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={handleSubmitFood}
+                                  disabled={
+                                    loading ||
+                                    !foodFormData.title ||
+                                    !foodFormData.min_pex ||
+                                    !foodFormData.per_pex
+                                  }
+                                >
+                                  {loading ? (
+                                    <>
+                                      <span className="spinner-border spinner-border-sm me-2"></span>
+                                      {isEditing ? "Updating..." : "Saving..."}
+                                    </>
+                                  ) : isEditing ? (
+                                    "Update Food Price"
+                                  ) : (
+                                    "Save Food Price"
+                                  )}
+                                </button>
+                              )}
                               {(editingId ||
                                 foodFormData.title ||
                                 foodFormData.min_pex ||
@@ -6566,7 +6612,8 @@ const Visa = () => {
                                 </div>
                               </div>
                               <div className="d-flex align-items-center">
-                                {currentId && (
+                                {/* Food Price Delete button - requires delete_food_price_admin permission */}
+                                {currentId && hasPermission('delete_food_price_admin') && (
                                   <button
                                     className="btn btn-danger"
                                     onClick={() => {
@@ -6814,28 +6861,31 @@ const Visa = () => {
 
                             {/* Action Buttons */}
                             <div className="d-flex align-items-end col-md-4 gap-2 mb-4">
-                              <button
-                                className="btn btn-primary"
-                                onClick={handleSaveZiarat}
-                                disabled={
-                                  isSavingZiarat ||
-                                  !ziaratFormData.ziarat_title ||
-                                  !ziaratFormData.contact_person ||
-                                  !ziaratFormData.contact_number ||
-                                  !ziaratFormData.adult_selling_price
-                                }
-                              >
-                                {isSavingZiarat ? (
-                                  <>
-                                    <span className="spinner-border spinner-border-sm me-2"></span>
-                                    {editingZiaratId ? "Updating..." : "Saving..."}
-                                  </>
-                                ) : editingZiaratId ? (
-                                  "Update Ziarat Price"
-                                ) : (
-                                  "Add Ziarat Price"
-                                )}
-                              </button>
+                              {/* Ziarat Add/Update button - requires add_ziarat_price_admin or edit_ziarat_price_admin permission */}
+                              {((editingZiaratId && hasPermission('edit_ziarat_price_admin')) || (!editingZiaratId && hasPermission('add_ziarat_price_admin'))) && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={handleSaveZiarat}
+                                  disabled={
+                                    isSavingZiarat ||
+                                    !ziaratFormData.ziarat_title ||
+                                    !ziaratFormData.contact_person ||
+                                    !ziaratFormData.contact_number ||
+                                    !ziaratFormData.adult_selling_price
+                                  }
+                                >
+                                  {isSavingZiarat ? (
+                                    <>
+                                      <span className="spinner-border spinner-border-sm me-2"></span>
+                                      {editingZiaratId ? "Updating..." : "Saving..."}
+                                    </>
+                                  ) : editingZiaratId ? (
+                                    "Update Ziarat Price"
+                                  ) : (
+                                    "Add Ziarat Price"
+                                  )}
+                                </button>
+                              )}
 
                               {(editingZiaratId || ziaratFormData.ziarat_title) && (
                                 <button
@@ -6873,7 +6923,8 @@ const Visa = () => {
                             </div>
                             {/* Delete Button for Selected Ziarat */}
                             <div>
-                              {editingZiaratId && (
+                              {/* Ziarat Delete button - requires delete_ziarat_price_admin permission */}
+                              {editingZiaratId && hasPermission('delete_ziarat_price_admin') && (
                                 <button
                                   className="btn btn-danger"
                                   onClick={() => {
@@ -6975,7 +7026,8 @@ const Visa = () => {
 
                           {/* Action Buttons */}
                           <div className="d-flex align-items-end gap-2 mb-3">
-                            {!isEditingFlight && (
+                            {/* Flight Add/Edit button - requires add_flight_admin or edit_flight_admin permission */}
+                            {!isEditingFlight && ((editingFlightId && hasPermission('edit_flight_admin')) || (!editingFlightId && hasPermission('add_flight_admin'))) && (
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => {
@@ -7011,7 +7063,8 @@ const Visa = () => {
                               </>
                             )}
 
-                            {editingFlightId && !isEditingFlight && (
+                            {/* Flight Remove button - requires delete_flight_admin permission */}
+                            {editingFlightId && !isEditingFlight && hasPermission('delete_flight_admin') && (
                               <button
                                 className="btn btn-danger px-3 py-2"
                                 onClick={() => setShowDeleteFlightModal(true)}
@@ -7084,7 +7137,8 @@ const Visa = () => {
 
                           {/* Action Buttons */}
                           <div className="d-flex align-items-center gap-2 mb-3">
-                            {!isEditingCity && (
+                            {/* City Add/Edit button - requires add_city_admin or edit_city_admin permission */}
+                            {!isEditingCity && ((editingCityId && hasPermission('edit_city_admin')) || (!editingCityId && hasPermission('add_city_admin'))) && (
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => {
@@ -7118,7 +7172,8 @@ const Visa = () => {
                               </>
                             )}
 
-                            {editingCityId && !isEditingCity && (
+                            {/* City Remove button - requires delete_city_admin permission */}
+                            {editingCityId && !isEditingCity && hasPermission('delete_city_admin') && (
                               <button
                                 className="btn btn-danger px-3 py-2"
                                 onClick={() => setShowDeleteCityModal(true)}
@@ -7296,7 +7351,8 @@ const Visa = () => {
                         {/* Action Buttons */}
                         <div className="col-12">
                           <div className="d-flex align-items-center gap-2 mb-3">
-                            {!isEditingExpiry && (
+                            {/* Booking Expiry Edit button - requires edit_booking_expire_time_admin permission */}
+                            {!isEditingExpiry && hasPermission('edit_booking_expire_time_admin') && (
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => setIsEditingExpiry(true)}
@@ -7305,7 +7361,7 @@ const Visa = () => {
                               </button>
                             )}
 
-                            {isEditingExpiry && (
+                            {isEditingExpiry && hasPermission('edit_booking_expire_time_admin') && (
                               <>
                                 <button
                                   className="btn btn-primary px-3 py-2"
@@ -7336,17 +7392,17 @@ const Visa = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div >
 
         {/* Delete Confirmation Modals */}
-        <DeleteShirkaModal />
+        < DeleteShirkaModal />
         <DeleteSectorModal /> {/* Make sure this is included */}
         <DeleteTransportModal />
         <DeleteTransportType2Modal />
         <DeleteVisaModal />
         <DeleteFlightModal />
         <DeleteCityModal />
-      </div>
+      </div >
     </>
   );
 };

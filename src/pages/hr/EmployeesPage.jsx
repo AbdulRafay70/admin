@@ -11,10 +11,13 @@ import EmployeeList from './components/EmployeeList';
 import AddEmployeeModal from './components/AddEmployeeModal';
 import './styles/hr.css';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { usePermission } from '../../contexts/EnhancedPermissionContext';
+
 
 const EmployeesInner = ({ embedded = false }) => {
   const { employees, loading: empLoading, refresh } = useEmployees();
   const { show: toast } = useToast();
+  const { hasPermission } = usePermission();
   const [loading, setLoading] = useState(false); // used for search
   const [searchResults, setSearchResults] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -58,7 +61,7 @@ const EmployeesInner = ({ embedded = false }) => {
 
   const [localKey, setLocalKey] = useState(routeToKey(location.pathname));
 
-  React.useEffect(()=>{ setLocalKey(routeToKey(location.pathname)); }, [location.pathname]);
+  React.useEffect(() => { setLocalKey(routeToKey(location.pathname)); }, [location.pathname]);
 
   const content = (
     <div className="hr-container">
@@ -68,14 +71,16 @@ const EmployeesInner = ({ embedded = false }) => {
           <div className="subtitle">Manage employees — add, view, edit and deactivate</div>
         </div>
         <div className="hr-actions">
-          <Button className="btn-primary" onClick={() => setShowAdd(true)}>Add Employee</Button>
+          {hasPermission('add_employees_admin') && (
+            <Button className="btn-primary" onClick={() => setShowAdd(true)}>Add Employee</Button>
+          )}
         </div>
       </div>
 
-        <div className="hr-cards">
+      <div className="hr-cards">
         <div className="hr-card"><h4>Total</h4><p>{(searchResults || employees || []).length}</p></div>
-        <div className="hr-card"><h4>Active</h4><p>{(searchResults || employees || []).filter(e=>e.is_active).length}</p></div>
-        <div className="hr-card"><h4>Inactive</h4><p>{(searchResults || employees || []).filter(e=>!e.is_active).length}</p></div>
+        <div className="hr-card"><h4>Active</h4><p>{(searchResults || employees || []).filter(e => e.is_active).length}</p></div>
+        <div className="hr-card"><h4>Inactive</h4><p>{(searchResults || employees || []).filter(e => !e.is_active).length}</p></div>
       </div>
 
       <div className="hr-panel">
@@ -84,12 +89,12 @@ const EmployeesInner = ({ embedded = false }) => {
             <Form.Control placeholder="Search employees..." value={search} onChange={(e) => setSearch(e.target.value)} />
             <Button type="submit" variant="outline-secondary">Search</Button>
           </InputGroup>
-          <div style={{marginLeft:12}}>
+          <div style={{ marginLeft: 12 }}>
             <EmployeeFilters filters={filters} setFilters={setFilters} />
           </div>
-          <Button 
-            variant="outline-danger" 
-            size="sm" 
+          <Button
+            variant="outline-danger"
+            size="sm"
             className="ms-2"
             onClick={() => {
               setSearch('');

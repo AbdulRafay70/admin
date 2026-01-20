@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form, Table, Badge, InputGroup, Row, Col, Card } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, Table, Badge, InputGroup, Row, Col, Card, Spinner } from 'react-bootstrap';
 import { User, Users, Database, GitBranch, BookOpen, Phone, Mail, MapPin, Search, Download, Plus, Edit, Trash2, Eye, FileText, Upload } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import CRMTabs from '../../components/CRMTabs';
+import { usePermission } from '../../contexts/EnhancedPermissionContext';
 import LeadManagement from './LeadManagement';
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:8000/api';
 
 const CustomerManagement = () => {
+  // Permission hook
+  const { hasPermission } = usePermission();
+
+  // Get auth token
+  const token = localStorage.getItem('accessToken');
+
   // State management
   const [crmActive, setCrmActive] = useState('Customers');
   const [activeMainTab, setActiveMainTab] = useState('walk-in');
@@ -62,28 +72,8 @@ const CustomerManagement = () => {
   ]);
 
   // Auto-collected customers data (from APIs)
-  const [allCustomers, setAllCustomers] = useState([
-    {
-      id: 'AUTO-001',
-      name: 'Muhammad Ali',
-      phone: '+92-333-1111111',
-      email: 'ali@example.com',
-      source: 'Booking',
-      collectedAt: '2025-01-10 14:30',
-      status: 'verified',
-      bookingRef: 'BKG-2024-001'
-    },
-    {
-      id: 'AUTO-002',
-      name: 'Sara Ahmed',
-      phone: '+92-345-2222222',
-      email: 'sara@example.com',
-      source: 'Passport Lead',
-      collectedAt: '2025-01-09 09:15',
-      status: 'pending',
-      leadRef: 'LEAD-2024-045'
-    }
-  ]);
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // Bookings data for splitting
   const [bookings, setBookings] = useState([
@@ -147,9 +137,9 @@ const CustomerManagement = () => {
   // Filter functions
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.phone.includes(searchTerm) ||
-                         customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      customer.phone.includes(searchTerm) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+
     if (activeSubTab === 'all') return matchesSearch;
     if (activeSubTab === 'active') return matchesSearch && customer.status === 'active';
     if (activeSubTab === 'inactive') return matchesSearch && customer.status === 'inactive';
@@ -158,9 +148,9 @@ const CustomerManagement = () => {
 
   const filteredAllCustomers = allCustomers.filter(customer => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.phone.includes(searchTerm) ||
-                         customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      customer.phone.includes(searchTerm) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+
     if (activeSubTab === 'all') return matchesSearch;
     if (activeSubTab === 'booking') return matchesSearch && customer.source === 'Booking';
     if (activeSubTab === 'leads') return matchesSearch && customer.source === 'Passport Lead';
@@ -170,8 +160,8 @@ const CustomerManagement = () => {
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = booking.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         booking.booking_id.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      booking.booking_id.toLowerCase().includes(searchTerm.toLowerCase());
+
     if (activeSubTab === 'all') return matchesSearch;
     if (activeSubTab === 'confirmed') return matchesSearch && booking.status === 'confirmed';
     if (activeSubTab === 'pending') return matchesSearch && booking.status === 'pending';
@@ -197,6 +187,40 @@ const CustomerManagement = () => {
       source: 'Walk-in'
     });
   };
+
+  // API Functions
+  const fetchCustomerDatabase = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/customers/auto_collection/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Map API response to component state format
+      const customers = (response.data.customers || []).map(customer => ({
+        id: customer.id,
+        name: customer.full_name,
+        phone: customer.phone,
+        email: customer.email,
+        source: customer.source,
+        collectedAt: customer.created_at || customer.last_activity,
+        status: customer.is_active ? 'verified' : 'pending',
+        bookingRef: customer.source === 'Booking' ? `BKG-${customer.id}` : null,
+        leadRef: customer.source === 'Passport Lead' ? `LEAD-${customer.id}` : null
+      }));
+
+      setAllCustomers(customers);
+    } catch (error) {
+      console.error('Error fetching customer database:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchCustomerDatabase();
+  }, []);
 
   const handleSplitClick = (booking) => {
     setSelectedBooking(booking);
@@ -257,7 +281,7 @@ const CustomerManagement = () => {
   return (
     <div className="min-vh-100" style={{ fontFamily: "Poppins, sans-serif" }}>
       <style dangerouslySetInnerHTML={{ __html: tableStyles }} />
-      
+
       <div className="row g-0">
         {/* Sidebar */}
         <div className="col-12 col-lg-2">
@@ -277,663 +301,688 @@ const CustomerManagement = () => {
                 </div>
               )}
               <div style={{ display: crmActive === 'Follow Ups' ? 'none' : 'block' }}>
-              {/* Page Header */}
-              <div className="row mb-4">
-                <div className="col-12">
-                  <h4 className="mb-1" style={{ color: '#1B78CE', fontWeight: '600' }}>
-                    Customer Management
-                  </h4>
-                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem' }}>
-                    Manage walk-in customers, customer database, and booking splits
-                  </p>
+                {/* Page Header */}
+                <div className="row mb-4">
+                  <div className="col-12">
+                    <h4 className="mb-1" style={{ color: '#1B78CE', fontWeight: '600' }}>
+                      Customer Management
+                    </h4>
+                    <p className="text-muted mb-0" style={{ fontSize: '0.9rem' }}>
+                      Manage walk-in customers, customer database, and booking splits
+                    </p>
+                  </div>
                 </div>
+
+                {/* Main Navigation Tabs */}
+                <div className="row mb-4">
+                  <div className="col-12">
+                    <nav>
+                      <div className="nav d-flex flex-wrap gap-2">
+                        <button
+                          className={`nav-link btn btn-link ${activeMainTab === 'walk-in' ? 'fw-bold' : ''}`}
+                          onClick={() => { setActiveMainTab('walk-in'); setSearchTerm(''); setActiveSubTab('all'); }}
+                          style={{
+                            color: activeMainTab === 'walk-in' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeMainTab === 'walk-in' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <User size={16} className="me-2" />
+                          Walk-in Customers
+                        </button>
+                        {(hasPermission('view_customer_database_admin') || hasPermission('add_customer_database_admin') || hasPermission('edit_customer_database_admin') || hasPermission('delete_customer_database_admin')) && (
+                          <button
+                            className={`nav-link btn btn-link ${activeMainTab === 'database' ? 'fw-bold' : ''}`}
+                            onClick={() => { setActiveMainTab('database'); setSearchTerm(''); setActiveSubTab('all'); }}
+                            style={{
+                              color: activeMainTab === 'database' ? '#1B78CE' : '#6c757d',
+                              textDecoration: 'none',
+                              padding: '0.5rem 1rem',
+                              border: 'none',
+                              background: 'transparent',
+                              fontFamily: 'Poppins, sans-serif',
+                              borderBottom: activeMainTab === 'database' ? '2px solid #1B78CE' : '2px solid transparent'
+                            }}
+                          >
+                            <Database size={16} className="me-2" />
+                            Customer Database
+                          </button>
+                        )}
+                        <button
+                          className={`nav-link btn btn-link ${activeMainTab === 'booking-split' ? 'fw-bold' : ''}`}
+                          onClick={() => { setActiveMainTab('booking-split'); setSearchTerm(''); setActiveSubTab('all'); }}
+                          style={{
+                            color: activeMainTab === 'booking-split' ? '#1B78CE' : '#6c757d',
+                            textDecoration: 'none',
+                            padding: '0.5rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            fontFamily: 'Poppins, sans-serif',
+                            borderBottom: activeMainTab === 'booking-split' ? '2px solid #1B78CE' : '2px solid transparent'
+                          }}
+                        >
+                          <GitBranch size={16} className="me-2" />
+                          Booking Split
+                        </button>
+                      </div>
+                    </nav>
+                  </div>
+                </div>
+
+                {/* Tab Content */}
+                {activeMainTab === 'walk-in' && (
+                  <div>
+                    {/* Statistics Cards */}
+                    <div className="row mb-4">
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #1B78CE' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Total Customers</h6>
+                                <h4 className="mb-0" style={{ color: '#1B78CE' }}>{stats.totalCustomers}</h4>
+                              </div>
+                              <Users size={32} style={{ color: '#1B78CE', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #28a745' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Active Customers</h6>
+                                <h4 className="mb-0" style={{ color: '#28a745' }}>{stats.activeCustomers}</h4>
+                              </div>
+                              <User size={32} style={{ color: '#28a745', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #ffc107' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Inactive Customers</h6>
+                                <h4 className="mb-0" style={{ color: '#ffc107' }}>{stats.inactiveCustomers}</h4>
+                              </div>
+                              <User size={32} style={{ color: '#ffc107', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #17a2b8' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Total Revenue</h6>
+                                <h4 className="mb-0" style={{ color: '#17a2b8' }}>PKR {stats.totalRevenue.toLocaleString()}</h4>
+                              </div>
+                              <BookOpen size={32} style={{ color: '#17a2b8', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                    </div>
+
+                    {/* Filter Section */}
+                    <div className="row mb-4">
+                      <div className="col-12">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                          {/* Sub-navigation */}
+                          <nav>
+                            <div className="nav d-flex flex-wrap gap-2">
+                              {['all', 'active', 'inactive'].map((tab) => (
+                                <button
+                                  key={tab}
+                                  className={`nav-link btn btn-link ${activeSubTab === tab ? 'fw-bold' : ''}`}
+                                  onClick={() => setActiveSubTab(tab)}
+                                  style={{
+                                    color: activeSubTab === tab ? '#1B78CE' : '#6c757d',
+                                    textDecoration: 'none',
+                                    padding: '0.375rem 0.75rem',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '0.875rem',
+                                    borderBottom: activeSubTab === tab ? '2px solid #1B78CE' : '2px solid transparent'
+                                  }}
+                                >
+                                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </nav>
+
+                          {/* Action buttons */}
+                          <div className="d-flex flex-wrap gap-2">
+                            <InputGroup style={{ maxWidth: '250px' }}>
+                              <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
+                                <Search size={16} />
+                              </InputGroup.Text>
+                              <Form.Control
+                                type="text"
+                                placeholder="Search customers..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ border: '1px solid #dee2e6' }}
+                              />
+                            </InputGroup>
+                            <Button
+                              variant="outline-primary"
+                              onClick={() => { }}
+                              style={{ whiteSpace: 'nowrap' }}
+                            >
+                              <Download size={16} className="me-1" />
+                              Export
+                            </Button>
+                            {hasPermission('add_walking_customer_admin') && (
+                              <Button
+                                style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
+                                onClick={() => setShowAddModal(true)}
+                              >
+                                <Plus size={16} className="me-1" />
+                                Add Customer
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="row">
+                      <div className="col-12">
+                        <div style={{ overflowX: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                          <Table className="customer-management-table mb-0" style={{ minWidth: '800px' }}>
+                            <thead>
+                              <tr>
+                                <th>Customer ID</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>City</th>
+                                <th>Status</th>
+                                <th>Total Spent</th>
+                                <th>Last Visit</th>
+                                {(hasPermission('edit_walking_customer_admin') || hasPermission('delete_walking_customer_admin') || hasPermission('view_walking_customer_admin')) && <th>Actions</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredCustomers.length === 0 ? (
+                                <tr>
+                                  <td colSpan="9" className="text-center py-4">
+                                    <div className="text-muted">
+                                      <User size={48} className="mb-2" style={{ opacity: 0.5 }} />
+                                      <p className="mb-0">No customers found</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredCustomers.map((customer) => (
+                                  <tr key={customer.id}>
+                                    <td>{customer.id}</td>
+                                    <td style={{ fontWeight: '500' }}>{customer.name}</td>
+                                    <td>{customer.phone}</td>
+                                    <td>{customer.email}</td>
+                                    <td>{customer.city}</td>
+                                    <td>
+                                      <Badge bg={customer.status === 'active' ? 'success' : 'warning'}>
+                                        {customer.status}
+                                      </Badge>
+                                    </td>
+                                    <td style={{ fontWeight: '500' }}>PKR {customer.totalSpent.toLocaleString()}</td>
+                                    <td>{customer.lastVisit}</td>
+                                    {(hasPermission('edit_walking_customer_admin') || hasPermission('delete_walking_customer_admin') || hasPermission('view_walking_customer_admin')) && (
+                                      <td>
+                                        <div className="d-flex gap-1">
+                                          {hasPermission('view_walking_customer_admin') && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline-info"
+                                              onClick={() => { setSelectedCustomer(customer); setShowViewModal(true); }}
+                                            >
+                                              <Eye size={14} />
+                                            </Button>
+                                          )}
+                                          {hasPermission('edit_walking_customer_admin') && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline-primary"
+                                              onClick={() => { setSelectedCustomer(customer); setFormData(customer); setShowEditModal(true); }}
+                                            >
+                                              <Edit size={14} />
+                                            </Button>
+                                          )}
+                                          {hasPermission('delete_walking_customer_admin') && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline-danger"
+                                              onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}
+                                            >
+                                              <Trash2 size={14} />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </Table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeMainTab === 'database' && (
+                  <div>
+                    {/* Customer Database Tab Content - Auto-collection functionality */}
+                    <div className="alert alert-info mb-4">
+                      <div className="d-flex align-items-center">
+                        <Database size={20} className="me-2" />
+                        <strong>Customer Database</strong> - Auto-collection from booking APIs, passport leads, and area branches
+                      </div>
+                    </div>
+
+                    {/* Statistics for Database */}
+                    <div className="row mb-4">
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #1B78CE' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Total Collected</h6>
+                                <h4 className="mb-0" style={{ color: '#1B78CE' }}>{dbStats.totalCustomers}</h4>
+                              </div>
+                              <Database size={32} style={{ color: '#1B78CE', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #28a745' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">From Bookings</h6>
+                                <h4 className="mb-0" style={{ color: '#28a745' }}>{dbStats.fromBookings}</h4>
+                              </div>
+                              <BookOpen size={32} style={{ color: '#28a745', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #ffc107' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">From Leads</h6>
+                                <h4 className="mb-0" style={{ color: '#ffc107' }}>{dbStats.fromLeads}</h4>
+                              </div>
+                              <FileText size={32} style={{ color: '#ffc107', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #17a2b8' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">From Branches</h6>
+                                <h4 className="mb-0" style={{ color: '#17a2b8' }}>{dbStats.fromBranch}</h4>
+                              </div>
+                              <MapPin size={32} style={{ color: '#17a2b8', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                    </div>
+
+                    {/* Database actions and filters */}
+                    <div className="row mb-4">
+                      <div className="col-12">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                          <nav>
+                            <div className="nav d-flex flex-wrap gap-2">
+                              {['all', 'booking', 'leads', 'branch'].map((tab) => (
+                                <button
+                                  key={tab}
+                                  className={`nav-link btn btn-link ${activeSubTab === tab ? 'fw-bold' : ''}`}
+                                  onClick={() => setActiveSubTab(tab)}
+                                  style={{
+                                    color: activeSubTab === tab ? '#1B78CE' : '#6c757d',
+                                    textDecoration: 'none',
+                                    padding: '0.375rem 0.75rem',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '0.875rem',
+                                    borderBottom: activeSubTab === tab ? '2px solid #1B78CE' : '2px solid transparent'
+                                  }}
+                                >
+                                  {tab === 'all' ? 'All Sources' :
+                                    tab === 'booking' ? 'From Bookings' :
+                                      tab === 'leads' ? 'From Leads' : 'From Branches'}
+                                </button>
+                              ))}
+                            </div>
+                          </nav>
+
+                          <div className="d-flex flex-wrap gap-2">
+                            <InputGroup style={{ maxWidth: '250px' }}>
+                              <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
+                                <Search size={16} />
+                              </InputGroup.Text>
+                              <Form.Control
+                                type="text"
+                                placeholder="Search database..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ border: '1px solid #dee2e6' }}
+                              />
+                            </InputGroup>
+                            <Button
+                              style={{ backgroundColor: '#28a745', border: 'none', whiteSpace: 'nowrap' }}
+                              onClick={() => { }}
+                            >
+                              <Upload size={16} className="me-1" />
+                              Sync Now
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Database table placeholder */}
+                    <div className="row">
+                      <div className="col-12">
+                        <div style={{ overflowX: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                          <Table className="customer-management-table mb-0" style={{ minWidth: '800px' }}>
+                            <thead>
+                              <tr>
+                                <th>Customer ID</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Source</th>
+                                <th>Collected At</th>
+                                <th>Status</th>
+                                <th>Reference</th>
+                                {(hasPermission('view_customer_database_admin') || hasPermission('edit_customer_database_admin') || hasPermission('delete_customer_database_admin')) && <th>Actions</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {loading ? (
+                                <tr>
+                                  <td colSpan="9" className="text-center py-4">
+                                    <Spinner animation="border" variant="primary" />
+                                    <p className="mt-2 text-muted">Loading customer database...</p>
+                                  </td>
+                                </tr>
+                              ) : filteredAllCustomers.length === 0 ? (
+                                <tr>
+                                  <td colSpan="9" className="text-center py-4">
+                                    <div className="text-muted">
+                                      <Database size={48} className="mb-2" style={{ opacity: 0.5 }} />
+                                      <p className="mb-0">No auto-collected customers found</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredAllCustomers.map((customer) => (
+                                  <tr key={customer.id}>
+                                    <td>{customer.id}</td>
+                                    <td style={{ fontWeight: '500' }}>{customer.name}</td>
+                                    <td>{customer.phone}</td>
+                                    <td>{customer.email}</td>
+                                    <td>
+                                      <Badge bg={
+                                        customer.source === 'Booking' ? 'primary' :
+                                          customer.source === 'Passport Lead' ? 'warning' : 'info'
+                                      }>
+                                        {customer.source}
+                                      </Badge>
+                                    </td>
+                                    <td>{customer.collectedAt}</td>
+                                    <td>
+                                      <Badge bg={customer.status === 'verified' ? 'success' : 'secondary'}>
+                                        {customer.status}
+                                      </Badge>
+                                    </td>
+                                    <td>{customer.bookingRef || customer.leadRef || '-'}</td>
+                                    {(hasPermission('view_customer_database_admin') || hasPermission('edit_customer_database_admin') || hasPermission('delete_customer_database_admin')) && (
+                                      <td>
+                                        <div className="d-flex gap-1">
+                                          {hasPermission('view_customer_database_admin') && (
+                                            <Button size="sm" variant="outline-info">
+                                              <Eye size={14} />
+                                            </Button>
+                                          )}
+                                          {hasPermission('add_customer_database_admin') && (
+                                            <Button size="sm" variant="outline-success">
+                                              <Plus size={14} />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </Table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeMainTab === 'booking-split' && (
+                  <div>
+                    {/* Booking Split Tab Content */}
+                    <div className="alert alert-warning mb-4">
+                      <div className="d-flex align-items-center">
+                        <GitBranch size={20} className="me-2" />
+                        <strong>Booking Split</strong> - Split bookings functionality for managing passenger allocations
+                      </div>
+                    </div>
+
+                    {/* Statistics for Booking Split */}
+                    <div className="row mb-4">
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #6f42c1' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Total Bookings</h6>
+                                <h4 className="mb-0" style={{ color: '#6f42c1' }}>{bookingStats.totalBookings}</h4>
+                              </div>
+                              <BookOpen size={32} style={{ color: '#6f42c1', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #28a745' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Total Passengers</h6>
+                                <h4 className="mb-0" style={{ color: '#28a745' }}>{bookingStats.totalPax}</h4>
+                              </div>
+                              <Users size={32} style={{ color: '#28a745', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #17a2b8' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Total Revenue</h6>
+                                <h4 className="mb-0" style={{ color: '#17a2b8' }}>PKR {bookingStats.totalRevenue.toLocaleString()}</h4>
+                              </div>
+                              <BookOpen size={32} style={{ color: '#17a2b8', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                      <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+                        <Card style={{ borderLeft: '4px solid #ffc107' }}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div>
+                                <h6 className="text-muted mb-1">Confirmed</h6>
+                                <h4 className="mb-0" style={{ color: '#ffc107' }}>{bookingStats.confirmedBookings}</h4>
+                              </div>
+                              <GitBranch size={32} style={{ color: '#ffc107', opacity: 0.7 }} />
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </div>
+                    </div>
+
+                    {/* Booking filters */}
+                    <div className="row mb-4">
+                      <div className="col-12">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                          <nav>
+                            <div className="nav d-flex flex-wrap gap-2">
+                              {['all', 'confirmed', 'pending'].map((tab) => (
+                                <button
+                                  key={tab}
+                                  className={`nav-link btn btn-link ${activeSubTab === tab ? 'fw-bold' : ''}`}
+                                  onClick={() => setActiveSubTab(tab)}
+                                  style={{
+                                    color: activeSubTab === tab ? '#1B78CE' : '#6c757d',
+                                    textDecoration: 'none',
+                                    padding: '0.375rem 0.75rem',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '0.875rem',
+                                    borderBottom: activeSubTab === tab ? '2px solid #1B78CE' : '2px solid transparent'
+                                  }}
+                                >
+                                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </nav>
+
+                          <div className="d-flex flex-wrap gap-2">
+                            <InputGroup style={{ maxWidth: '250px' }}>
+                              <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
+                                <Search size={16} />
+                              </InputGroup.Text>
+                              <Form.Control
+                                type="text"
+                                placeholder="Search bookings..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ border: '1px solid #dee2e6' }}
+                              />
+                            </InputGroup>
+                            <Button variant="outline-primary" style={{ whiteSpace: 'nowrap' }}>
+                              <Download size={16} className="me-1" />
+                              Export
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bookings table */}
+                    <div className="row">
+                      <div className="col-12">
+                        <div style={{ overflowX: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                          <Table className="customer-management-table mb-0" style={{ minWidth: '900px' }}>
+                            <thead>
+                              <tr>
+                                <th>Booking ID</th>
+                                <th>Customer Name</th>
+                                <th>Total PAX</th>
+                                <th>Total Amount</th>
+                                <th>Booking Date</th>
+                                <th>Travel Date</th>
+                                <th>Package Type</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredBookings.length === 0 ? (
+                                <tr>
+                                  <td colSpan="9" className="text-center py-4">
+                                    <div className="text-muted">
+                                      <GitBranch size={48} className="mb-2" style={{ opacity: 0.5 }} />
+                                      <p className="mb-0">No bookings found</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredBookings.map((booking) => (
+                                  <tr key={booking.booking_id}>
+                                    <td style={{ fontWeight: '500' }}>{booking.booking_id}</td>
+                                    <td>{booking.customer_name}</td>
+                                    <td>
+                                      <Badge bg="info">{booking.total_pax} PAX</Badge>
+                                    </td>
+                                    <td style={{ fontWeight: '500' }}>PKR {booking.total_amount.toLocaleString()}</td>
+                                    <td>{booking.booking_date}</td>
+                                    <td>{booking.travel_date}</td>
+                                    <td>
+                                      <Badge bg={booking.package_type.includes('Premium') ? 'warning' : 'secondary'}>
+                                        {booking.package_type}
+                                      </Badge>
+                                    </td>
+                                    <td>
+                                      <Badge bg={booking.status === 'confirmed' ? 'success' : 'warning'}>
+                                        {booking.status}
+                                      </Badge>
+                                    </td>
+                                    <td>
+                                      <div className="d-flex gap-1">
+                                        <Button
+                                          size="sm"
+                                          variant="outline-info"
+                                          onClick={() => { }}
+                                        >
+                                          <Eye size={14} />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          style={{ backgroundColor: '#6f42c1', border: 'none' }}
+                                          onClick={() => handleSplitClick(booking)}
+                                        >
+                                          <GitBranch size={14} />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </Table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Main Navigation Tabs */}
-              <div className="row mb-4">
-                <div className="col-12">
-                  <nav>
-                    <div className="nav d-flex flex-wrap gap-2">
-                      <button
-                        className={`nav-link btn btn-link ${activeMainTab === 'walk-in' ? 'fw-bold' : ''}`}
-                        onClick={() => { setActiveMainTab('walk-in'); setSearchTerm(''); setActiveSubTab('all'); }}
-                        style={{
-                          color: activeMainTab === 'walk-in' ? '#1B78CE' : '#6c757d',
-                          textDecoration: 'none',
-                          padding: '0.5rem 1rem',
-                          border: 'none',
-                          background: 'transparent',
-                          fontFamily: 'Poppins, sans-serif',
-                          borderBottom: activeMainTab === 'walk-in' ? '2px solid #1B78CE' : '2px solid transparent'
-                        }}
-                      >
-                        <User size={16} className="me-2" />
-                        Walk-in Customers
-                      </button>
-                      <button
-                        className={`nav-link btn btn-link ${activeMainTab === 'database' ? 'fw-bold' : ''}`}
-                        onClick={() => { setActiveMainTab('database'); setSearchTerm(''); setActiveSubTab('all'); }}
-                        style={{
-                          color: activeMainTab === 'database' ? '#1B78CE' : '#6c757d',
-                          textDecoration: 'none',
-                          padding: '0.5rem 1rem',
-                          border: 'none',
-                          background: 'transparent',
-                          fontFamily: 'Poppins, sans-serif',
-                          borderBottom: activeMainTab === 'database' ? '2px solid #1B78CE' : '2px solid transparent'
-                        }}
-                      >
-                        <Database size={16} className="me-2" />
-                        Customer Database
-                      </button>
-                      <button
-                        className={`nav-link btn btn-link ${activeMainTab === 'booking-split' ? 'fw-bold' : ''}`}
-                        onClick={() => { setActiveMainTab('booking-split'); setSearchTerm(''); setActiveSubTab('all'); }}
-                        style={{
-                          color: activeMainTab === 'booking-split' ? '#1B78CE' : '#6c757d',
-                          textDecoration: 'none',
-                          padding: '0.5rem 1rem',
-                          border: 'none',
-                          background: 'transparent',
-                          fontFamily: 'Poppins, sans-serif',
-                          borderBottom: activeMainTab === 'booking-split' ? '2px solid #1B78CE' : '2px solid transparent'
-                        }}
-                      >
-                        <GitBranch size={16} className="me-2" />
-                        Booking Split
-                      </button>
-                    </div>
-                  </nav>
-                </div>
-              </div>
-
-              {/* Tab Content */}
-              {activeMainTab === 'walk-in' && (
-                <div>
-                  {/* Statistics Cards */}
-                  <div className="row mb-4">
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #1B78CE' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Total Customers</h6>
-                              <h4 className="mb-0" style={{ color: '#1B78CE' }}>{stats.totalCustomers}</h4>
-                            </div>
-                            <Users size={32} style={{ color: '#1B78CE', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #28a745' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Active Customers</h6>
-                              <h4 className="mb-0" style={{ color: '#28a745' }}>{stats.activeCustomers}</h4>
-                            </div>
-                            <User size={32} style={{ color: '#28a745', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #ffc107' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Inactive Customers</h6>
-                              <h4 className="mb-0" style={{ color: '#ffc107' }}>{stats.inactiveCustomers}</h4>
-                            </div>
-                            <User size={32} style={{ color: '#ffc107', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #17a2b8' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Total Revenue</h6>
-                              <h4 className="mb-0" style={{ color: '#17a2b8' }}>PKR {stats.totalRevenue.toLocaleString()}</h4>
-                            </div>
-                            <BookOpen size={32} style={{ color: '#17a2b8', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                  </div>
-
-                  {/* Filter Section */}
-                  <div className="row mb-4">
-                    <div className="col-12">
-                      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                        {/* Sub-navigation */}
-                        <nav>
-                          <div className="nav d-flex flex-wrap gap-2">
-                            {['all', 'active', 'inactive'].map((tab) => (
-                              <button
-                                key={tab}
-                                className={`nav-link btn btn-link ${activeSubTab === tab ? 'fw-bold' : ''}`}
-                                onClick={() => setActiveSubTab(tab)}
-                                style={{
-                                  color: activeSubTab === tab ? '#1B78CE' : '#6c757d',
-                                  textDecoration: 'none',
-                                  padding: '0.375rem 0.75rem',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  fontSize: '0.875rem',
-                                  borderBottom: activeSubTab === tab ? '2px solid #1B78CE' : '2px solid transparent'
-                                }}
-                              >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                              </button>
-                            ))}
-                          </div>
-                        </nav>
-
-                        {/* Action buttons */}
-                        <div className="d-flex flex-wrap gap-2">
-                          <InputGroup style={{ maxWidth: '250px' }}>
-                            <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
-                              <Search size={16} />
-                            </InputGroup.Text>
-                            <Form.Control
-                              type="text"
-                              placeholder="Search customers..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              style={{ border: '1px solid #dee2e6' }}
-                            />
-                          </InputGroup>
-                          <Button
-                            variant="outline-primary"
-                            onClick={() => {}}
-                            style={{ whiteSpace: 'nowrap' }}
-                          >
-                            <Download size={16} className="me-1" />
-                            Export
-                          </Button>
-                          <Button
-                            style={{ backgroundColor: '#1B78CE', border: 'none', whiteSpace: 'nowrap' }}
-                            onClick={() => setShowAddModal(true)}
-                          >
-                            <Plus size={16} className="me-1" />
-                            Add Customer
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Table */}
-                  <div className="row">
-                    <div className="col-12">
-                      <div style={{ overflowX: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                        <Table className="customer-management-table mb-0" style={{ minWidth: '800px' }}>
-                          <thead>
-                            <tr>
-                              <th>Customer ID</th>
-                              <th>Name</th>
-                              <th>Phone</th>
-                              <th>Email</th>
-                              <th>City</th>
-                              <th>Status</th>
-                              <th>Total Spent</th>
-                              <th>Last Visit</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredCustomers.length === 0 ? (
-                              <tr>
-                                <td colSpan="9" className="text-center py-4">
-                                  <div className="text-muted">
-                                    <User size={48} className="mb-2" style={{ opacity: 0.5 }} />
-                                    <p className="mb-0">No customers found</p>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              filteredCustomers.map((customer) => (
-                                <tr key={customer.id}>
-                                  <td>{customer.id}</td>
-                                  <td style={{ fontWeight: '500' }}>{customer.name}</td>
-                                  <td>{customer.phone}</td>
-                                  <td>{customer.email}</td>
-                                  <td>{customer.city}</td>
-                                  <td>
-                                    <Badge bg={customer.status === 'active' ? 'success' : 'warning'}>
-                                      {customer.status}
-                                    </Badge>
-                                  </td>
-                                  <td style={{ fontWeight: '500' }}>PKR {customer.totalSpent.toLocaleString()}</td>
-                                  <td>{customer.lastVisit}</td>
-                                  <td>
-                                    <div className="d-flex gap-1">
-                                      <Button
-                                        size="sm"
-                                        variant="outline-info"
-                                        onClick={() => { setSelectedCustomer(customer); setShowViewModal(true); }}
-                                      >
-                                        <Eye size={14} />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline-primary"
-                                        onClick={() => { setSelectedCustomer(customer); setFormData(customer); setShowEditModal(true); }}
-                                      >
-                                        <Edit size={14} />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline-danger"
-                                        onClick={() => { setSelectedCustomer(customer); setShowDeleteModal(true); }}
-                                      >
-                                        <Trash2 size={14} />
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </Table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeMainTab === 'database' && (
-                <div>
-                  {/* Customer Database Tab Content - Auto-collection functionality */}
-                  <div className="alert alert-info mb-4">
-                    <div className="d-flex align-items-center">
-                      <Database size={20} className="me-2" />
-                      <strong>Customer Database</strong> - Auto-collection from booking APIs, passport leads, and area branches
-                    </div>
-                  </div>
-
-                  {/* Statistics for Database */}
-                  <div className="row mb-4">
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #1B78CE' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Total Collected</h6>
-                              <h4 className="mb-0" style={{ color: '#1B78CE' }}>{dbStats.totalCustomers}</h4>
-                            </div>
-                            <Database size={32} style={{ color: '#1B78CE', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #28a745' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">From Bookings</h6>
-                              <h4 className="mb-0" style={{ color: '#28a745' }}>{dbStats.fromBookings}</h4>
-                            </div>
-                            <BookOpen size={32} style={{ color: '#28a745', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #ffc107' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">From Leads</h6>
-                              <h4 className="mb-0" style={{ color: '#ffc107' }}>{dbStats.fromLeads}</h4>
-                            </div>
-                            <FileText size={32} style={{ color: '#ffc107', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #17a2b8' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">From Branches</h6>
-                              <h4 className="mb-0" style={{ color: '#17a2b8' }}>{dbStats.fromBranch}</h4>
-                            </div>
-                            <MapPin size={32} style={{ color: '#17a2b8', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                  </div>
-
-                  {/* Database actions and filters */}
-                  <div className="row mb-4">
-                    <div className="col-12">
-                      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                        <nav>
-                          <div className="nav d-flex flex-wrap gap-2">
-                            {['all', 'booking', 'leads', 'branch'].map((tab) => (
-                              <button
-                                key={tab}
-                                className={`nav-link btn btn-link ${activeSubTab === tab ? 'fw-bold' : ''}`}
-                                onClick={() => setActiveSubTab(tab)}
-                                style={{
-                                  color: activeSubTab === tab ? '#1B78CE' : '#6c757d',
-                                  textDecoration: 'none',
-                                  padding: '0.375rem 0.75rem',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  fontSize: '0.875rem',
-                                  borderBottom: activeSubTab === tab ? '2px solid #1B78CE' : '2px solid transparent'
-                                }}
-                              >
-                                {tab === 'all' ? 'All Sources' : 
-                                 tab === 'booking' ? 'From Bookings' :
-                                 tab === 'leads' ? 'From Leads' : 'From Branches'}
-                              </button>
-                            ))}
-                          </div>
-                        </nav>
-
-                        <div className="d-flex flex-wrap gap-2">
-                          <InputGroup style={{ maxWidth: '250px' }}>
-                            <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
-                              <Search size={16} />
-                            </InputGroup.Text>
-                            <Form.Control
-                              type="text"
-                              placeholder="Search database..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              style={{ border: '1px solid #dee2e6' }}
-                            />
-                          </InputGroup>
-                          <Button
-                            style={{ backgroundColor: '#28a745', border: 'none', whiteSpace: 'nowrap' }}
-                            onClick={() => {}}
-                          >
-                            <Upload size={16} className="me-1" />
-                            Sync Now
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Database table placeholder */}
-                  <div className="row">
-                    <div className="col-12">
-                      <div style={{ overflowX: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                        <Table className="customer-management-table mb-0" style={{ minWidth: '800px' }}>
-                          <thead>
-                            <tr>
-                              <th>Customer ID</th>
-                              <th>Name</th>
-                              <th>Phone</th>
-                              <th>Email</th>
-                              <th>Source</th>
-                              <th>Collected At</th>
-                              <th>Status</th>
-                              <th>Reference</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredAllCustomers.length === 0 ? (
-                              <tr>
-                                <td colSpan="9" className="text-center py-4">
-                                  <div className="text-muted">
-                                    <Database size={48} className="mb-2" style={{ opacity: 0.5 }} />
-                                    <p className="mb-0">No auto-collected customers found</p>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              filteredAllCustomers.map((customer) => (
-                                <tr key={customer.id}>
-                                  <td>{customer.id}</td>
-                                  <td style={{ fontWeight: '500' }}>{customer.name}</td>
-                                  <td>{customer.phone}</td>
-                                  <td>{customer.email}</td>
-                                  <td>
-                                    <Badge bg={
-                                      customer.source === 'Booking' ? 'primary' :
-                                      customer.source === 'Passport Lead' ? 'warning' : 'info'
-                                    }>
-                                      {customer.source}
-                                    </Badge>
-                                  </td>
-                                  <td>{customer.collectedAt}</td>
-                                  <td>
-                                    <Badge bg={customer.status === 'verified' ? 'success' : 'secondary'}>
-                                      {customer.status}
-                                    </Badge>
-                                  </td>
-                                  <td>{customer.bookingRef || customer.leadRef || '-'}</td>
-                                  <td>
-                                    <div className="d-flex gap-1">
-                                      <Button size="sm" variant="outline-info">
-                                        <Eye size={14} />
-                                      </Button>
-                                      <Button size="sm" variant="outline-success">
-                                        <Plus size={14} />
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </Table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeMainTab === 'booking-split' && (
-                <div>
-                  {/* Booking Split Tab Content */}
-                  <div className="alert alert-warning mb-4">
-                    <div className="d-flex align-items-center">
-                      <GitBranch size={20} className="me-2" />
-                      <strong>Booking Split</strong> - Split bookings functionality for managing passenger allocations
-                    </div>
-                  </div>
-
-                  {/* Statistics for Booking Split */}
-                  <div className="row mb-4">
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #6f42c1' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Total Bookings</h6>
-                              <h4 className="mb-0" style={{ color: '#6f42c1' }}>{bookingStats.totalBookings}</h4>
-                            </div>
-                            <BookOpen size={32} style={{ color: '#6f42c1', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #28a745' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Total Passengers</h6>
-                              <h4 className="mb-0" style={{ color: '#28a745' }}>{bookingStats.totalPax}</h4>
-                            </div>
-                            <Users size={32} style={{ color: '#28a745', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #17a2b8' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Total Revenue</h6>
-                              <h4 className="mb-0" style={{ color: '#17a2b8' }}>PKR {bookingStats.totalRevenue.toLocaleString()}</h4>
-                            </div>
-                            <BookOpen size={32} style={{ color: '#17a2b8', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-                      <Card style={{ borderLeft: '4px solid #ffc107' }}>
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <h6 className="text-muted mb-1">Confirmed</h6>
-                              <h4 className="mb-0" style={{ color: '#ffc107' }}>{bookingStats.confirmedBookings}</h4>
-                            </div>
-                            <GitBranch size={32} style={{ color: '#ffc107', opacity: 0.7 }} />
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                  </div>
-
-                  {/* Booking filters */}
-                  <div className="row mb-4">
-                    <div className="col-12">
-                      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                        <nav>
-                          <div className="nav d-flex flex-wrap gap-2">
-                            {['all', 'confirmed', 'pending'].map((tab) => (
-                              <button
-                                key={tab}
-                                className={`nav-link btn btn-link ${activeSubTab === tab ? 'fw-bold' : ''}`}
-                                onClick={() => setActiveSubTab(tab)}
-                                style={{
-                                  color: activeSubTab === tab ? '#1B78CE' : '#6c757d',
-                                  textDecoration: 'none',
-                                  padding: '0.375rem 0.75rem',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  fontSize: '0.875rem',
-                                  borderBottom: activeSubTab === tab ? '2px solid #1B78CE' : '2px solid transparent'
-                                }}
-                              >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                              </button>
-                            ))}
-                          </div>
-                        </nav>
-
-                        <div className="d-flex flex-wrap gap-2">
-                          <InputGroup style={{ maxWidth: '250px' }}>
-                            <InputGroup.Text style={{ background: '#f8f9fa', border: '1px solid #dee2e6' }}>
-                              <Search size={16} />
-                            </InputGroup.Text>
-                            <Form.Control
-                              type="text"
-                              placeholder="Search bookings..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              style={{ border: '1px solid #dee2e6' }}
-                            />
-                          </InputGroup>
-                          <Button variant="outline-primary" style={{ whiteSpace: 'nowrap' }}>
-                            <Download size={16} className="me-1" />
-                            Export
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bookings table */}
-                  <div className="row">
-                    <div className="col-12">
-                      <div style={{ overflowX: 'auto', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                        <Table className="customer-management-table mb-0" style={{ minWidth: '900px' }}>
-                          <thead>
-                            <tr>
-                              <th>Booking ID</th>
-                              <th>Customer Name</th>
-                              <th>Total PAX</th>
-                              <th>Total Amount</th>
-                              <th>Booking Date</th>
-                              <th>Travel Date</th>
-                              <th>Package Type</th>
-                              <th>Status</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredBookings.length === 0 ? (
-                              <tr>
-                                <td colSpan="9" className="text-center py-4">
-                                  <div className="text-muted">
-                                    <GitBranch size={48} className="mb-2" style={{ opacity: 0.5 }} />
-                                    <p className="mb-0">No bookings found</p>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              filteredBookings.map((booking) => (
-                                <tr key={booking.booking_id}>
-                                  <td style={{ fontWeight: '500' }}>{booking.booking_id}</td>
-                                  <td>{booking.customer_name}</td>
-                                  <td>
-                                    <Badge bg="info">{booking.total_pax} PAX</Badge>
-                                  </td>
-                                  <td style={{ fontWeight: '500' }}>PKR {booking.total_amount.toLocaleString()}</td>
-                                  <td>{booking.booking_date}</td>
-                                  <td>{booking.travel_date}</td>
-                                  <td>
-                                    <Badge bg={booking.package_type.includes('Premium') ? 'warning' : 'secondary'}>
-                                      {booking.package_type}
-                                    </Badge>
-                                  </td>
-                                  <td>
-                                    <Badge bg={booking.status === 'confirmed' ? 'success' : 'warning'}>
-                                      {booking.status}
-                                    </Badge>
-                                  </td>
-                                  <td>
-                                    <div className="d-flex gap-1">
-                                      <Button
-                                        size="sm"
-                                        variant="outline-info"
-                                        onClick={() => {}}
-                                      >
-                                        <Eye size={14} />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        style={{ backgroundColor: '#6f42c1', border: 'none' }}
-                                        onClick={() => handleSplitClick(booking)}
-                                      >
-                                        <GitBranch size={14} />
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </Table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* Booking Split Modal */}
@@ -960,7 +1009,7 @@ const CustomerManagement = () => {
                   <strong>Package:</strong> {selectedBooking.package_type}
                 </div>
               </div>
-              
+
               <h6 className="mt-4 mb-3">Passenger Details:</h6>
               <Table size="sm" bordered>
                 <thead>
@@ -986,7 +1035,7 @@ const CustomerManagement = () => {
                   ))}
                 </tbody>
               </Table>
-              
+
               <div className="alert alert-info mt-3">
                 <small>Select passengers to move to a new booking. This will create a separate booking for selected passengers.</small>
               </div>

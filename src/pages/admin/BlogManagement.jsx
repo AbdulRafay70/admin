@@ -4,9 +4,13 @@ import { Plus, Edit2, Trash2, Eye, Search, Filter, Calendar, User, Tag, BookOpen
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
+import { usePermission } from '../../contexts/EnhancedPermissionContext';
 import './styles/blog-management.css';
 
 const BlogManagement = () => {
+  // Permission hook
+  const { hasPermission } = usePermission();
+
   // Active Tab
   const [activeTab, setActiveTab] = useState('list');
 
@@ -189,12 +193,22 @@ const BlogManagement = () => {
         showAlert('success', 'Blog created successfully');
       }
 
+
       setShowAddModal(false);
       setShowEditModal(false);
       fetchBlogs();
     } catch (error) {
       console.error('Error saving blog:', error);
-      showAlert('danger', 'Failed to save blog');
+      // Check if it's a permission error
+      if (error.response && error.response.status === 403) {
+        if (selectedBlog) {
+          showAlert('danger', 'You do not have permission to edit blogs');
+        } else {
+          showAlert('danger', 'You do not have permission to add blogs');
+        }
+      } else {
+        showAlert('danger', 'Failed to save blog');
+      }
     }
   };
 
@@ -226,7 +240,12 @@ const BlogManagement = () => {
         fetchBlogs();
       } catch (error) {
         console.error('Error deleting blog:', error);
-        showAlert('danger', 'Failed to delete blog');
+        // Check if it's a permission error
+        if (error.response && error.response.status === 403) {
+          showAlert('danger', 'You do not have permission to delete blogs');
+        } else {
+          showAlert('danger', 'Failed to delete blog');
+        }
       }
     }
   };
@@ -301,10 +320,13 @@ const BlogManagement = () => {
                   <h2 className="mb-1">Blog Management System</h2>
                   <p className="text-muted mb-0">Create, edit, and manage blog posts</p>
                 </div>
-                <Button variant="primary" size="sm" onClick={handleAddBlog}>
-                  <Plus size={18} className="me-2" />
-                  New Blog
-                </Button>
+                {/* Only show New Blog button if user has add_blog_admin permission */}
+                {hasPermission('add_blog_admin') && (
+                  <Button variant="primary" size="sm" onClick={handleAddBlog}>
+                    <Plus size={18} className="me-2" />
+                    New Blog
+                  </Button>
+                )}
               </div>
             </Col>
           </Row>
@@ -495,24 +517,33 @@ const BlogManagement = () => {
                                     >
                                       <Eye size={16} />
                                     </Button>
-                                    <Button
-                                      variant="outline-warning"
-                                      size="sm"
-                                      onClick={() => window.location.href = `/blog-builder/${blog.id}`}
-                                      title="Edit Content"
-                                      className="me-1"
-                                    >
-                                      <Edit2 size={16} />
-                                    </Button>
+                                    {/* Edit Content - Only show if user has edit permission */}
+                                    {hasPermission('edit_blog_admin') && (
+                                      <Button
+                                        variant="outline-warning"
+                                        size="sm"
+                                        onClick={() => window.location.href = `/blog-builder/${blog.id}`}
+                                        title="Edit Content"
+                                        className="me-1"
+                                      >
+                                        <Edit2 size={16} />
+                                      </Button>
+                                    )}
                                     <Button variant="outline-info" size="sm" onClick={() => handleViewBlog(blog)} title="View Details" className="me-1">
                                       <Eye size={16} />
                                     </Button>
-                                    <Button variant="outline-primary" size="sm" onClick={() => handleEditBlog(blog)} title="Edit Metadata" className="me-1">
-                                      <Edit2 size={16} />
-                                    </Button>
-                                    <Button variant="outline-danger" size="sm" onClick={() => handleDeleteBlog(blog.id)} title="Delete">
-                                      <Trash2 size={16} />
-                                    </Button>
+                                    {/* Edit Metadata - Only show if user has edit permission */}
+                                    {hasPermission('edit_blog_admin') && (
+                                      <Button variant="outline-primary" size="sm" onClick={() => handleEditBlog(blog)} title="Edit Metadata" className="me-1">
+                                        <Edit2 size={16} />
+                                      </Button>
+                                    )}
+                                    {/* Delete - Only show if user has delete permission */}
+                                    {hasPermission('delete_blog_admin') && (
+                                      <Button variant="outline-danger" size="sm" onClick={() => handleDeleteBlog(blog.id)} title="Delete">
+                                        <Trash2 size={16} />
+                                      </Button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>

@@ -79,7 +79,8 @@ import HotelFloorManagement from "./pages/admin/HotelFloorManagement";
 import AssignRoom from "./pages/admin/AssignRoom";
 
 import PrivateRoute from "./components/PrivateRoute";
-import { PermissionProvider } from "./context/PermissionContext";
+import { PermissionProvider } from "./contexts/EnhancedPermissionContext";
+import Forbidden403 from "./pages/Forbidden403";
 
 import EditHotelDetail from "./pages/admin/EditHotelDetail";
 import EditHotelPrice from "./pages/admin/EditHotelPrice";
@@ -114,6 +115,9 @@ function App() {
               path="/"
               element={<Navigate to="/dashboard" replace />}
             />
+
+            {/* 403 Forbidden Page */}
+            <Route path="/403" element={<Forbidden403 />} />
 
             {/* Redirect legacy/top-level links to partners subpaths so
               both `/discounts` and `/admin/discounts` (when basename=/admin)
@@ -226,6 +230,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <AddHotels />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/hotels"
+              element={
+                <PrivateRoute>
+                  <Hotels />
                 </PrivateRoute>
               }
             />

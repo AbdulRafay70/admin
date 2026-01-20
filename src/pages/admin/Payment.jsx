@@ -4,19 +4,12 @@ import { Gear } from "react-bootstrap-icons";
 import { ArrowBigLeft, Funnel, Search, UploadCloudIcon, Download } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
+import PaymentTabs from "../../components/PaymentTabs";
 import { NavLink } from "react-router-dom";
 import axios from "axios";
 
 const Payment = () => {
 
-  const tabs = [
-    { name: "Ledger", path: "/payment", isActive: true },
-    { name: "Add Payment", path: "/payment/add-payment", isActive: false },
-    { name: "Bank Accounts", path: "/payment/bank-accounts", isActive: false },
-    { name: "Kuickpay", path: "/payment/kuickpay", isActive: false },
-    { name: "Pending Payments", path: "/payment/pending-payments", isActive: false },
-    { name: "Booking History", path: "/payment/booking-history", isActive: false },
-  ];
 
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
@@ -118,24 +111,9 @@ const Payment = () => {
             <Header />
             <div className="px-3 px-lg-4 my-3">
               {/* Navigation Tabs */}
-              <div className="row ">
+              <div className="row">
                 <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-                  {/* Navigation Tabs */}
-                  <nav className="nav flex-wrap gap-2">
-                    {tabs.map((tab, index) => (
-                      <NavLink
-                        key={index}
-                        to={tab.path}
-                        className={`nav-link btn btn-link text-decoration-none px-0 me-3 ${tab.name === "Ledger"
-                          ? "text-primary fw-semibold"
-                          : "text-muted"
-                          }`}
-                        style={{ backgroundColor: "transparent" }}
-                      >
-                        {tab.name}
-                      </NavLink>
-                    ))}
-                  </nav>
+                  <PaymentTabs activeName="Ledger" />
 
                   {/* Search Input */}
                   <div className="input-group" style={{ maxWidth: "300px" }}>

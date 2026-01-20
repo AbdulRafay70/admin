@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
 import AdminFooter from "../../components/AdminFooter";
 import api from "../../utils/Api";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const HotelRowSkeleton = () => {
   return (
@@ -50,6 +51,7 @@ const HotelRowSkeleton = () => {
 };
 
 const Hotels = () => {
+  const { hasPermission } = usePermission();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -136,7 +138,7 @@ const Hotels = () => {
         const inferredOrg = list[0].organization;
         try {
           localStorage.setItem('selectedOrganization', JSON.stringify({ id: inferredOrg, name: `Org ${inferredOrg}` }));
-        } catch (e) {}
+        } catch (e) { }
         setOrganizationId(inferredOrg);
       }
 
@@ -250,8 +252,8 @@ const Hotels = () => {
   });
 
   // Determine ordering: Makkah first, Madinah second, then other cities alphabetically
-  const makkahCityIds = cities.filter(c => nameMatches(c.name, CITY_ALIASES.makkah)).map(c=>c.id);
-  const madinahCityIds = cities.filter(c => nameMatches(c.name, CITY_ALIASES.madinah)).map(c=>c.id);
+  const makkahCityIds = cities.filter(c => nameMatches(c.name, CITY_ALIASES.makkah)).map(c => c.id);
+  const madinahCityIds = cities.filter(c => nameMatches(c.name, CITY_ALIASES.madinah)).map(c => c.id);
 
   const orderedCityKeys = [];
   // add makkah ids present in map
@@ -268,7 +270,7 @@ const Hotels = () => {
   });
 
   // sort remaining keys alphabetically by city name
-  orderedCityKeys.sort((a,b)=>{
+  orderedCityKeys.sort((a, b) => {
     const an = cityIdToName(a) || (a === 'unknown' ? 'Unknown' : String(a));
     const bn = cityIdToName(b) || (b === 'unknown' ? 'Unknown' : String(b));
     return an.localeCompare(bn);
@@ -414,7 +416,7 @@ const Hotels = () => {
                   // Determine ownership so resellers cannot edit/delete owner items
                   const hotelOrg = hotel.organization || hotel.organization_id || hotel.owner_organization_id || hotel.org || null;
                   const isOwner = organizationId && hotelOrg && String(hotelOrg) === String(organizationId);
-                  
+
                   const priceGroups = getAllPriceObjects(hotel.prices);
 
                   // Sort price groups with oldest dates first
@@ -492,18 +494,27 @@ const Hotels = () => {
                               >
                                 <Gear size={18} />
                               </Dropdown.Toggle>
-                                <Dropdown.Menu>
+                              <Dropdown.Menu>
                                 {isOwner ? (
                                   <>
-                                    <Dropdown.Item as={Link} to={`/hotels/EditDetails/${hotel.id}`}>
-                                      Edit Hotel Details
-                                    </Dropdown.Item>
-                                    <Dropdown.Item as={Link} to={`/hotels/EditPrices/${hotel.id}`}>
-                                      Edit Hotel Price
-                                    </Dropdown.Item>
-                                    <Dropdown.Item className="text-danger" onClick={() => handleDelete(hotel.id)}>
-                                      Delete
-                                    </Dropdown.Item>
+                                    {hasPermission('edit_hotel_admin') && (
+                                      <>
+                                        <Dropdown.Item as={Link} to={`/hotels/EditDetails/${hotel.id}`}>
+                                          Edit Hotel Details
+                                        </Dropdown.Item>
+                                        <Dropdown.Item as={Link} to={`/hotels/EditPrices/${hotel.id}`}>
+                                          Edit Hotel Price
+                                        </Dropdown.Item>
+                                      </>
+                                    )}
+                                    {hasPermission('delete_hotel_admin') && (
+                                      <Dropdown.Item className="text-danger" onClick={() => handleDelete(hotel.id)}>
+                                        Delete
+                                      </Dropdown.Item>
+                                    )}
+                                    {!hasPermission('edit_hotel_admin') && !hasPermission('delete_hotel_admin') && (
+                                      <Dropdown.Item disabled>No actions available</Dropdown.Item>
+                                    )}
                                   </>
                                 ) : (
                                   <>
@@ -587,13 +598,15 @@ const Hotels = () => {
                     </div>
 
                     {/* Buttons */}
-                    <Link
-                      to="/hotels/add-hotels"
-                      className="btn text-white"
-                      style={{ background: "#1B78CE" }}
-                    >
-                      Add Hotels
-                    </Link>
+                    {hasPermission('add_hotel_admin') && (
+                      <Link
+                        to="/hotels/add-hotels"
+                        className="btn text-white"
+                        style={{ background: "#1B78CE" }}
+                      >
+                        Add Hotels
+                      </Link>
+                    )}
                     <button
                       className="btn text-white"
                       style={{ background: "#1B78CE" }}

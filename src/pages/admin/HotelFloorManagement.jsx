@@ -7,8 +7,10 @@ import HotelsTabs from '../../components/HotelsTabs';
 import api from '../../utils/Api';
 import { toast } from 'react-toastify';
 import '../../styles/hotel-floor-management.css';
+import { usePermission } from '../../contexts/EnhancedPermissionContext';
 
 const HotelFloorManagement = () => {
+  const { hasPermission } = usePermission();
   // Active Tab State
   const [activeTab, setActiveTab] = useState('floors');
 
@@ -277,7 +279,7 @@ const HotelFloorManagement = () => {
       toast.success(`${numberOfFloors} floors created successfully`);
       setShowBulkFloorsModal(false);
       setBulkFloorsForm({ hotel_id: '', number_of_floors: 1 });
-      
+
       // Refresh floors - both all hotels and the specific hotel if one is selected
       await fetchHotels();
       if (selectedHotel) {
@@ -315,7 +317,7 @@ const HotelFloorManagement = () => {
 
       setShowFloorModal(false);
       resetFloorForm();
-      
+
       // Refresh floors - both all floors and the specific hotel if one is selected
       await fetchHotels(); // This refreshes all hotels and their floor counts
       if (selectedHotel) {
@@ -333,7 +335,7 @@ const HotelFloorManagement = () => {
     try {
       await api.delete(`/hotel-floors/${floorId}/`);
       toast.success('Floor deleted successfully');
-      
+
       // Refresh floors - both all hotels and the specific hotel if one is selected
       await fetchHotels();
       if (selectedHotel) {
@@ -645,14 +647,18 @@ const HotelFloorManagement = () => {
               <p className="text-muted">Create floors first, then assign rooms and beds</p>
             </Col>
             <Col className="text-end">
-              <Button variant="primary" onClick={() => setShowBulkFloorsModal(true)} className="me-2">
-                <Plus size={18} className="me-1" />
-                Add Floors to Hotel
-              </Button>
-              <Button variant="outline-primary" onClick={openAddFloorModal}>
-                <Plus size={18} className="me-1" />
-                Add Single Floor
-              </Button>
+              {hasPermission('add_floor_management_admin') && (
+                <>
+                  <Button variant="primary" onClick={() => setShowBulkFloorsModal(true)} className="me-2">
+                    <Plus size={18} className="me-1" />
+                    Add Floors to Hotel
+                  </Button>
+                  <Button variant="outline-primary" onClick={openAddFloorModal}>
+                    <Plus size={18} className="me-1" />
+                    Add Single Floor
+                  </Button>
+                </>
+              )}
             </Col>
           </Row>
 
@@ -847,23 +853,27 @@ const HotelFloorManagement = () => {
                                   <DoorOpen size={16} className="me-1" />
                                   Manage Rooms
                                 </Button>
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  onClick={() => openEditFloorModal(floor)}
-                                  className="me-2"
-                                >
-                                  <Edit2 size={16} className="me-1" />
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="outline-danger"
-                                  size="sm"
-                                  onClick={() => handleDeleteFloor(floor.id)}
-                                >
-                                  <Trash2 size={16} className="me-1" />
-                                  Delete
-                                </Button>
+                                {hasPermission('edit_floor_management_admin') && (
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    onClick={() => openEditFloorModal(floor)}
+                                    className="me-2"
+                                  >
+                                    <Edit2 size={16} className="me-1" />
+                                    Edit
+                                  </Button>
+                                )}
+                                {hasPermission('delete_floor_management_admin') && (
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    onClick={() => handleDeleteFloor(floor.id)}
+                                  >
+                                    <Trash2 size={16} className="me-1" />
+                                    Delete
+                                  </Button>
+                                )}
                               </td>
                             </tr>
                           ))

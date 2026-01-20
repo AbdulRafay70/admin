@@ -6,8 +6,10 @@ import { NavLink } from "react-router-dom";
 import { Search } from "lucide-react";
 import axios from "axios";
 import { formatDateTimeForInput } from "../../utils/dateUtils";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const TicketDetail = () => {
+  const { hasPermission } = usePermission();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -510,13 +512,15 @@ const TicketDetail = () => {
                     <div className="card border-0">
                       <div className="card-header border-0 bg-white d-flex justify-content-between align-items-center">
                         <h5 className="mb-0 fw-bold">Ticket (Details)</h5>
-                        <button
-                          className="btn text-white"
-                          style={{ background: "#1976D2" }}
-                          onClick={handleEdit}
-                        >
-                          Edit
-                        </button>
+                        {hasPermission('edit_ticket_admin') && (
+                          <button
+                            className="btn text-white"
+                            style={{ background: "#1976D2" }}
+                            onClick={handleEdit}
+                          >
+                            Edit
+                          </button>
+                        )}
                       </div>
                       <div
                         className="card-body rounded-5"
@@ -916,16 +920,20 @@ const TicketDetail = () => {
                       <button className="btn btn-primary px-4">
                         Save and close
                       </button>
-                      <button className="btn btn-primary px-4">
+                      <button
+                        className="btn btn-primary px-4"
+                      >
                         Close Booking
                       </button>
-                      <button
-                        className="btn btn-danger"
-                        onClick={handleDelete}
-                        disabled={loading}
-                      >
-                        Delete
-                      </button>
+                      {hasPermission('delete_ticket_admin') && (
+                        <button
+                          className="btn btn-danger"
+                          onClick={handleDelete}
+                          disabled={loading}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

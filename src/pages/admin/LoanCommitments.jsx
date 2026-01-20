@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 import "./styles/loan-commitments.css";
 
 const todayStr = () => {
@@ -8,6 +9,35 @@ const todayStr = () => {
 };
 
 const LoanCommitments = () => {
+  // Permission hook
+  const { hasPermission } = usePermission();
+
+  // User data to check if user has branches
+  const [userData, setUserData] = useState(null);
+
+  // Fetch user data on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          setUserData(payload);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Check if user has branches (is a branch/employee user)
+  const hasBranches = (userData?.branches && userData.branches.length > 0) ||
+    userData?.user_type === 'subagent';
+
+  console.log('LoanCommitments - User Data:', userData);
+  console.log('LoanCommitments - Has Branches:', hasBranches);
+
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -128,7 +158,7 @@ const LoanCommitments = () => {
                 <th>Loan Amount</th>
                 <th>Promised Clear Date</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {hasBranches && hasPermission('edit_loan_admin') && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -138,12 +168,16 @@ const LoanCommitments = () => {
                   <td>PKR {Number(lead.loan_amount || 0).toLocaleString()}</td>
                   <td>{lead.promised_clear_date || lead.next_followup_date || "-"}</td>
                   <td>{lead.loan_status || lead.status || "pending"}</td>
-                  <td>
-                    <button className="btn btn-sm btn-outline-primary me-2" onClick={() => openModal(lead)}>Add / Update</button>
-                    {lead.loan_status !== "cleared" && (
-                      <button className="btn btn-sm btn-success" onClick={() => markCleared(lead)}>Mark Cleared</button>
-                    )}
-                  </td>
+                  {hasBranches && hasPermission('edit_loan_admin') && (
+                    <td>
+                      {(hasPermission('add_loan_admin') || hasPermission('edit_loan_admin')) && (
+                        <button className="btn btn-sm btn-outline-primary me-2" onClick={() => openModal(lead)}>Add / Update</button>
+                      )}
+                      {hasPermission('edit_loan_admin') && lead.loan_status !== "cleared" && (
+                        <button className="btn btn-sm btn-success" onClick={() => markCleared(lead)}>Mark Cleared</button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

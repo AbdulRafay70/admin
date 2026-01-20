@@ -51,11 +51,25 @@ const AdminLogin = () => {
       });
 
       if (!response.ok) {
-        throw new Error(
-          response.status === 401
-            ? "Invalid credentials"
-            : "Login failed. Please try again."
-        );
+        // Try to extract error message from response
+        let errorMessage = "Login failed. Please try again.";
+        try {
+          const errorData = await response.json();
+          // Check for permission error or other detailed errors
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.non_field_errors && errorData.non_field_errors.length > 0) {
+            errorMessage = errorData.non_field_errors[0];
+          } else if (response.status === 401) {
+            errorMessage = "Invalid credentials";
+          }
+        } catch (e) {
+          // If JSON parsing fails, use status-based message
+          if (response.status === 401) {
+            errorMessage = "Invalid credentials";
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();

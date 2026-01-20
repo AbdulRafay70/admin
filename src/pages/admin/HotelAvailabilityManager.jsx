@@ -14,9 +14,11 @@ import {
 import api from "../../utils/Api";
 import { jwtDecode } from 'jwt-decode';
 import HotelRulesSection from "../../components/HotelRulesSection";
+import { usePermission } from "../../contexts/EnhancedPermissionContext";
 
 const HotelAvailabilityManager = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermission();
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState("");
   const [distanceFilter, setDistanceFilter] = useState("");
@@ -2005,27 +2007,31 @@ const HotelAvailabilityManager = () => {
                 <p className="text-muted mb-0">Manage hotels, rooms, pricing, and availability</p>
               </div>
               <div className="d-flex gap-2">
-                <Button
-                  variant="outline-primary"
-                  onClick={async () => { setShowCategoryModal(true); await fetchCategories(); }}
-                >
-                  <Plus size={20} className="me-2" />
-                  Add Category
-                </Button>
-                <Button
-                  variant="outline-primary"
-                  onClick={openAddBedType}
-                >
-                  <Plus size={20} className="me-2" />
-                  Add Bed Type
-                </Button>
-                <Button
-                  style={{ backgroundColor: "#1B78CE", border: "none" }}
-                  onClick={openAddModal}
-                >
-                  <Plus size={20} className="me-2" />
-                  Add New Hotel
-                </Button>
+                {hasPermission('add_hotel_admin') && (
+                  <>
+                    <Button
+                      variant="outline-primary"
+                      onClick={async () => { setShowCategoryModal(true); await fetchCategories(); }}
+                    >
+                      <Plus size={20} className="me-2" />
+                      Add Category
+                    </Button>
+                    <Button
+                      variant="outline-primary"
+                      onClick={openAddBedType}
+                    >
+                      <Plus size={20} className="me-2" />
+                      Add Bed Type
+                    </Button>
+                    <Button
+                      style={{ backgroundColor: "#1B78CE", border: "none" }}
+                      onClick={openAddModal}
+                    >
+                      <Plus size={20} className="me-2" />
+                      Add New Hotel
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -2646,36 +2652,45 @@ const HotelAvailabilityManager = () => {
                                       <Dropdown.Item onClick={() => { setSelectedHotel(hotel); setShowViewModal(true); }}>
                                         <Eye size={14} className="me-2" /> View Details
                                       </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => {
-                                          if (isOwner) navigate(`/hotels/edit-details/${hotel.id}`);
-                                          else { setSelectedHotel(hotel); setShowResellerPopup(true); }
-                                        }}
-                                        title={isOwner ? "Edit Hotel Details" : "Click to see why editing is disabled"}
-                                      >
-                                        <Edit2 size={14} className="me-2" /> Edit Details
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => {
-                                          if (isOwner) navigate(`/hotels/edit-pricing/${hotel.id}`);
-                                          else { setSelectedHotel(hotel); setShowResellerPopup(true); }
-                                        }}
-                                        title={isOwner ? "Edit Hotel Pricing" : "Click to see why editing is disabled"}
-                                      >
-                                        <DollarSign size={14} className="me-2" /> Edit Pricing
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => { if (isOwner) openEditModal(hotel); else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
-                                        title={isOwner ? "Edit Hotel" : "Click to see why editing is disabled"}
-                                      >
-                                        <Edit2 size={14} className="me-2" /> Edit (Legacy)
-                                      </Dropdown.Item>
-                                      <Dropdown.Item
-                                        onClick={() => { if (isOwner) { setSelectedHotel(hotel); setShowDeleteModal(true); } else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
-                                        title={isOwner ? "Delete Hotel" : "Deleting disabled for resellers"}
-                                      >
-                                        <Trash2 size={14} className="me-2" /> Delete
-                                      </Dropdown.Item>
+                                      {hasPermission('edit_hotel_admin') && (
+                                        <>
+                                          <Dropdown.Item
+                                            onClick={() => {
+                                              if (isOwner) navigate(`/hotels/edit-details/${hotel.id}`);
+                                              else { setSelectedHotel(hotel); setShowResellerPopup(true); }
+                                            }}
+                                            title={isOwner ? "Edit Hotel Details" : "Click to see why editing is disabled"}
+                                          >
+                                            <Edit2 size={14} className="me-2" /> Edit Details
+                                          </Dropdown.Item>
+                                          <Dropdown.Item
+                                            onClick={() => {
+                                              if (isOwner) navigate(`/hotels/edit-pricing/${hotel.id}`);
+                                              else { setSelectedHotel(hotel); setShowResellerPopup(true); }
+                                            }}
+                                            title={isOwner ? "Edit Hotel Pricing" : "Click to see why editing is disabled"}
+                                          >
+                                            <DollarSign size={14} className="me-2" /> Edit Pricing
+                                          </Dropdown.Item>
+                                          <Dropdown.Item
+                                            onClick={() => { if (isOwner) openEditModal(hotel); else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
+                                            title={isOwner ? "Edit Hotel" : "Click to see why editing is disabled"}
+                                          >
+                                            <Edit2 size={14} className="me-2" /> Edit (Legacy)
+                                          </Dropdown.Item>
+                                        </>
+                                      )}
+                                      {hasPermission('delete_hotel_admin') && (
+                                        <Dropdown.Item
+                                          onClick={() => { if (isOwner) { setSelectedHotel(hotel); setShowDeleteModal(true); } else { setSelectedHotel(hotel); setShowResellerPopup(true); } }}
+                                          title={isOwner ? "Delete Hotel" : "Deleting disabled for resellers"}
+                                        >
+                                          <Trash2 size={14} className="me-2" /> Delete
+                                        </Dropdown.Item>
+                                      )}
+                                      {!hasPermission('edit_hotel_admin') && !hasPermission('delete_hotel_admin') && (
+                                        <Dropdown.Item disabled>No actions available</Dropdown.Item>
+                                      )}
                                     </Dropdown.Menu>
                                   </Dropdown>
                                 );
