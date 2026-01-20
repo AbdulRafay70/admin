@@ -101,6 +101,7 @@ import CommissionsPage from "./pages/hr/CommissionsPage";
 import PunctualityPage from "./pages/hr/PunctualityPage";
 import ApprovalsPage from "./pages/hr/ApprovalsPage";
 import PaymentsPage from "./pages/hr/PaymentsPage";
+import PublicUserDashboard from "./pages/PublicUserDashboard";
 
 function App() {
   return (
@@ -388,6 +389,15 @@ function App() {
                 </PrivateRoute>
               }
             />
+
+           <Route
+            path="/public-users"
+            element={
+              <PrivateRoute>
+                <PublicUserDashboard />
+              </PrivateRoute>
+            }
+          /> 
             <Route
               path="/admin/partners/branche"
               element={
@@ -781,6 +791,30 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route
+              path="/blog-builder"
+              element={
+                <PrivateRoute>
+                  <BlogBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blog-builder/:id"
+              element={
+                <PrivateRoute>
+                  <BlogBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blog-view/:id"
+              element={
+                <PrivateRoute>
+                  <BlogView />
+                </PrivateRoute>
+              }
+            />
 
             {/* Lead Management Routes */}
             <Route
@@ -855,6 +889,14 @@ function App() {
             {/* Form Builder System Routes */}
             <Route
               path="/form-builder"
+              element={
+                <PrivateRoute>
+                  <FormBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/form-builder/:id"
               element={
                 <PrivateRoute>
                   <FormBuilder />

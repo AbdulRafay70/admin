@@ -164,14 +164,25 @@ const HotelFloorManagement = () => {
       // Extract floors grouped by hotel
       const floorsByHotel = {};
 
+      // Create a map of hotel ID to city name from hotel-floors API
+      const hotelCityMap = {};
+
       if (Array.isArray(hotelsWithFloors)) {
         hotelsWithFloors.forEach(hotel => {
           // Store floors by hotel ID (use string keys)
           floorsByHotel[hotel.id.toString()] = hotel.floors || [];
+          // Store city name from hotel-floors API
+          hotelCityMap[hotel.id.toString()] = hotel.city;
         });
       }
 
-      setHotels(hotelsData);
+      // Merge city names into hotels data
+      const hotelsWithCityNames = hotelsData.map(hotel => ({
+        ...hotel,
+        city: hotelCityMap[hotel.id.toString()] || hotel.city
+      }));
+
+      setHotels(hotelsWithCityNames);
       setHotelFloors(floorsByHotel);
     } catch (error) {
       console.error('Error fetching hotels:', error);

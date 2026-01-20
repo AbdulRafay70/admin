@@ -613,7 +613,11 @@ const Sidebar = () => {
                   </NavLink>
                 </Nav.Item>
               )}
-
+              <Nav.Item className="mb-3">
+                  <NavLink to="/public-users" className={getNavLinkClass}>
+                    <Users size={20} /> <span className="fs-6">Public Users</span>
+                  </NavLink>
+                </Nav.Item>
               {/* Payment - Smart routing based on permissions */}
               {hasAnyPermission([
                 'view_ledger_admin', 'view_financial_ledger_admin',

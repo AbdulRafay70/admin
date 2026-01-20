@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Table, Form, Badge, Modal, Alert, Tab, Nav } from 'react-bootstrap';
-import { Plus, Edit2, Trash2, Eye, Search, Copy, CheckCircle, AlertCircle, Layers } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Card, Button, Table, Form, Badge, Modal, Alert, Tab, Nav, Spinner } from 'react-bootstrap';
+import { Plus, Edit2, Trash2, Eye, Search, Copy, CheckCircle, AlertCircle, Layers, FileText } from 'lucide-react';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import axios from 'axios';
 import '../../styles/form-system.css';
 import { usePermission } from '../../contexts/EnhancedPermissionContext';
 
@@ -10,83 +11,67 @@ const FormList = () => {
   const { hasPermission } = usePermission();
   const [activeTab, setActiveTab] = useState('list');
 
-  // Demo Forms Data
-  const [forms, setForms] = useState([
-    {
-      id: 1,
-      form_unique_id: 'UMRLEAD2025',
-      form_title: 'Umrah Leads Form',
-      linked_blog_id: 1,
-      is_linked_with_blog: true,
-      form_page_url: '/forms/umrah-leads-form/',
-      display_position: 'end_of_blog',
-      status: 'active',
-      field_count: 4,
-      button_count: 2,
-      created_at: '2025-10-15',
-      submissions: 47,
-      fields: [
-        { label: 'Full Name', type: 'text', required: true, width: 'full' },
-        { label: 'Contact Number', type: 'text', required: true, width: 'half' },
-        { label: 'Package Type', type: 'dropdown', required: true, width: 'half', options: ['Economy', 'Premium', '5-Star'] },
-        { label: 'Message', type: 'textarea', required: false, width: 'full' }
-      ],
-      buttons: [
-        { label: 'Submit', action: 'submit' },
-        { label: 'Call Now', action: 'redirect', url: 'tel:+923001234567' }
-      ]
-    },
-    {
-      id: 2,
-      form_unique_id: 'VISALEAD2025',
-      form_title: 'Visa Application Form',
-      linked_blog_id: 2,
-      is_linked_with_blog: true,
-      form_page_url: '/forms/visa-application/',
-      display_position: 'sidebar',
-      status: 'active',
-      field_count: 6,
-      button_count: 1,
-      created_at: '2025-10-10',
-      submissions: 32,
-      fields: [
-        { label: 'Full Name', type: 'text', required: true },
-        { label: 'Email', type: 'email', required: true },
-        { label: 'Passport Number', type: 'text', required: true },
-        { label: 'Visa Type', type: 'dropdown', required: true, options: ['Single', 'Multiple', 'Business'] },
-        { label: 'DOB', type: 'date', required: true },
-        { label: 'Comments', type: 'textarea', required: false }
-      ],
-      buttons: [
-        { label: 'Apply Now', action: 'submit' }
-      ]
-    },
-    {
-      id: 3,
-      form_unique_id: 'HOTELLEADS',
-      form_title: 'Hotel Booking Form',
-      linked_blog_id: null,
-      is_linked_with_blog: false,
-      form_page_url: '/forms/hotel-booking/',
-      display_position: 'standalone',
-      status: 'draft',
-      field_count: 5,
-      button_count: 2,
-      created_at: '2025-11-01',
-      submissions: 0,
-      fields: [
-        { label: 'Guest Name', type: 'text', required: true },
-        { label: 'Email', type: 'email', required: true },
-        { label: 'Check-in Date', type: 'date', required: true },
-        { label: 'Check-out Date', type: 'date', required: true },
-        { label: 'Room Preference', type: 'dropdown', required: true, options: ['Single', 'Double', 'Suite'] }
-      ],
-      buttons: [
-        { label: 'Book Now', action: 'submit' },
-        { label: 'View Hotels', action: 'redirect', url: '/hotels' }
-      ]
+  // Forms Data from API
+  const [forms, setForms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch forms from API
+  useEffect(() => {
+    fetchForms();
+  }, []);
+
+  const fetchForms = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get('http://127.0.0.1:8000/api/blog/forms/', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const formsData = response.data.results || response.data || [];
+
+      // Fetch submission counts for all forms
+      const formsWithSubmissions = await Promise.all(
+        formsData.map(async (form) => {
+          try {
+            const submissionsResponse = await axios.get('http://127.0.0.1:8000/api/blog/submissions/', {
+              params: { form: form.id },
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const submissionsData = submissionsResponse.data.results || submissionsResponse.data || [];
+
+            return {
+              ...form,
+              field_count: form.schema?.fields?.length || 0,
+              button_count: form.schema?.buttons?.length || 0,
+              fields: form.schema?.fields || [],
+              buttons: form.schema?.buttons || [],
+              submissions: submissionsData.length,
+              created_at: new Date(form.created_at).toLocaleDateString() || 'N/A'
+            };
+          } catch (error) {
+            console.error(`Error fetching submissions for form ${form.id}:`, error);
+            return {
+              ...form,
+              field_count: form.schema?.fields?.length || 0,
+              button_count: form.schema?.buttons?.length || 0,
+              fields: form.schema?.fields || [],
+              buttons: form.schema?.buttons || [],
+              submissions: 0,
+              created_at: new Date(form.created_at).toLocaleDateString() || 'N/A'
+            };
+          }
+        })
+      );
+
+      setForms(formsWithSubmissions);
+    } catch (error) {
+      console.error('Error fetching forms:', error);
+      showAlert('danger', 'Failed to load forms');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   // Filters
   const [filters, setFilters] = useState({
@@ -96,9 +81,12 @@ const FormList = () => {
   });
 
   // Modal States
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedForm, setSelectedForm] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [alert, setAlert] = useState(null);
 
   // Statistics Component
@@ -122,12 +110,44 @@ const FormList = () => {
     setTimeout(() => setAlert(null), 5000);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedForm) {
-      setForms(forms.filter(f => f.id !== selectedForm.id));
-      showAlert('success', `Form "${selectedForm.form_title}" deleted successfully`);
-      setShowDeleteModal(false);
-      setSelectedForm(null);
+      try {
+        const token = localStorage.getItem('accessToken');
+        await axios.delete(`http://127.0.0.1:8000/api/blog/forms/${selectedForm.id}/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setForms(forms.filter(f => f.id !== selectedForm.id));
+        showAlert('success', `Form "${selectedForm.name}" deleted successfully`);
+        setShowDeleteModal(false);
+        setSelectedForm(null);
+      } catch (error) {
+        console.error('Error deleting form:', error);
+        showAlert('danger', 'Failed to delete form');
+      }
+    }
+  };
+
+  const handleViewSubmissions = async (form) => {
+    setSelectedForm(form);
+    setShowSubmissionsModal(true);
+    setLoadingSubmissions(true);
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get(`http://127.0.0.1:8000/api/blog/submissions/`, {
+        params: { form: form.id },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setSubmissions(response.data.results || response.data || []);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      showAlert('danger', 'Failed to load submissions');
+      setSubmissions([]);
+    } finally {
+      setLoadingSubmissions(false);
     }
   };
 
@@ -315,78 +335,96 @@ const FormList = () => {
                   <Card.Title className="mb-0">Forms List ({filteredForms.length})</Card.Title>
                 </Card.Header>
                 <Card.Body className="p-0">
-                  <Table hover responsive className="mb-0">
-                    <thead>
-                      <tr>
-                        <th>Form Title</th>
-                        <th>Unique ID</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Fields</th>
-                        <th>Submissions</th>
-                        <th>Created</th>
-                        {(hasPermission('edit_form_admin') || hasPermission('delete_form_admin')) && (
-                          <th>Actions</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredForms.map(form => (
-                        <tr key={form.id}>
-                          <td>
-                            <strong>{form.form_title}</strong>
-                          </td>
-                          <td>
-                            <code>{form.form_unique_id}</code>
-                          </td>
-                          <td>
-                            <Badge bg={form.is_linked_with_blog ? 'info' : 'secondary'}>
-                              {form.is_linked_with_blog ? 'Blog Linked' : 'Standalone'}
-                            </Badge>
-                          </td>
-                          <td>
-                            <Badge bg={form.status === 'active' ? 'success' : form.status === 'draft' ? 'warning' : 'danger'}>
-                              {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
-                            </Badge>
-                          </td>
-                          <td>
-                            <span className="badge bg-light text-dark">{form.field_count} fields</span>
-                          </td>
-                          <td>
-                            <strong>{form.submissions}</strong>
-                          </td>
-                          <td><small>{form.created_at}</small></td>
+                  {loading ? (
+                    <div className="text-center py-5">
+                      <Spinner animation="border" variant="primary" />
+                      <p className="mt-3 text-muted">Loading forms...</p>
+                    </div>
+                  ) : forms.length === 0 ? (
+                    <div className="text-center py-5">
+                      <p className="text-muted">No forms found. Create your first form!</p>
+                      <Button variant="primary" size="sm" href="/form-builder" className="mt-2">
+                        <Plus size={16} className="me-2" />
+                        Create Form
+                      </Button>
+                    </div>
+                  ) : (
+                    <Table hover responsive className="mb-0">
+                      <thead>
+                        <tr>
+                          <th>Form Title</th>
+                          <th>Unique ID</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Fields</th>
+                          <th>Submissions</th>
+                          <th>Created</th>
                           {(hasPermission('edit_form_admin') || hasPermission('delete_form_admin')) && (
-                            <td>
-                              <div className="action-buttons">
-                                <Button variant="outline-info" size="sm" onClick={() => handleViewForm(form)} title="View">
-                                  <Eye size={16} />
-                                </Button>
-                                {hasPermission('edit_form_admin') && (
-                                  <Button variant="outline-primary" size="sm" href={`/form-builder/${form.id}`} title="Edit">
-                                    <Edit2 size={16} />
-                                  </Button>
-                                )}
-                                {hasPermission('delete_form_admin') && (
-                                  <Button
-                                    variant="outline-danger"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedForm(form);
-                                      setShowDeleteModal(true);
-                                    }}
-                                    title="Delete"
-                                  >
-                                    <Trash2 size={16} />
-                                  </Button>
-                                )}
-                              </div>
-                            </td>
+                            <th>Actions</th>
                           )}
                         </tr>
-                      ))}
-                    </tbody>
-                  </Table>
+                      </thead>
+                      <tbody>
+                        {filteredForms.map(form => (
+                          <tr key={form.id}>
+                            <td>
+                              <strong>{form.name || form.form_title}</strong>
+                            </td>
+                            <td>
+                              <code>{form.form_unique_id}</code>
+                            </td>
+                            <td>
+                              <Badge bg={form.is_linked_with_blog ? 'info' : 'secondary'}>
+                                {form.is_linked_with_blog ? 'Blog Linked' : 'Standalone'}
+                              </Badge>
+                            </td>
+                            <td>
+                              <Badge bg={form.active ? 'success' : 'warning'}>
+                                {form.active ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </td>
+                            <td>
+                              <span className="badge bg-light text-dark">{form.field_count} fields</span>
+                            </td>
+                            <td>
+                              <strong>{form.submissions}</strong>
+                            </td>
+                            <td><small>{form.created_at}</small></td>
+                            {(hasPermission('edit_form_admin') || hasPermission('delete_form_admin')) && (
+                              <td>
+                                <div className="action-buttons">
+                                  <Button variant="outline-info" size="sm" onClick={() => handleViewForm(form)} title="View">
+                                    <Eye size={16} />
+                                  </Button>
+                                  <Button variant="outline-success" size="sm" onClick={() => handleViewSubmissions(form)} title="View Submissions">
+                                    <FileText size={16} />
+                                  </Button>
+                                  {hasPermission('edit_form_admin') && (
+                                    <Button variant="outline-primary" size="sm" href={`/form-builder/${form.id}`} title="Edit">
+                                      <Edit2 size={16} />
+                                    </Button>
+                                  )}
+                                  {hasPermission('delete_form_admin') && (
+                                    <Button
+                                      variant="outline-danger"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedForm(form);
+                                        setShowDeleteModal(true);
+                                      }}
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={16} />
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  )}
                 </Card.Body>
               </Card>
             </>
@@ -547,6 +585,82 @@ const FormList = () => {
               </Button>
               <Button variant="danger" onClick={handleDelete}>
                 Delete Form
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
+          {/* Form Submissions Modal */}
+          <Modal show={showSubmissionsModal} onHide={() => setShowSubmissionsModal(false)} size="xl">
+            <Modal.Header closeButton>
+              <Modal.Title>
+                <FileText size={24} className="me-2" />
+                Form Submissions - {selectedForm?.name}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              {loadingSubmissions ? (
+                <div className="text-center py-5">
+                  <Spinner animation="border" variant="primary" />
+                  <p className="mt-3">Loading submissions...</p>
+                </div>
+              ) : submissions.length === 0 ? (
+                <div className="text-center py-5">
+                  <FileText size={48} className="text-muted mb-3" />
+                  <p className="text-muted">No submissions yet for this form</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-3">
+                    <strong>{submissions.length}</strong> submission{submissions.length !== 1 ? 's' : ''} received
+                  </p>
+                  <Table striped bordered hover responsive>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Submitted Data</th>
+                        <th>IP Address</th>
+                        <th>Status</th>
+                        <th>Submitted At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {submissions.map((submission, index) => (
+                        <tr key={submission.id}>
+                          <td>{index + 1}</td>
+                          <td>
+                            {submission.payload && typeof submission.payload === 'object' ? (
+                              <div>
+                                {Object.entries(submission.payload).map(([key, value]) => (
+                                  <div key={key} className="mb-2">
+                                    <strong>{key}:</strong> {String(value)}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted">No data</span>
+                            )}
+                          </td>
+                          <td>
+                            <small className="text-muted">{submission.submitter_ip || 'N/A'}</small>
+                          </td>
+                          <td>
+                            <Badge bg={submission.status === 'received' ? 'success' : 'warning'}>
+                              {submission.status}
+                            </Badge>
+                          </td>
+                          <td>
+                            <small>{new Date(submission.created_at).toLocaleString()}</small>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setShowSubmissionsModal(false)}>
+                Close
               </Button>
             </Modal.Footer>
           </Modal>

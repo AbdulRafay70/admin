@@ -25,12 +25,30 @@ const BlogView = () => {
     });
     const [submittingComment, setSubmittingComment] = useState(false);
 
+    // Linked Form State
+    const [linkedForms, setLinkedForms] = useState([]);
+    const [formData, setFormData] = useState({});
+    const [submittingForm, setSubmittingForm] = useState(false);
+
     // Alert
     const [alert, setAlert] = useState(null);
 
     useEffect(() => {
         fetchBlog();
     }, [slug]);
+
+    const fetchLinkedForms = async (blogId) => {
+        try {
+            const response = await axios.get('http://127.0.0.1:8000/api/blog/forms/', {
+                params: { linked_blog_id: blogId },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const forms = response.data.results || response.data || [];
+            setLinkedForms(forms.filter(form => form.is_linked_with_blog && form.linked_blog_id === blogId));
+        } catch (error) {
+            console.error('Error fetching linked forms:', error);
+        }
+    };
 
     const fetchBlog = async () => {
         try {
@@ -59,10 +77,13 @@ const BlogView = () => {
                     });
                     setBlog(detailResponse.data);
                     setComments(detailResponse.data.comments || []);
+                    // Fetch linked forms
+                    fetchLinkedForms(blogItem.id);
                 } catch (err) {
                     // Fallback to list item if detail fetch fails
                     setBlog(blogItem);
                     setComments([]);
+                    fetchLinkedForms(blogItem.id);
                 }
             } else {
                 showAlert('danger', 'Blog not found');
@@ -118,6 +139,35 @@ const BlogView = () => {
         } finally {
             setSubmittingComment(false);
         }
+    };
+
+    const handleFormSubmit = async (e, formId) => {
+        e.preventDefault();
+
+        try {
+            setSubmittingForm(true);
+            await axios.post(`http://127.0.0.1:8000/api/blog/forms/${formId}/submit/`, formData[formId] || {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            showAlert('success', 'Form submitted successfully! We will contact you soon.');
+            setFormData({ ...formData, [formId]: {} }); // Clear form data
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            showAlert('danger', 'Failed to submit form. Please try again.');
+        } finally {
+            setSubmittingForm(false);
+        }
+    };
+
+    const handleFormFieldChange = (formId, fieldLabel, value) => {
+        setFormData({
+            ...formData,
+            [formId]: {
+                ...(formData[formId] || {}),
+                [fieldLabel]: value
+            }
+        });
     };
 
     const renderComments = (commentsList, depth = 0) => {
@@ -355,6 +405,85 @@ const BlogView = () => {
                                         {section.content?.styling?.divider_color && (
                                             <hr style={{ borderColor: section.content.styling.divider_color }} />
                                         )}
+                                    </Card.Body>
+                                </Card>
+                            ))}
+
+                            {/* Linked Forms Section */}
+                            {linkedForms.filter(form => form.display_position === 'end_of_blog').map(form => (
+                                <Card key={form.id} className="mb-4 border-0 shadow-sm">
+                                    <Card.Header className="bg-primary text-white">
+                                        <h4 className="mb-0">{form.name}</h4>
+                                        {form.description && <p className="mb-0 mt-2 small">{form.description}</p>}
+                                    </Card.Header>
+                                    <Card.Body className="p-4">
+                                        <Form onSubmit={(e) => handleFormSubmit(e, form.id)}>
+                                            <Row>
+                                                {form.schema?.fields?.map((field, idx) => (
+                                                    <Col
+                                                        key={idx}
+                                                        md={field.width === 'half' ? 6 : field.width === 'third' ? 4 : 12}
+                                                        className="mb-3"
+                                                    >
+                                                        <Form.Group>
+                                                            <Form.Label>
+                                                                {field.label}
+                                                                {field.required && <span className="text-danger ms-1">*</span>}
+                                                            </Form.Label>
+                                                            {field.type === 'textarea' ? (
+                                                                <Form.Control
+                                                                    as="textarea"
+                                                                    rows={3}
+                                                                    placeholder={field.placeholder}
+                                                                    required={field.required}
+                                                                    value={formData[form.id]?.[field.label] || ''}
+                                                                    onChange={(e) => handleFormFieldChange(form.id, field.label, e.target.value)}
+                                                                />
+                                                            ) : field.type === 'dropdown' ? (
+                                                                <Form.Select
+                                                                    required={field.required}
+                                                                    value={formData[form.id]?.[field.label] || ''}
+                                                                    onChange={(e) => handleFormFieldChange(form.id, field.label, e.target.value)}
+                                                                >
+                                                                    <option value="">Select...</option>
+                                                                    {field.options?.map((opt, i) => (
+                                                                        <option key={i} value={opt}>{opt}</option>
+                                                                    ))}
+                                                                </Form.Select>
+                                                            ) : (
+                                                                <Form.Control
+                                                                    type={field.type}
+                                                                    placeholder={field.placeholder}
+                                                                    required={field.required}
+                                                                    value={formData[form.id]?.[field.label] || ''}
+                                                                    onChange={(e) => handleFormFieldChange(form.id, field.label, e.target.value)}
+                                                                />
+                                                            )}
+                                                        </Form.Group>
+                                                    </Col>
+                                                ))}
+                                            </Row>
+
+                                            <div className="d-flex gap-2 mt-3">
+                                                {form.schema?.buttons?.map((btn, idx) => (
+                                                    <Button
+                                                        key={idx}
+                                                        type={btn.action === 'submit' ? 'submit' : 'button'}
+                                                        variant={idx === 0 ? 'primary' : 'outline-secondary'}
+                                                        disabled={submittingForm}
+                                                        onClick={btn.action === 'redirect' ? () => window.location.href = btn.url : undefined}
+                                                    >
+                                                        {submittingForm && btn.action === 'submit' ? 'Submitting...' : btn.label}
+                                                    </Button>
+                                                ))}
+                                            </div>
+
+                                            {form.schema?.notes?.filter(n => n.position === 'below_submit_button').map((note, idx) => (
+                                                <Alert key={idx} variant="info" className="mt-3 mb-0">
+                                                    {note.text}
+                                                </Alert>
+                                            ))}
+                                        </Form>
                                     </Card.Body>
                                 </Card>
                             ))}

@@ -615,9 +615,21 @@ const HotelAvailabilityManager = () => {
         return;
       }
 
+      // Check for duplicate bed type name (case-insensitive)
+      const trimmedName = bedTypeForm.name.trim();
+      const isDuplicate = bedTypesList.some(bedType =>
+        bedType.name.toLowerCase() === trimmedName.toLowerCase() &&
+        (!editingBedType || bedType.id !== editingBedType.id)
+      );
+
+      if (isDuplicate) {
+        showAlert('error', `Bed type "${trimmedName}" already exists. Please use a different name.`);
+        return;
+      }
+
       const payload = {
-        name: bedTypeForm.name.trim(),
-        slug: bedTypeForm.slug.trim() || bedTypeForm.name.trim().toLowerCase().replace(/\s+/g, '-'),
+        name: trimmedName,
+        slug: bedTypeForm.slug.trim() || trimmedName.toLowerCase().replace(/\s+/g, '-'),
         capacity: parseInt(bedTypeForm.capacity) || 1,
       };
 

@@ -283,37 +283,40 @@ const TicketDetail = () => {
   const flightType = ticket.stopover_details.length === 0 ? "Non-Stop" : "With Stopovers";
 
   // Prepare passenger data from bookings API
-  const passengers = bookings.map((booking, index) => ({
-    sno: index + 1,
-    orderNo: booking.id || "N/A",
-    passportNo: booking.person_passport_number || "N/A",
-    group: booking.person_age_group || "N/A",
-    title: booking.person_title || "N/A",
-    gender: booking.person_title === "MR" ? "M" : (booking.person_title === "MRS" ? "F" : "N/A"),
-    firstName: booking.person_first_name || "N/A",
-    lastName: booking.person_last_name || "N/A",
-    dob: formatDate(booking.person_date_of_birth) || "N/A",
-    issueDate: booking.person_passpoet_issue_date ? formatDate(booking.person_passpoet_issue_date) : "N/A",
-    expiryDate: booking.person_passport_expiry_date ? formatDate(booking.person_passport_expiry_date) : "N/A",
-    country: booking.person_passport_country || "N/A",
-    ticketPrice: booking.person_ticket_price ? `Rs. ${booking.person_ticket_price.toLocaleString()}/-` : "N/A",
-    bookingStatus: booking.booking_status || "N/A",
-    bookingCategory: booking.booking_category || "N/A"
-  }));
+  // Each booking can have multiple person_details, so we need to flatten the array
+  const passengers = bookings.flatMap((booking) =>
+    (booking.person_details || []).map((person, personIndex) => ({
+      sno: personIndex + 1,
+      orderNo: booking.id || "N/A",
+      passportNo: person.passport_number || "N/A",
+      group: person.age_group || "N/A",
+      title: person.person_title || "N/A",
+      gender: person.person_title === "MR" ? "M" : (person.person_title === "MRS" || person.person_title === "MISS" ? "F" : "N/A"),
+      firstName: person.first_name || "N/A",
+      lastName: person.last_name || "N/A",
+      dob: formatDate(person.date_of_birth) || "N/A",
+      issueDate: person.passpoet_issue_date ? formatDate(person.passpoet_issue_date) : "N/A",
+      expiryDate: person.passport_expiry_date ? formatDate(person.passport_expiry_date) : "N/A",
+      country: person.country || "N/A",
+      ticketPrice: person.ticket_price ? `Rs. ${person.ticket_price.toLocaleString()}/-` : "N/A",
+      bookingStatus: booking.status || "N/A",
+      bookingCategory: booking.booking_type || "N/A"
+    }))
+  ).map((passenger, index) => ({ ...passenger, sno: index + 1 })); // Re-number after flattening
 
   // Prepare agent data from the first booking (assuming all bookings for this ticket have the same agency)
   const firstBooking = bookings[0];
-  const agentData = firstBooking ? {
-    agencyCode: firstBooking.id || "N/A",
-    name: firstBooking.agency_name || "N/A",
-    contactNo1: firstBooking.agency_phone || "N/A",
-    contactNo2: firstBooking.agency_name2 || "N/A",
-    address: firstBooking.agency_address || "N/A",
-    balance: firstBooking.total_ticket_amount_pkr ? `Rs. ${firstBooking.total_ticket_amount_pkr.toLocaleString()}/-` : "N/A",
-    agreementStatus: firstBooking.agency_agreement_status ? "Active" : "Inactive",
+  const agentData = firstBooking && firstBooking.agency ? {
+    agencyCode: firstBooking.agency.agency_code || "N/A",
+    name: firstBooking.agency.name || "N/A",
+    contactNo1: firstBooking.agency.phone_number || "N/A",
+    contactNo2: "N/A", // Not available in API
+    address: firstBooking.agency.address || "N/A",
+    balance: "N/A", // Not directly available
+    agreementStatus: firstBooking.agency.agreement_status ? "Active" : "Inactive",
     bookedAmount: firstBooking.total_ticket_amount_pkr ? `Rs. ${firstBooking.total_ticket_amount_pkr.toLocaleString()}/-` : "N/A",
-    email: firstBooking.agency_email || "N/A",
-    logo: firstBooking.agency_logo || null
+    email: firstBooking.agency.email || "N/A",
+    logo: firstBooking.agency.logo || null
   } : {
     agencyCode: "N/A",
     name: "N/A",
@@ -738,38 +741,6 @@ const TicketDetail = () => {
                                   </td>
                                   <td className="text-muted">
                                     {passenger.lastName}
-                                    {/* Return Trip Details (if available) */}
-                                    {returnTripData && (
-                                      <div className="row mb-4">
-                                        <div className="col-12">
-                                          <div className="card border-0">
-                                            <div className="card-header border-0 bg-white">
-                                              <h5 className="mb-0 fw-bold">Return Trip (Details)</h5>
-                                            </div>
-                                            <div className="card-body rounded-5" style={{ background: "#F3FAFF" }}>
-                                              <div className="row">
-                                                <div className="col-md-3 mb-2">
-                                                  <small className="fw-bold">Departure Date & Time</small>
-                                                  <div className="text-muted">{returnTripData.departureDate}</div>
-                                                </div>
-                                                <div className="col-md-3 mb-2">
-                                                  <small className="fw-bold">Arrival Date & Time</small>
-                                                  <div className="text-muted">{returnTripData.arrivalDate}</div>
-                                                </div>
-                                                <div className="col-md-3 mb-2">
-                                                  <small className="fw-bold">Departure</small>
-                                                  <div className="text-muted">{returnTripData.departure}</div>
-                                                </div>
-                                                <div className="col-md-3 mb-2">
-                                                  <small className="fw-bold">Arrival</small>
-                                                  <div className="text-muted">{returnTripData.arrival}</div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
                                   </td>
                                   <td className="text-muted">{passenger.dob}</td>
                                   <td className="text-muted">
@@ -803,18 +774,50 @@ const TicketDetail = () => {
                               ))
                             ) : (
                               <tr>
-                                <td colSpan="13" className="text-center text-muted py-3">
+                                <td colSpan="14" className="text-center text-muted py-3">
                                   No passengers found for this ticket
                                 </td>
                               </tr>
                             )}
                           </tbody>
                         </table>
-                        {/* </div> */}
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Return Trip Details (if available) - Moved outside table */}
+                {returnTripData && (
+                  <div className="row mb-4">
+                    <div className="col-12">
+                      <div className="card border-0">
+                        <div className="card-header border-0 bg-white">
+                          <h5 className="mb-0 fw-bold">Return Trip (Details)</h5>
+                        </div>
+                        <div className="card-body rounded-5" style={{ background: "#F3FAFF" }}>
+                          <div className="row">
+                            <div className="col-md-3 mb-2">
+                              <small className="fw-bold">Departure Date & Time</small>
+                              <div className="text-muted">{returnTripData.departureDate}</div>
+                            </div>
+                            <div className="col-md-3 mb-2">
+                              <small className="fw-bold">Arrival Date & Time</small>
+                              <div className="text-muted">{returnTripData.arrivalDate}</div>
+                            </div>
+                            <div className="col-md-3 mb-2">
+                              <small className="fw-bold">Departure</small>
+                              <div className="text-muted">{returnTripData.departure}</div>
+                            </div>
+                            <div className="col-md-3 mb-2">
+                              <small className="fw-bold">Arrival</small>
+                              <div className="text-muted">{returnTripData.arrival}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Agent Details */}
                 {!bookingsLoading && bookings.length > 0 && (

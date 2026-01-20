@@ -69,6 +69,9 @@ const Partners = ({ embed = false }) => {
   const [formErrors, setFormErrors] = useState({});
   const [showErrorAlert, setShowErrorAlert] = useState(false);
   const [selectedBranchForAgency, setSelectedBranchForAgency] = useState(null);
+  const [hrEmployees, setHrEmployees] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   const [partnerForm, setPartnerForm] = useState({
     first_name: "",
@@ -268,6 +271,21 @@ const Partners = ({ embed = false }) => {
     }
   };
 
+  // Fetch HR Employees
+  const fetchHREmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const response = await axios.get(`http://127.0.0.1:8000/api/hr/employees/`, axiosConfig);
+      const data = response.data || [];
+      setHrEmployees(data);
+    } catch (error) {
+      console.error("Error fetching HR employees:", error);
+      setHrEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
   // Get agency details for a partner
   const getPartnerAgency = (partner) => {
     if (!partner.profile || partner.profile.type !== "agent") return null;
@@ -396,6 +414,7 @@ const Partners = ({ embed = false }) => {
       },
     });
     setSelectedBranchForAgency(null);
+    setSelectedEmployee(null);
     setShowModal(true);
   };
 
@@ -1128,13 +1147,67 @@ const Partners = ({ embed = false }) => {
                   value={options.find(
                     (opt) => opt.value === partnerForm.profile.type
                   )}
-                  onChange={(selected) =>
+                  onChange={(selected) => {
+                    const selectedType = selected ? selected.value : "";
                     handleChange({
-                      target: { name: "profile.type", value: selected ? selected.value : "" },
-                    })
-                  }
+                      target: { name: "profile.type", value: selectedType },
+                    });
+                    // Fetch HR employees when type is employee
+                    if (selectedType === "employee" && hrEmployees.length === 0) {
+                      fetchHREmployees();
+                    }
+                    // Reset selected employee when type changes
+                    setSelectedEmployee(null);
+                  }}
                 />
               </div>
+
+              {/* Employee Selector - Only show for employee type */}
+              {partnerForm.profile.type === "employee" && (
+                <div className="mb-3">
+                  <label htmlFor="" className="Control-label">Select Employee from HR Database</label>
+                  <Select
+                    options={hrEmployees.map(emp => ({
+                      value: emp.id,
+                      label: `${emp.id} - ${emp.first_name} ${emp.last_name}`,
+                      employee: emp
+                    }))}
+                    value={selectedEmployee ? {
+                      value: selectedEmployee.id,
+                      label: `${selectedEmployee.id} - ${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+                    } : null}
+                    onChange={(selected) => {
+                      if (selected) {
+                        const employee = selected.employee;
+                        setSelectedEmployee(employee);
+                        // Auto-populate fields from selected employee
+                        setPartnerForm(prev => ({
+                          ...prev,
+                          first_name: employee.first_name || "",
+                          last_name: employee.last_name || "",
+                          email: employee.email || "",
+                        }));
+                      } else {
+                        setSelectedEmployee(null);
+                        setPartnerForm(prev => ({
+                          ...prev,
+                          first_name: "",
+                          last_name: "",
+                          email: "",
+                        }));
+                      }
+                    }}
+                    isLoading={loadingEmployees}
+                    placeholder="Select an employee..."
+                    isClearable
+                  />
+                  {selectedEmployee && (
+                    <small className="text-muted">
+                      Employee selected. Personal information fields are auto-populated and locked.
+                    </small>
+                  )}
+                </div>
+              )}
 
               {/* Basic Info Fields */}
               <div className="mb-3">
@@ -1147,7 +1220,12 @@ const Partners = ({ embed = false }) => {
                   placeholder="Full Name"
                   value={partnerForm.first_name}
                   onChange={handleChange}
+                  disabled={partnerForm.profile.type === "employee" && selectedEmployee}
+                  style={partnerForm.profile.type === "employee" && selectedEmployee ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}}
                 />
+                {partnerForm.profile.type === "employee" && selectedEmployee && (
+                  <small className="text-muted">This field is auto-populated from HR database</small>
+                )}
               </div>
 
               <div className="mb-3">
@@ -1159,7 +1237,12 @@ const Partners = ({ embed = false }) => {
                   placeholder="Last Name"
                   value={partnerForm.last_name}
                   onChange={handleChange}
+                  disabled={partnerForm.profile.type === "employee" && selectedEmployee}
+                  style={partnerForm.profile.type === "employee" && selectedEmployee ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}}
                 />
+                {partnerForm.profile.type === "employee" && selectedEmployee && (
+                  <small className="text-muted">This field is auto-populated from HR database</small>
+                )}
               </div>
 
               <div className="mb-3">
@@ -1172,7 +1255,12 @@ const Partners = ({ embed = false }) => {
                   placeholder="Email"
                   value={partnerForm.email}
                   onChange={handleChange}
+                  disabled={partnerForm.profile.type === "employee" && selectedEmployee}
+                  style={partnerForm.profile.type === "employee" && selectedEmployee ? { backgroundColor: '#f0f0f0', cursor: 'not-allowed' } : {}}
                 />
+                {partnerForm.profile.type === "employee" && selectedEmployee && (
+                  <small className="text-muted">This field is auto-populated from HR database</small>
+                )}
               </div>
 
               <div className="mb-3">

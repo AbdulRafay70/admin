@@ -1,23 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Badge, Modal, Alert, Tabs, Tab } from 'react-bootstrap';
 import { Plus, Trash2, Copy, Eye, Save, RotateCcw, GripVertical } from 'lucide-react';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import axios from 'axios';
+import { useParams } from 'react-router-dom';
 import '../../styles/form-system.css';
 
 const FormBuilder = () => {
+  const { id } = useParams(); // Get form ID from URL for edit mode
+  const isEditMode = !!id;
+
   // Form Configuration
   const [formConfig, setFormConfig] = useState({
-    form_title: 'My Custom Form',
+    form_title: '',
     linked_blog_id: null,
     is_linked_with_blog: false,
-    form_page_url: '/forms/my-custom-form/',
+    form_page_url: '',
     display_position: 'end_of_blog',
-    fields: [
-      { id: 1, label: 'Full Name', type: 'text', placeholder: 'Enter your name', required: true, width: 'full' },
-      { id: 2, label: 'Email', type: 'email', placeholder: 'your@email.com', required: true, width: 'half' },
-      { id: 3, label: 'Contact', type: 'text', placeholder: '03xxxxxxxxx', required: true, width: 'half' }
-    ],
+    fields: [],
     buttons: [
       { id: 1, label: 'Submit', action: 'submit' }
     ],
@@ -30,6 +31,60 @@ const FormBuilder = () => {
   const [selectedFieldIdx, setSelectedFieldIdx] = useState(null);
   const [fieldData, setFieldData] = useState({});
   const [alert, setAlert] = useState(null);
+  const [blogs, setBlogs] = useState([]);
+  const [loadingBlogs, setLoadingBlogs] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch blogs and form data when component mounts
+  useEffect(() => {
+    fetchBlogs();
+    if (isEditMode) {
+      fetchFormData();
+    }
+  }, [id]);
+
+  const fetchFormData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get(`http://127.0.0.1:8000/api/blog/forms/${id}/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const form = response.data;
+      setFormConfig({
+        form_title: form.name || '',
+        linked_blog_id: form.linked_blog_id,
+        is_linked_with_blog: form.is_linked_with_blog || false,
+        form_page_url: form.form_page_url || '',
+        display_position: form.display_position || 'end_of_blog',
+        fields: form.schema?.fields || [],
+        buttons: form.schema?.buttons || [{ id: 1, label: 'Submit', action: 'submit' }],
+        notes: form.schema?.notes || []
+      });
+    } catch (error) {
+      console.error('Error fetching form:', error);
+      showAlert('danger', 'Failed to load form data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchBlogs = async () => {
+    try {
+      setLoadingBlogs(true);
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get('http://127.0.0.1:8000/api/blog/blogs/', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setBlogs(response.data.results || response.data || []);
+    } catch (error) {
+      console.error('Error fetching blogs:', error);
+      showAlert('warning', 'Could not load blogs list');
+    } finally {
+      setLoadingBlogs(false);
+    }
+  };
 
   const fieldTypes = [
     { value: 'text', label: 'Text Input' },
@@ -102,12 +157,77 @@ const FormBuilder = () => {
     setFormConfig({ ...formConfig, buttons: formConfig.buttons.filter((_, i) => i !== idx) });
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
+    // Validation
     if (!formConfig.form_title) {
       showAlert('danger', 'Form title is required');
       return;
     }
-    showAlert('success', 'Form saved successfully! Form ID: ' + Math.random().toString(36).substring(7).toUpperCase());
+
+    if (formConfig.fields.length === 0) {
+      showAlert('danger', 'Please add at least one field to the form');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+
+      // Prepare form data for API
+      const formData = {
+        name: formConfig.form_title,
+        slug: formConfig.form_title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        is_linked_with_blog: formConfig.is_linked_with_blog,
+        linked_blog_id: formConfig.is_linked_with_blog ? formConfig.linked_blog_id : null,
+        display_position: formConfig.display_position,
+        active: true,
+        schema: {
+          fields: formConfig.fields,
+          buttons: formConfig.buttons,
+          notes: formConfig.notes
+        }
+      };
+
+      let response;
+      if (isEditMode) {
+        // Update existing form with PUT
+        response = await axios.put(
+          `http://127.0.0.1:8000/api/blog/forms/${id}/`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        showAlert('success', 'Form updated successfully!');
+      } else {
+        // Create new form with POST
+        response = await axios.post(
+          'http://127.0.0.1:8000/api/blog/forms/',
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        showAlert('success', `Form created successfully!`);
+      }
+
+      // Redirect to form list after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/form-list';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error saving form:', error);
+      const errorMessage = error.response?.data?.detail ||
+        error.response?.data?.message ||
+        'Failed to save form. Please try again.';
+      showAlert('danger', errorMessage);
+    }
   };
 
   const handleUpdateConfig = (key, value) => {
@@ -118,7 +238,7 @@ const FormBuilder = () => {
     <div className="d-flex">
       <Sidebar />
       <Container fluid className="p-0">
-        <Header title="Form Builder" />
+        <Header title={isEditMode ? "Edit Form" : "Form Builder"} />
 
         <div className="form-builder py-4 px-4">
           {alert && (
@@ -162,13 +282,30 @@ const FormBuilder = () => {
 
                   {formConfig.is_linked_with_blog && (
                     <Form.Group className="mb-3">
-                      <Form.Label>Blog Post ID</Form.Label>
-                      <Form.Control
-                        type="number"
+                      <Form.Label>Select Blog Post *</Form.Label>
+                      <Form.Select
                         value={formConfig.linked_blog_id || ''}
                         onChange={(e) => handleUpdateConfig('linked_blog_id', e.target.value ? parseInt(e.target.value) : null)}
-                        placeholder="e.g., 12"
-                      />
+                        disabled={loadingBlogs}
+                      >
+                        <option value="">-- Select a Blog --</option>
+                        {blogs.map(blog => (
+                          <option key={blog.id} value={blog.id}>
+                            ID: {blog.id} - {blog.title}
+                          </option>
+                        ))}
+                      </Form.Select>
+                      {loadingBlogs && (
+                        <small className="text-muted d-block mt-1">Loading blogs...</small>
+                      )}
+                      {!loadingBlogs && blogs.length === 0 && (
+                        <small className="text-warning d-block mt-1">No blogs found. Create a blog first.</small>
+                      )}
+                      {formConfig.linked_blog_id && (
+                        <small className="text-success d-block mt-1">
+                          ✓ Selected Blog ID: {formConfig.linked_blog_id}
+                        </small>
+                      )}
                     </Form.Group>
                   )}
 

@@ -2614,6 +2614,13 @@ const OrderList = () => {
                 >
                   Customer Orders
                 </button>
+
+                <button
+                  className={`btn ${activeTab === "Booking Split" ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => handleTabChange("Booking Split")}
+                >
+                  Booking Split
+                </button>
               </div>
 
               {/* Paid/Unpaid display buttons - only show for Customer Orders */}
@@ -2727,6 +2734,127 @@ const OrderList = () => {
             </div>
           </div>
 
+          {/* Booking Split Tab Content */}
+          {activeTab === "Booking Split" && (
+            <div className="mt-4">
+              <div className="alert alert-info mb-4">
+                <h5 className="mb-2">📋 Booking Split Management</h5>
+                <p className="mb-0">Split bookings functionality for managing passenger allocations and creating separate bookings from existing ones.</p>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table table-hover">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Booking ID</th>
+                      <th>Customer Name</th>
+                      <th>Total PAX</th>
+                      <th>Total Amount</th>
+                      <th>Booking Date</th>
+                      <th>Package Type</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.length > 0 ? (
+                      paginatedOrders.map((order, index) => (
+                        <tr key={index}>
+                          <td className="fw-bold">{order.booking_number}</td>
+                          <td>{order.person_details?.[0]?.first_name + ' ' + order.person_details?.[0]?.last_name || '-'}</td>
+                          <td>
+                            <span className="badge bg-info">{order.total_pax || 0} PAX</span>
+                          </td>
+                          <td className="fw-semibold">PKR {order.total_amount?.toLocaleString() || 0}</td>
+                          <td>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</td>
+                          <td>
+                            <span className="badge bg-secondary">{order.booking_type || 'N/A'}</span>
+                          </td>
+                          <td>
+                            <span className={`badge ${
+                              order.status === 'Confirmed' || order.status === 'Approved' || order.status === 'Delivered' ? 'bg-success' :
+                              order.status === 'under-process' || order.status === 'Pending' ? 'bg-warning' :
+                              order.status === 'Canceled' || order.status === 'Rejected' ? 'bg-danger' : 'bg-secondary'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td>
+                            <button className="btn btn-sm btn-primary me-2" onClick={() => handleOrderClick(order)}>
+                              View
+                            </button>
+                            <button className="btn btn-sm btn-outline-secondary" title="Split Booking">
+                              Split
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="8" className="text-center py-4">
+                          No bookings available for splitting
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination for Booking Split */}
+              {filteredOrders.length > itemsPerPage && (
+                <div className="d-flex justify-content-between align-items-center mt-4">
+                  <div>
+                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
+                  </div>
+                  <nav>
+                    <ul className="pagination mb-0">
+                      <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                        <button className="page-link" onClick={() => paginate(currentPage - 1)}>
+                          <ChevronLeft size={14} />
+                        </button>
+                      </li>
+
+                      {[...Array(totalPages)].map((_, i) => {
+                        const pageNumber = i + 1;
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                        ) {
+                          return (
+                            <li key={i} className={`page-item ${currentPage === pageNumber ? 'active' : ''}`}>
+                              <button className="page-link" onClick={() => paginate(pageNumber)}>
+                                {pageNumber}
+                              </button>
+                            </li>
+                          );
+                        } else if (
+                          pageNumber === currentPage - 2 ||
+                          pageNumber === currentPage + 2
+                        ) {
+                          return (
+                            <li key={i} className="page-item disabled">
+                              <span className="page-link">...</span>
+                            </li>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                        <button className="page-link" onClick={() => paginate(currentPage + 1)}>
+                          <ChevronRight size={14} />
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Regular Order List Table - Hide when Booking Split is active */}
+          {activeTab !== "Booking Split" && (
           <div className="table-responsive">
             <table className="table table-hover">
               <thead className="table-light">
@@ -2861,9 +2989,10 @@ const OrderList = () => {
               </tbody>
             </table>
           </div>
+          )}
 
           {/* Pagination Controls */}
-          {filteredOrders.length > itemsPerPage && (
+          {activeTab !== "Booking Split" && filteredOrders.length > itemsPerPage && (
             <div className="d-flex justify-content-between align-items-center mt-4">
               <div>
                 Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
