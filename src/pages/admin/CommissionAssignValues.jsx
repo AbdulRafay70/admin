@@ -65,7 +65,7 @@ const CommissionAssignValues = () => {
 
   const fetchHotels = async () => {
     try {
-      const res = await axios.get('https://b2bapi.saer.pk/api/hotels/', {
+      const res = await axios.get('http://127.0.0.1:8000/api/hotels/', {
         params: organizationId ? { organization: organizationId } : {},
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -80,7 +80,7 @@ const CommissionAssignValues = () => {
 
   const fetchGroups = async () => {
     try {
-      const res = await axios.get('https://b2bapi.saer.pk/api/commissions/rules', {
+      const res = await axios.get('http://127.0.0.1:8000/api/commissions/rules', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.results) ? res.data.results : [];
@@ -95,7 +95,7 @@ const CommissionAssignValues = () => {
     if (!groupId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`https://b2bapi.saer.pk/api/commissions/rules/${groupId}/`, {
+      const res = await axios.get(`http://127.0.0.1:8000/api/commissions/rules/${groupId}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = res.data || {};
@@ -138,7 +138,7 @@ const CommissionAssignValues = () => {
     };
 
     try {
-      await axios.patch(`https://b2bapi.saer.pk/api/commissions/rules/${selectedGroupId}/`, payload, {
+      await axios.patch(`http://127.0.0.1:8000/api/commissions/rules/${selectedGroupId}/`, payload, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       showAlert('success', 'Commission values updated successfully');

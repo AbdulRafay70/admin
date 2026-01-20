@@ -77,7 +77,7 @@ const Header = () => {
         const userId = decoded.user_id || decoded.id;
 
         const response = await axios.get(
-          `https://b2bapi.saer.pk/api/users/${userId}/`,
+          `http://127.0.0.1:8000/api/users/${userId}/`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -117,7 +117,7 @@ const Header = () => {
 
       try {
         const token = localStorage.getItem("accessToken");
-        const response = await axios.get(`https://b2bapi.saer.pk/api/branches/`, {
+        const response = await axios.get(`http://127.0.0.1:8000/api/branches/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

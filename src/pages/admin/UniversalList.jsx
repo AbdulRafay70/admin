@@ -294,19 +294,7 @@ const UniversalList = () => {
               </h2>
               <p className="text-muted mb-0">Manage all organizations, branches, agents, and employees</p>
             </div>
-            <Button
-              style={{
-                background: "#1B78CE",
-                border: "none",
-                padding: "10px 20px",
-                borderRadius: "8px",
-                fontWeight: 500
-              }}
-              onClick={() => window.location.href = "/universal-register"}
-            >
-              <UserPlus size={20} className="me-2" />
-              Add New Record
-            </Button>
+            
           </div>
 
           {/* Alert */}

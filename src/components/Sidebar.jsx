@@ -48,12 +48,7 @@ const Sidebar = () => {
       try {
         const token = localStorage.getItem("token");
 
-        const storedOrg = localStorage.getItem("adminOrganizationData");
-        if (storedOrg) {
-          setOrganization(JSON.parse(storedOrg));
-          return;
-        }
-
+        // Always fetch fresh organization data to ensure logo is up-to-date
         const selectedOrg = localStorage.getItem("selectedOrganization");
         if (!selectedOrg) return;
 
@@ -64,6 +59,7 @@ const Sidebar = () => {
           // Use shared api instance which adds baseURL and auth headers
           const orgRes = await api.get(`/organizations/${orgId}/`);
           setOrganization(orgRes.data || {});
+          // Update localStorage with fresh data
           localStorage.setItem("adminOrganizationData", JSON.stringify(orgRes.data || {}));
         } catch (e) {
           // If organization fetch fails (404 or other), log and continue with empty org
@@ -226,11 +222,6 @@ const Sidebar = () => {
                   </Nav.Item>
                 )}
                 <Nav.Item className="mb-3">
-                  <NavLink to="/universal-register" className={getNavLinkClass}>
-                    <UserPlus size={20} /> <span className="fs-6">Register Entity</span>
-                  </NavLink>
-                </Nav.Item>
-                <Nav.Item className="mb-3">
                   <NavLink to="/universal-list" className={getNavLinkClass}>
                     <Users size={20} /> <span className="fs-6">Universal Registry</span>
                   </NavLink>
@@ -392,11 +383,14 @@ const Sidebar = () => {
                     </Nav.Item>
                   );
                 })()}
-                <Nav.Item className="mb-3">
-                  <NavLink to="/ticket-booking" className={getNavLinkClass}>
-                    <Check size={20} /> <span className="fs-6">Ticket Booking</span>
-                  </NavLink>
-                </Nav.Item>
+                {hasAnyPermission(['view_ticket_admin', 'add_ticket_admin']) && (
+
+                  <Nav.Item className="mb-3">
+                    <NavLink to="/ticket-booking" className={getNavLinkClass}>
+                      <Check size={20} /> <span className="fs-6">Ticket Booking</span>
+                    </NavLink>
+                  </Nav.Item>
+                )}
                 <Nav.Item className="mb-3">
                   <NavLink to="/order-delivery" className={getNavLinkClass}>
                     <FileAxis3DIcon size={20} /> <span className="fs-6">Order Delivery</span>
@@ -407,11 +401,7 @@ const Sidebar = () => {
                     <User size={20} /> <span className="fs-6">Pax Movement</span>
                   </NavLink>
                 </Nav.Item>
-                <Nav.Item className="mb-3">
-                  <NavLink to="/intimation" className={getNavLinkClass}>
-                    <HelpCircle size={20} /> <span className="fs-6">Intimation</span>
-                  </NavLink>
-                </Nav.Item>
+
                 <Nav.Item className="mb-3">
                   <NavLink to="/partners" className={getNavLinkClass}>
                     <Bag size={20} /> <span className="fs-6">Partners</span>
@@ -472,7 +462,7 @@ const Sidebar = () => {
                 </Nav.Item>
               )}
               {/* Ticket Booking - Only show if has ticket permissions */}
-              {hasAnyPermission(['view_ticket_booking_admin', 'add_ticket_booking_admin']) && (
+              {hasAnyPermission(['view_ticket_admin', 'add_ticket_admin']) && (
                 <Nav.Item className="mb-3">
                   <NavLink to="/ticket-booking" style={{ color: "black" }} className={getNavLinkClass}>
                     <Check size={20} /> <span className="fs-6">Ticket Booking</span>
@@ -506,22 +496,12 @@ const Sidebar = () => {
               )}
 
               {/* CRM sub-links removed — use the CRM horizontal tabs inside pages for navigation */}
-              {/* Universal Register - Only show if has registration permissions */}
-              {hasAnyPermission(['view_universal_register_admin', 'add_branch_registration_admin', 'add_organization_registration_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/universal-register" style={{ color: "black" }} className={getNavLinkClass}>
-                    <UserPlus size={20} /> <span className="fs-6">Register Entity</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
-              {/* Universal Registry - Only show if has registry permissions */}
-              {hasAnyPermission(['view_universal_list_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/universal-list" style={{ color: "black" }} className={getNavLinkClass}>
-                    <Users size={20} /> <span className="fs-6">Universal Registry</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
+              {/* Universal Registry - Always visible (no permission in database) */}
+              <Nav.Item className="mb-3">
+                <NavLink to="/universal-list" style={{ color: "black" }} className={getNavLinkClass}>
+                  <Users size={20} /> <span className="fs-6">Universal Registry</span>
+                </NavLink>
+              </Nav.Item>
               {/* CRM group - single sidebar link to CRM page (page shows horizontal tabs for subsections) */}
               {/* CRM - Only show if has ANY CRM permissions */}
               {hasAnyPermission([
@@ -573,14 +553,6 @@ const Sidebar = () => {
                     </NavLink>
                   </Nav.Item>
                 )}
-              {/* Tickets - Only show if has ticket permissions */}
-              {hasAnyPermission(['view_ticket_admin', 'add_ticket_admin', 'edit_ticket_admin', 'delete_ticket_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/ticket-booking" style={{ color: "black" }} className={getNavLinkClass}>
-                    <Check size={20} /> <span className="fs-6">Tickets</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
               {/* HR/Employees - Smart routing based on permissions */}
               {hasAnyPermission([
                 'view_employees_admin', 'add_employees_admin', 'edit_employees_admin', 'delete_employees_admin',
@@ -633,15 +605,7 @@ const Sidebar = () => {
                   </NavLink>
                 </Nav.Item>
               )}
-              {/* Packages - Only show if has package permissions */}
-              {hasAnyPermission(['view_package_admin', 'add_package_admin', 'edit_package_admin', 'delete_package_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/packages" style={{ color: "black" }} className={getNavLinkClass}>
-                    <PackageIcon size={20} /> <span className="fs-6">Packages</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
-              {/* Pax Movement - Only show if has pax movement permissions */}
+               {/* Pax Movement - Only show if has pax movement permissions */}
               {hasAnyPermission(['view_pax_all_passengers_admin']) && (
                 <Nav.Item className="mb-3">
                   <NavLink to="/pax-movement" style={{ color: "black" }} className={getNavLinkClass}>
@@ -649,14 +613,7 @@ const Sidebar = () => {
                   </NavLink>
                 </Nav.Item>
               )}
-              {/* Hotels - Only show if has hotel permissions */}
-              {hasAnyPermission(['view_hotel_admin', 'add_hotel_admin', 'edit_hotel_admin', 'delete_hotel_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/hotels" style={{ color: "black" }} className={getNavLinkClass}>
-                    <Hotel size={20} /> <span className="fs-6">Hotels</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
+
               {/* Payment - Smart routing based on permissions */}
               {hasAnyPermission([
                 'view_ledger_admin', 'view_financial_ledger_admin',
@@ -725,30 +682,8 @@ const Sidebar = () => {
                   </NavLink>
                 </Nav.Item>
               )}
-              {/* Daily Operations - Only show if has daily operations permissions */}
-              {hasAnyPermission(['view_daily_operations_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/daily-operations" style={{ color: "black" }} className={getNavLinkClass}>
-                    <Hotel size={20} /> <span className="fs-6">Daily Operations</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
-              {/* Pax Movement - Only show if has pax movement permissions */}
-              {hasAnyPermission(['view_pax_movements_admin', 'view_hotels_movements_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/pax-movement" style={{ color: "black" }} className={getNavLinkClass}>
-                    <User size={20} /> <span className="fs-6">Pax Movement</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
-              {/* Intimation - Only show if has intimation permissions */}
-              {hasAnyPermission(['view_intimation_admin']) && (
-                <Nav.Item className="mb-3">
-                  <NavLink to="/intimation" style={{ color: "black" }} className={getNavLinkClass}>
-                    <HelpCircle size={20} /> <span className="fs-6">Intimation</span>
-                  </NavLink>
-                </Nav.Item>
-              )}
+
+
               {/* Agency Relations - Only show if has agency permissions */}
               {hasAnyPermission(['view_agency_admin', 'view_agency_profile_admin']) && (
                 <Nav.Item className="mb-3">
