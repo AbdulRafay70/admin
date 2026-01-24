@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, Badge, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Badge, Alert, Spinner, Modal } from 'react-bootstrap';
 import { Calendar, Hotel, BedDouble, Users, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import HotelsTabs from '../../components/HotelsTabs';
 import axios from 'axios';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import './HotelAvailability.css'; // Custom CSS for calendar styling
 
 const HotelAvailability = () => {
     const navigate = useNavigate();
@@ -19,6 +22,21 @@ const HotelAvailability = () => {
     const [alert, setAlert] = useState(null);
     const [loading, setLoading] = useState(false);
     const [roomTypes, setRoomTypes] = useState([]);
+
+    // Booking modal states
+    const [showBookingModal, setShowBookingModal] = useState(false);
+    const [selectedRoom, setSelectedRoom] = useState(null);
+    const [occupiedDates, setOccupiedDates] = useState([]);
+    const [dateConflictError, setDateConflictError] = useState(null);
+    const [bookingForm, setBookingForm] = useState({
+        first_name: '',
+        last_name: '',
+        gender_type: 'Mr',
+        document_type: 'CNIC',
+        document_number: '',
+        checkin_date: '',
+        checkout_date: ''
+    });
 
     const token = localStorage.getItem('accessToken');
     const orgDataRaw = localStorage.getItem('selectedOrganization');
@@ -145,6 +163,167 @@ const HotelAvailability = () => {
         setSelectedFloor(null);
     };
 
+    const fetchOccupiedDates = async (roomId) => {
+        try {
+            const res = await axios.get(`http://127.0.0.1:8000/api/hotel-rooms/${roomId}/occupied-dates/`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            setOccupiedDates(res.data.occupied_dates || []);
+        } catch (error) {
+            console.error('Failed to fetch occupied dates:', error);
+            setOccupiedDates([]);
+        }
+    };
+
+    const handleBookRoom = (room) => {
+        setSelectedRoom(room);
+        setBookingForm({
+            first_name: '',
+            last_name: '',
+            gender_type: 'Mr',
+            document_type: 'CNIC',
+            document_number: '',
+            checkin_date: dateFrom,
+            checkout_date: dateTo
+        });
+
+        // Fetch occupied dates for this room
+        if (room.id || room.room_id) {
+            fetchOccupiedDates(room.id || room.room_id);
+        }
+
+        setShowBookingModal(true);
+    };
+
+    const checkDateConflict = (checkinDate, checkoutDate) => {
+        // Check if selected dates conflict with any occupied dates
+        for (const booking of occupiedDates) {
+            const existingCheckin = new Date(booking.checkin_date);
+            const existingCheckout = new Date(booking.checkout_date);
+            const newCheckin = new Date(checkinDate);
+            const newCheckout = new Date(checkoutDate);
+
+            // Check for overlap: (existing_checkin < new_checkout) AND (existing_checkout > new_checkin)
+            if (existingCheckin < newCheckout && existingCheckout > newCheckin) {
+                return {
+                    conflict: true,
+                    message: `Dates conflict with existing booking: ${booking.checkin_date} to ${booking.checkout_date} (Bed ${booking.bed_number})`
+                };
+            }
+        }
+        return { conflict: false };
+    };
+
+    // Helper function to get all occupied dates as Date objects for DatePicker
+    const getOccupiedDatesArray = () => {
+        const occupiedDatesArray = [];
+        occupiedDates.forEach(booking => {
+            const start = new Date(booking.checkin_date);
+            const end = new Date(booking.checkout_date);
+
+            // Add all dates in the range
+            for (let date = new Date(start); date < end; date.setDate(date.getDate() + 1)) {
+                occupiedDatesArray.push(new Date(date));
+            }
+        });
+        return occupiedDatesArray;
+    };
+
+    // Helper function to check if a date is occupied
+    const isDateOccupied = (date) => {
+        if (!date) return false;
+        const checkDate = new Date(date);
+        checkDate.setHours(0, 0, 0, 0);
+
+        for (const booking of occupiedDates) {
+            const start = new Date(booking.checkin_date);
+            const end = new Date(booking.checkout_date);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+
+            // Check if date is within occupied range
+            if (checkDate >= start && checkDate < end) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Custom day class name function for DatePicker styling
+    const getDayClassName = (date) => {
+        if (isDateOccupied(date)) {
+            return 'occupied-date'; // Red styling
+        }
+        return 'available-date'; // Green styling
+    };
+
+    const handleSubmitBooking = async () => {
+        // Validate form
+        if (!bookingForm.first_name || !bookingForm.last_name || !bookingForm.document_number ||
+            !bookingForm.checkin_date || !bookingForm.checkout_date) {
+            showAlert('warning', 'Please fill all required fields including dates');
+            return;
+        }
+
+        // Validate room and hotel data
+        if (!selectedHotelId || !selectedRoom) {
+            showAlert('danger', 'Hotel or room information is missing');
+            return;
+        }
+
+        // Validate check-out is after check-in
+        if (new Date(bookingForm.checkout_date) <= new Date(bookingForm.checkin_date)) {
+            showAlert('warning', 'Check-out date must be after check-in date');
+            return;
+        }
+
+        // Check for date conflicts with occupied dates
+        const conflictCheck = checkDateConflict(bookingForm.checkin_date, bookingForm.checkout_date);
+        if (conflictCheck.conflict) {
+            showAlert('danger', `Cannot book: ${conflictCheck.message}. Please select different dates.`);
+            return;
+        }
+
+        console.log('Selected Room:', selectedRoom);
+        console.log('Selected Hotel ID:', selectedHotelId);
+
+        try {
+            setLoading(true);
+
+            // Create booking - this will update room status to occupied
+            const bookingData = {
+                hotel: parseInt(selectedHotelId),
+                room: selectedRoom.id || selectedRoom.room_id,
+                guest_first_name: bookingForm.first_name,
+                guest_last_name: bookingForm.last_name,
+                gender_type: bookingForm.gender_type,
+                document_type: bookingForm.document_type,
+                document_number: bookingForm.document_number,
+                checkin_date: bookingForm.checkin_date,
+                checkout_date: bookingForm.checkout_date
+            };
+
+            console.log('Booking data:', bookingData);
+
+            await axios.post('http://127.0.0.1:8000/api/hotel-bookings/', bookingData, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+
+            showAlert('success', `Room ${selectedRoom.room_no} booked successfully!`);
+            setShowBookingModal(false);
+
+            // Refresh availability to show updated room status
+            await fetchAvailability();
+        } catch (error) {
+            console.error('Booking error:', error);
+            console.error('Error response:', error.response?.data);
+            const errorMsg = error.response?.data?.detail || error.response?.data?.error || 'Failed to book room. Please try again.';
+            showAlert('danger', errorMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const RoomCard = ({ room }) => (
         <Card
             className={`mb-3 border-${getStatusColor(room.status)} shadow-sm`}
@@ -197,6 +376,31 @@ const HotelAvailability = () => {
                                 </small>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Available Dates Display */}
+                {(room.status === 'available' || room.status === 'partially_occupied') && room.available_beds > 0 && (
+                    <div className="border-top pt-2 mt-2">
+                        <small className="text-success">
+                            <Calendar size={12} className="me-1" />
+                            <strong>Available:</strong> {dateFrom} to {dateTo}
+                        </small>
+                    </div>
+                )}
+
+                {/* Book Room button for available rooms */}
+                {(room.status === 'available' || room.status === 'partially_occupied') && room.available_beds > 0 && (
+                    <div className="border-top pt-2 mt-2">
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            className="w-100"
+                            onClick={() => handleBookRoom(room)}
+                        >
+                            <BedDouble size={14} className="me-1" />
+                            Book Room
+                        </Button>
                     </div>
                 )}
             </Card.Body>
@@ -431,6 +635,219 @@ const HotelAvailability = () => {
                         </Card>
                     )}
                 </Container>
+
+                {/* Booking Modal */}
+                <Modal show={showBookingModal} onHide={() => setShowBookingModal(false)} centered>
+                    <Modal.Header closeButton>
+                        <Modal.Title>Book Room {selectedRoom?.room_no}</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        <Form>
+                            {/* Booking Period Section */}
+                            <Card className="mb-3 bg-light border-primary">
+                                <Card.Body>
+                                    <h6 className="mb-3">
+                                        <Calendar size={18} className="me-2" />
+                                        Booking Period
+                                    </h6>
+                                    <Alert variant="info" className="mb-3 py-2">
+                                        <small>
+                                            <strong>Hotel Available:</strong> {dateFrom} to {dateTo}
+                                        </small>
+                                    </Alert>
+                                    <Row>
+                                        <Col md={6}>
+                                            <Form.Group className="mb-3">
+                                                <Form.Label>Check-in Date *</Form.Label>
+                                                <DatePicker
+                                                    selected={bookingForm.checkin_date ? new Date(bookingForm.checkin_date) : null}
+                                                    onChange={(date) => {
+                                                        const dateStr = date ? date.toISOString().split('T')[0] : '';
+                                                        const newForm = {
+                                                            ...bookingForm,
+                                                            checkin_date: dateStr
+                                                        };
+                                                        setBookingForm(newForm);
+
+                                                        // Check for conflicts if both dates are set
+                                                        if (newForm.checkout_date) {
+                                                            const conflict = checkDateConflict(dateStr, newForm.checkout_date);
+                                                            setDateConflictError(conflict.conflict ? conflict.message : null);
+                                                        }
+                                                    }}
+                                                    minDate={new Date(dateFrom)}
+                                                    maxDate={new Date(dateTo)}
+                                                    excludeDates={getOccupiedDatesArray()}
+                                                    dayClassName={getDayClassName}
+                                                    dateFormat="yyyy-MM-dd"
+                                                    className="form-control"
+                                                    placeholderText="Select check-in date"
+                                                    inline={false}
+                                                />
+                                                <Form.Text className="text-muted">
+                                                    Select your arrival date
+                                                </Form.Text>
+                                            </Form.Group>
+                                        </Col>
+                                        <Col md={6}>
+                                            <Form.Group className="mb-3">
+                                                <Form.Label>Check-out Date *</Form.Label>
+                                                <DatePicker
+                                                    selected={bookingForm.checkout_date ? new Date(bookingForm.checkout_date) : null}
+                                                    onChange={(date) => {
+                                                        const dateStr = date ? date.toISOString().split('T')[0] : '';
+                                                        const newForm = {
+                                                            ...bookingForm,
+                                                            checkout_date: dateStr
+                                                        };
+                                                        setBookingForm(newForm);
+
+                                                        // Check for conflicts if both dates are set
+                                                        if (newForm.checkin_date) {
+                                                            const conflict = checkDateConflict(newForm.checkin_date, dateStr);
+                                                            setDateConflictError(conflict.conflict ? conflict.message : null);
+                                                        }
+                                                    }}
+                                                    minDate={bookingForm.checkin_date ? new Date(bookingForm.checkin_date) : new Date(dateFrom)}
+                                                    maxDate={new Date(dateTo)}
+                                                    excludeDates={getOccupiedDatesArray()}
+                                                    dayClassName={getDayClassName}
+                                                    dateFormat="yyyy-MM-dd"
+                                                    className="form-control"
+                                                    placeholderText="Select check-out date"
+                                                    inline={false}
+                                                />
+                                                <Form.Text className="text-muted">
+                                                    Select your departure date
+                                                </Form.Text>
+                                            </Form.Group>
+                                        </Col>
+                                    </Row>
+
+                                    {/* Occupied Dates Visual Indicator */}
+                                    {occupiedDates.length > 0 ? (
+                                        <Alert variant="danger" className="mt-3 mb-0">
+                                            <small>
+                                                <strong>⛔ Occupied Dates (Not Available):</strong>
+                                                <div className="mt-2">
+                                                    {occupiedDates.map((booking, idx) => (
+                                                        <Badge key={idx} bg="danger" className="me-2 mb-1">
+                                                            {booking.checkin_date} to {booking.checkout_date}
+                                                            {booking.bed_number && ` (Bed ${booking.bed_number})`}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </small>
+                                        </Alert>
+                                    ) : (
+                                        <Alert variant="success" className="mt-3 mb-0">
+                                            <small>
+                                                <strong>✓ All dates available for booking!</strong>
+                                            </small>
+                                        </Alert>
+                                    )}
+
+                                    {/* Real-time Conflict Warning */}
+                                    {dateConflictError && (
+                                        <Alert variant="warning" className="mt-2 mb-0">
+                                            <small>
+                                                <strong>⚠️ Date Conflict:</strong> {dateConflictError}
+                                                <br />
+                                                <em>Please select different dates to proceed.</em>
+                                            </small>
+                                        </Alert>
+                                    )}
+                                </Card.Body>
+                            </Card>
+
+                            {/* Guest Information Section */}
+                            <h6 className="mb-3">
+                                <Users size={18} className="me-2" />
+                                Guest Information
+                            </h6>
+                            <Row>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>First Name *</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            value={bookingForm.first_name}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, first_name: e.target.value })}
+                                            placeholder="Enter first name"
+                                        />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Last Name *</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            value={bookingForm.last_name}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, last_name: e.target.value })}
+                                            placeholder="Enter last name"
+                                        />
+                                    </Form.Group>
+                                </Col>
+                            </Row>
+
+                            <Row>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Gender Type *</Form.Label>
+                                        <Form.Select
+                                            value={bookingForm.gender_type}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, gender_type: e.target.value })}
+                                        >
+                                            <option value="Mr">Mr</option>
+                                            <option value="Mrs">Mrs</option>
+                                            <option value="Child">Child</option>
+                                        </Form.Select>
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Document Type *</Form.Label>
+                                        <Form.Select
+                                            value={bookingForm.document_type}
+                                            onChange={(e) => setBookingForm({ ...bookingForm, document_type: e.target.value })}
+                                        >
+                                            <option value="CNIC">CNIC</option>
+                                            <option value="Passport">Passport</option>
+                                        </Form.Select>
+                                    </Form.Group>
+                                </Col>
+                            </Row>
+
+                            <Form.Group className="mb-3">
+                                <Form.Label>Document Number *</Form.Label>
+                                <Form.Control
+                                    type="text"
+                                    value={bookingForm.document_number}
+                                    onChange={(e) => setBookingForm({ ...bookingForm, document_number: e.target.value })}
+                                    placeholder="Enter CNIC or Passport number"
+                                />
+                            </Form.Group>
+
+                            <Alert variant="info" className="mb-0">
+                                <small>
+                                    <strong>Booking Details:</strong><br />
+                                    Hotel: {selectedHotelName}<br />
+                                    Room: {selectedRoom?.room_no}<br />
+                                    Check-in: {dateFrom}<br />
+                                    Check-out: {dateTo}
+                                </small>
+                            </Alert>
+                        </Form>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setShowBookingModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleSubmitBooking} disabled={loading}>
+                            {loading ? 'Booking...' : 'Confirm Booking'}
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
             </div>
         </div>
     );

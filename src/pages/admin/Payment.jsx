@@ -63,17 +63,39 @@ const Payment = () => {
 
         // Transform data
         const transformedTransactions = (response.data.entries || []).map(entry => {
-          // Find the organization's line (credit line)
-          const orgLine = entry.lines?.find(line => line.account.organization === organizationId) || entry.lines?.[1] || {};
+          // Special handling for inter-org transactions
+          let displayLine;
+
+          if (entry.seller_organization_name && entry.inventory_owner_organization_name) {
+            // This is an inter-org entry
+            // If seller_organization matches current org, show the PAYABLE line (credit)
+            // If inventory_owner matches current org, show the RECEIVABLE line (debit)
+            if (entry.seller_organization === organizationId) {
+              // This org is the reseller - show payable (credit) line
+              displayLine = entry.lines?.find(line =>
+                line.account.account_type === 'PAYABLE' && line.credit > 0
+              );
+            } else if (entry.inventory_owner_organization === organizationId) {
+              // This org is the owner - show receivable (debit) line  
+              displayLine = entry.lines?.find(line =>
+                line.account.account_type === 'RECEIVABLE' && line.debit > 0
+              );
+            }
+          }
+
+          // Fallback to original logic if not inter-org or line not found
+          if (!displayLine) {
+            displayLine = entry.lines?.find(line => line.account.organization === organizationId) || entry.lines?.[0] || {};
+          }
 
           return {
             date: new Date(entry.creation_datetime).toLocaleDateString('en-GB'),
             orderNo: entry.booking_no || entry.reference_no || '-------',
             type: entry.service_type || 'N/A',
             narration: entry.narration || 'No description',
-            debit: orgLine.debit > 0 ? `PKR ${orgLine.debit.toLocaleString()}` : '-------',
-            credit: orgLine.credit > 0 ? `PKR ${orgLine.credit.toLocaleString()}` : '-------',
-            balance: `PKR ${(orgLine.final_balance || 0).toLocaleString()}`
+            debit: displayLine.debit > 0 ? `PKR ${displayLine.debit.toLocaleString()}` : '-------',
+            credit: displayLine.credit > 0 ? `PKR ${displayLine.credit.toLocaleString()}` : '-------',
+            balance: `PKR ${(displayLine.final_balance || 0).toLocaleString()}`
           };
         });
 

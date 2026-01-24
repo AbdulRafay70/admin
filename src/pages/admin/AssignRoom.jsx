@@ -235,36 +235,78 @@ const AssignRoom = () => {
         }
     };
 
+    const fetchHotelPrices = async (hotelId) => {
+        try {
+            const res = await axios.get(`http://127.0.0.1:8000/api/hotels/${hotelId}/`, {
+                params: organizationId ? { organization: organizationId } : {},
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+
+            const prices = res.data.prices || [];
+
+            // Extract unique room types from prices
+            const uniqueRoomTypes = [...new Set(prices.map(p => p.room_type))].filter(Boolean);
+
+            // Filter out "Only-Room" and "room" generic types
+            const bedTypeNames = uniqueRoomTypes.filter(type =>
+                type && type !== 'Only-Room' && type !== 'room' && type.toLowerCase() !== 'only-room'
+            );
+
+            console.log('Hotel prices bed types:', bedTypeNames);
+            return bedTypeNames;
+        } catch (e) {
+            console.error('Failed to fetch hotel prices', e);
+            return [];
+        }
+    };
+
     const fetchRoomTypesForHotel = async (hotelId) => {
         try {
-            // Fetch bed types using organization parameter
+            // 1. Fetch hotel prices to get available bed types
+            const pricedBedTypes = await fetchHotelPrices(hotelId);
+
+            // 2. Fetch all bed types for capacity data
             const res = await axios.get(`http://127.0.0.1:8000/api/bed-types/`, {
                 params: { organization: organizationId },
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
 
-            const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.results) ? res.data.results : [];
+            const allBedTypes = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.results) ? res.data.results : [];
+
+            // 3. Filter bed types to only show ones with prices
+            const filteredBedTypes = allBedTypes.filter(bt =>
+                pricedBedTypes.some(pricedType => {
+                    // Normalize both strings for comparison
+                    const normalizedPriced = pricedType.toLowerCase().replace(/\s+/g, '');
+                    const normalizedBedType = bt.name.toLowerCase().replace(/\s+/g, '');
+
+                    // Check if they match (e.g., "Double Bed" matches "double")
+                    return normalizedPriced.includes(normalizedBedType) || normalizedBedType.includes(normalizedPriced);
+                })
+            );
+
+            console.log('All bed types:', allBedTypes.length);
+            console.log('Filtered bed types (with prices):', filteredBedTypes.length);
 
             // Store full bed types data for capacity lookup
-            setBedTypesData(data);
+            setBedTypesData(filteredBedTypes);
 
-            // Extract unique room types from bed types
-            const uniqueTypes = [...new Set(data.map(bedType => bedType.name))].filter(Boolean);
-
-            // Format for dropdown
-            const formattedTypes = uniqueTypes.map(type => ({
-                value: type.toLowerCase(),
-                label: type.charAt(0).toUpperCase() + type.slice(1)
+            // 4. Format for dropdown
+            const formattedTypes = filteredBedTypes.map(type => ({
+                value: type.name.toLowerCase(),
+                label: type.name.charAt(0).toUpperCase() + type.name.slice(1),
+                capacity: type.capacity
             }));
 
-            // If no room types found, use default fallback
+            // If no room types found with prices, show message
             if (formattedTypes.length === 0) {
-                setRoomTypesForHotel(defaultRoomTypes);
+                console.warn('No bed types found with prices for this hotel. Please add prices first.');
+                setRoomTypesForHotel([]);
                 setBedTypesData([]);
-                console.log('No room types found for organization, using defaults');
+                showAlert('warning', 'No bed types with prices found for this hotel. Please add hotel prices first.');
             } else {
                 setRoomTypesForHotel(formattedTypes);
-                console.log('Loaded room types for organization:', formattedTypes);
+                console.log('Loaded room types with prices:', formattedTypes);
             }
         } catch (e) {
             console.error('Failed to load room types', e);

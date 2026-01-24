@@ -163,23 +163,69 @@ const FinanceDashboard = () => {
       });
   }, [period]);
 
-  // Fetch recent transactions
+  // Fetch recent transactions from organization API
   useEffect(() => {
-    setTransactionsLoading(true);
-    import('../../utils/Api').then(({ default: api }) => {
-      api.get('/finance/ledger/by-service')
-        .then((res) => {
-          // Get the most recent 10 transactions
-          const records = res.data.records || [];
-          setRecentTransactions(records.slice(0, 10));
+    const fetchRecentTransactions = async () => {
+      try {
+        setTransactionsLoading(true);
+        const orgData = localStorage.getItem("selectedOrganization");
+        const organizationId = orgData ? JSON.parse(orgData).id : null;
+        const token = localStorage.getItem("accessToken");
+
+        if (!organizationId || !token) {
+          console.error("Missing organization ID or token");
           setTransactionsLoading(false);
-        })
-        .catch((err) => {
-          console.error("Failed to load transactions:", err);
-          setRecentTransactions([]);
-          setTransactionsLoading(false);
+          return;
+        }
+
+        const response = await import('axios').then(axios =>
+          axios.default.get(
+            `http://127.0.0.1:8000/api/ledger/organization/${organizationId}/`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+        );
+
+        // Transform and get the most recent 10 transactions
+        const transformedTransactions = (response.data.entries || []).map(entry => {
+          let displayLine;
+
+          if (entry.seller_organization_name && entry.inventory_owner_organization_name) {
+            if (entry.seller_organization === organizationId) {
+              displayLine = entry.lines?.find(line =>
+                line.account.account_type === 'PAYABLE' && line.credit > 0
+              );
+            } else if (entry.inventory_owner_organization === organizationId) {
+              displayLine = entry.lines?.find(line =>
+                line.account.account_type === 'RECEIVABLE' && line.debit > 0
+              );
+            }
+          }
+
+          if (!displayLine) {
+            displayLine = entry.lines?.find(line => line.account.organization === organizationId) || entry.lines?.[0] || {};
+          }
+
+          return {
+            record_date: new Date(entry.creation_datetime).toLocaleDateString('en-GB'),
+            reference_no: entry.booking_no || entry.reference_no,
+            booking_id: entry.booking_no || entry.reference_no,
+            agent_name: entry.seller_organization_name || entry.agency_name || 'N/A',
+            income_amount: displayLine.debit || 0,
+            expense_amount: displayLine.credit || 0,
+            profit: (displayLine.debit || 0) - (displayLine.credit || 0)
+          };
         });
-    });
+
+        setRecentTransactions(transformedTransactions.slice(0, 10));
+        setTransactionsLoading(false);
+      } catch (err) {
+        console.error("Failed to load transactions:", err);
+        setRecentTransactions([]);
+        setTransactionsLoading(false);
+      }
+    };
+
+    fetchRecentTransactions();
   }, []);
 
   const moduleLabels = {
@@ -335,7 +381,7 @@ const FinanceDashboard = () => {
                 <th>Date</th>
                 <th>Reference No</th>
                 <th>Module</th>
-                <th>Agent Name</th>
+                <th>Agent Name/Org</th>
                 <th>Income</th>
                 <th>Expense</th>
                 <th>Profit</th>
@@ -768,54 +814,108 @@ const ProfitLossReport = () => {
 // 3. Financial Ledger
 const FinancialLedger = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [moduleFilter, setModuleFilter] = useState("all");
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const [advancedFilters, setAdvancedFilters] = useState({
-    dateFrom: "",
-    dateTo: "",
-    type: "all",
-    agent: "all",
-    amountRange: "all",
-  });
   const [loading, setLoading] = useState(true);
-  const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [summaryData, setSummaryData] = useState({
+    closingBalance: 'PKR 0'
+  });
   const [error, setError] = useState(null);
 
-  // Fetch ledger data
+  // Fetch ledger data from organization API (same as Payment.jsx)
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    const fetchLedger = async () => {
+      try {
+        const orgData = localStorage.getItem("selectedOrganization");
+        const organizationId = orgData ? JSON.parse(orgData).id : null;
+        const token = localStorage.getItem("accessToken");
 
-    const params = {};
-    if (moduleFilter !== "all") {
-      params.service_type = moduleFilter;
-    }
+        if (!organizationId || !token) {
+          console.error("Missing organization ID or token");
+          setError("Missing organization or authentication. Please log in again.");
+          setLoading(false);
+          return;
+        }
 
-    getLedger(params)
-      .then((res) => {
-        const records = res.data.records || [];
-        setLedgerEntries(records);
+        console.log("🔍 Fetching ledger for organization:", organizationId);
+
+        const response = await import('axios').then(axios =>
+          axios.default.get(
+            `http://127.0.0.1:8000/api/ledger/organization/${organizationId}/`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+        );
+
+        console.log("✅ Organization Ledger API Response:", response.data);
+
+        // Transform data (same logic as Payment.jsx)
+        const transformedTransactions = (response.data.entries || []).map(entry => {
+          // Special handling for inter-org transactions
+          let displayLine;
+
+          if (entry.seller_organization_name && entry.inventory_owner_organization_name) {
+            // This is an inter-org entry
+            if (entry.seller_organization === organizationId) {
+              // This org is the reseller - show payable (credit) line
+              displayLine = entry.lines?.find(line =>
+                line.account.account_type === 'PAYABLE' && line.credit > 0
+              );
+            } else if (entry.inventory_owner_organization === organizationId) {
+              // This org is the owner - show receivable (debit) line  
+              displayLine = entry.lines?.find(line =>
+                line.account.account_type === 'RECEIVABLE' && line.debit > 0
+              );
+            }
+          }
+
+          // Fallback to original logic if not inter-org or line not found
+          if (!displayLine) {
+            displayLine = entry.lines?.find(line => line.account.organization === organizationId) || entry.lines?.[0] || {};
+          }
+
+          return {
+            date: new Date(entry.creation_datetime).toLocaleDateString('en-GB'),
+            orderNo: entry.booking_no || entry.reference_no || '-------',
+            type: entry.service_type || 'N/A',
+            narration: entry.narration || 'No description',
+            debit: displayLine.debit > 0 ? `PKR ${displayLine.debit.toLocaleString()}` : '-------',
+            credit: displayLine.credit > 0 ? `PKR ${displayLine.credit.toLocaleString()}` : '-------',
+            balance: `PKR ${(displayLine.final_balance || 0).toLocaleString()}`
+          };
+        });
+
+        setTransactions(transformedTransactions);
+
+        // Set summary data
+        const lastBalance = transformedTransactions.length > 0
+          ? transformedTransactions[transformedTransactions.length - 1].balance
+          : 'PKR 0';
+
+        setSummaryData({
+          closingBalance: lastBalance
+        });
+
         setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
+        console.error("❌ Error fetching ledger:", err);
         setError(err.message || "Failed to load ledger data");
         setLoading(false);
-      });
-  }, [moduleFilter]);
+      }
+    };
 
-  const filteredLedger = ledgerEntries.filter((entry) => {
-    const matchesSearch =
-      (entry.reference_no && entry.reference_no.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (entry.agent_name && entry.agent_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (entry.booking_id && entry.booking_id.toString().includes(searchTerm));
-    return matchesSearch;
-  });
+    fetchLedger();
+  }, []);
+
+  const filteredTransactions = transactions.filter((transaction) =>
+    transaction.orderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.narration.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div>
       <h2 className="fw-bold mb-4">Financial Ledger</h2>
 
-      {/* Search and Filter */}
+      {/* Search Bar */}
       <Card className="border-0 shadow-sm mb-4">
         <Card.Body>
           <Row className="g-3">
@@ -824,103 +924,14 @@ const FinancialLedger = () => {
                 <Search className="position-absolute" size={18} style={{ left: 12, top: 12 }} />
                 <Form.Control
                   type="text"
-                  placeholder="Search by Reference No, Description, or Agent..."
+                  placeholder="Search by Order No, Type, or Narration..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{ paddingLeft: 40 }}
                 />
               </div>
             </Col>
-            <Col md={3} sm={6} xs={12}>
-              <Form.Select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
-                <option value="all">All Modules</option>
-                <option value="hotel">Hotels</option>
-                <option value="visa">Visas</option>
-                <option value="transport">Transport</option>
-                <option value="ticket">Tickets</option>
-                <option value="umrah package">Umrah Packages</option>
-              </Form.Select>
-            </Col>
-            <Col md={3} sm={6} xs={12}>
-              <Button
-                variant="outline-primary"
-                className="w-100"
-                onClick={() => setShowMoreFilters(!showMoreFilters)}
-              >
-                <Filter size={16} className="me-2" />
-                {showMoreFilters ? "Hide Filters" : "More Filters"}
-              </Button>
-            </Col>
-          </Row>
-
-          {/* Advanced Filters */}
-          {showMoreFilters && (
-            <Row className="g-3 mt-2 pt-3 border-top">
-              <Col md={3}>
-                <Form.Label className="small fw-semibold">From Date</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={advancedFilters.dateFrom}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, dateFrom: e.target.value })}
-                />
-              </Col>
-              <Col md={3}>
-                <Form.Label className="small fw-semibold">To Date</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={advancedFilters.dateTo}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, dateTo: e.target.value })}
-                />
-              </Col>
-              <Col md={2}>
-                <Form.Label className="small fw-semibold">Type</Form.Label>
-                <Form.Select
-                  value={advancedFilters.type}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, type: e.target.value })}
-                >
-                  <option value="all">All Types</option>
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </Form.Select>
-              </Col>
-              <Col md={2}>
-                <Form.Label className="small fw-semibold">Agent</Form.Label>
-                <Form.Select
-                  value={advancedFilters.agent}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, agent: e.target.value })}
-                >
-                  <option value="all">All Agents</option>
-                  <option value="al-haramain">Al-Haramain Tours</option>
-                  <option value="makkah">Makkah Express</option>
-                  <option value="safar">Safar Tours</option>
-                  <option value="rihla">Rihla Travel</option>
-                  <option value="ziyarat">Ziyarat Services</option>
-                </Form.Select>
-              </Col>
-              <Col md={2}>
-                <Form.Label className="small fw-semibold">Amount Range</Form.Label>
-                <Form.Select
-                  value={advancedFilters.amountRange}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, amountRange: e.target.value })}
-                >
-                  <option value="all">All Amounts</option>
-                  <option value="0-50000">0 - 50,000</option>
-                  <option value="50000-100000">50,000 - 100,000</option>
-                  <option value="100000-200000">100,000 - 200,000</option>
-                  <option value="200000+">200,000+</option>
-                </Form.Select>
-              </Col>
-            </Row>
-          )}
-        </Card.Body>
-      </Card>
-
-      {/* Ledger Table */}
-      <Card className="border-0 shadow-sm">
-        <Card.Body>
-          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-            <h5 className="fw-semibold mb-0">All Transactions ({filteredLedger.length})</h5>
-            <div className="d-flex gap-2">
+            <Col md={6} xs={12} className="d-flex justify-content-end gap-2">
               <Button variant="outline-success" size="sm">
                 <Download size={16} className="me-1" />
                 Export CSV
@@ -929,18 +940,31 @@ const FinancialLedger = () => {
                 <Download size={16} className="me-1" />
                 Export PDF
               </Button>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
+      {/* Ledger Table */}
+      <Card className="border-0 shadow-sm">
+        <Card.Body>
+          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <h5 className="fw-semibold mb-0">All Transactions ({filteredTransactions.length})</h5>
+            <div>
+              <span className="text-muted">Closing Balance: </span>
+              <span className="fw-bold text-primary">{summaryData.closingBalance}</span>
             </div>
           </div>
           <Table responsive hover className="finance-table">
             <thead className="table-light">
               <tr>
                 <th>Date</th>
-                <th>Reference No</th>
-                <th>Booking ID</th>
-                <th>Agent/Branch</th>
-                <th>Income</th>
-                <th>Expense</th>
-                <th>Profit</th>
+                <th>Order No</th>
+                <th>Type</th>
+                <th>Narration</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Balance</th>
               </tr>
             </thead>
             <tbody>
@@ -959,30 +983,24 @@ const FinancialLedger = () => {
                     <div className="alert alert-danger mb-0">{error}</div>
                   </td>
                 </tr>
-              ) : filteredLedger.length === 0 ? (
+              ) : filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="text-center py-4 text-muted">
                     No ledger entries found
                   </td>
                 </tr>
               ) : (
-                filteredLedger.map((entry, index) => (
+                filteredTransactions.map((transaction, index) => (
                   <tr key={index}>
-                    <td>{entry.record_date || 'N/A'}</td>
-                    <td className="fw-semibold text-primary">{entry.reference_no || `BK-${entry.booking_id}`}</td>
+                    <td>{transaction.date}</td>
+                    <td className="fw-semibold text-primary">{transaction.orderNo}</td>
                     <td>
-                      <Badge bg="secondary">#{entry.booking_id}</Badge>
+                      <Badge bg="secondary">{transaction.type}</Badge>
                     </td>
-                    <td>{entry.agent_name || 'N/A'}</td>
-                    <td className="text-success fw-bold">
-                      Rs. {parseFloat(entry.income_amount || 0).toLocaleString()}
-                    </td>
-                    <td className="text-danger fw-bold">
-                      Rs. {parseFloat(entry.expense_amount || 0).toLocaleString()}
-                    </td>
-                    <td className={`fw-bold ${parseFloat(entry.profit || 0) >= 0 ? 'text-primary' : 'text-danger'}`}>
-                      Rs. {parseFloat(entry.profit || 0).toLocaleString()}
-                    </td>
+                    <td>{transaction.narration}</td>
+                    <td className="text-danger fw-bold">{transaction.debit}</td>
+                    <td className="text-success fw-bold">{transaction.credit}</td>
+                    <td className="fw-bold text-primary">{transaction.balance}</td>
                   </tr>
                 ))
               )}

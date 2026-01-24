@@ -519,6 +519,7 @@ const AddHotelPage = () => {
                             <Form.Control
                               type="date"
                               value={hotelForm.available_start_date}
+                              min={new Date().toISOString().split('T')[0]}
                               onChange={(e) => setHotelForm({ ...hotelForm, available_start_date: e.target.value })}
                             />
                           </Form.Group>
@@ -529,6 +530,7 @@ const AddHotelPage = () => {
                             <Form.Control
                               type="date"
                               value={hotelForm.available_end_date}
+                              min={hotelForm.available_start_date || new Date().toISOString().split('T')[0]}
                               onChange={(e) => setHotelForm({ ...hotelForm, available_end_date: e.target.value })}
                             />
                           </Form.Group>
@@ -588,8 +590,8 @@ const AddHotelPage = () => {
                               </div>
 
                               <Row className="g-2 align-items-center">
-                                <Col md={6}><Form.Control type="date" value={p.start_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
-                                <Col md={6}><Form.Control type="date" value={p.end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
+                                <Col md={6}><Form.Control type="date" value={p.start_date} min={hotelForm.available_start_date || new Date().toISOString().split('T')[0]} max={hotelForm.available_end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].start_date = e.target.value; setPriceSections(copy); }} /></Col>
+                                <Col md={6}><Form.Control type="date" value={p.end_date} min={p.start_date || hotelForm.available_start_date || new Date().toISOString().split('T')[0]} max={hotelForm.available_end_date} onChange={(e) => { const copy = [...priceSections]; copy[idx].end_date = e.target.value; setPriceSections(copy); }} /></Col>
                               </Row>
                               <Row className="g-2 mt-2">
                                 <Col xs={12} className="mb-2"><strong>Only-Room Price</strong></Col>
@@ -676,8 +678,8 @@ const AddHotelPage = () => {
               </Card.Body>
             </Card>
           </Container>
-        </div>
-      </div>
+        </div >
+      </div >
     </>
   );
 };

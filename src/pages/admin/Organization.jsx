@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Dropdown, Table, Button, Form, Modal } from "react-bootstrap";
 import { Gear } from "react-bootstrap-icons";
-import { Search, UploadCloudIcon } from "lucide-react";
+import { Search, UploadCloudIcon, RefreshCw } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import PartnersTabs from "../../components/PartnersTabs";
@@ -322,6 +322,14 @@ const Organization = () => {
                   <div className="d-flex flex-wrap justify-content-between">
                     <h5 className="fw-semibold mb-0">Organizations</h5>
                     <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-outline-primary"
+                        onClick={() => fetchOrganizations(true)}
+                        disabled={isLoading}
+                        title="Refresh organizations list"
+                      >
+                        <RefreshCw size={18} />
+                      </button>
                       <button
                         className="btn btn-primary"
                         onClick={handleShowCreate}

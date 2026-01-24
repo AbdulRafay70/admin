@@ -50,20 +50,24 @@ const allTabs = [
     path: 'commission-rules',
     permissions: ['view_commission_add_group_admin', 'add_commission_add_group_admin', 'edit_commission_add_group_admin', 'delete_commission_add_group_admin', 'view_commission_assign_value_admin', 'add_commission_assign_value_admin', 'edit_commission_assign_value_admin', 'delete_commission_assign_value_admin']
   },
+  {
+    name: 'Commission Earnings',
+    path: 'commission-earnings',
+    permissions: ['view_commission_add_group_admin', 'add_commission_add_group_admin', 'edit_commission_add_group_admin', 'delete_commission_add_group_admin']
+  },
+  {
+    name: 'Service Charges',
+    path: 'service-charges',
+    permissions: ['view_commission_add_group_admin', 'add_commission_add_group_admin', 'edit_commission_add_group_admin', 'delete_commission_add_group_admin']
+  },
 ];
 
 export default function PartnersTabs({ activeName }) {
   const { hasAnyPermission } = usePermission();
 
-  // Filter tabs based on permissions
-  const visibleTabs = allTabs.filter(tab => {
-    // If tab has no permissions defined, show it to everyone
-    if (!tab.permissions || tab.permissions.length === 0) {
-      return true;
-    }
-    // Show tab if user has ANY of the required permissions
-    return hasAnyPermission(tab.permissions);
-  });
+  // REMOVED: Permission-based filtering - show all tabs always
+  // User requested that all tabs remain visible regardless of which page they're on
+  const visibleTabs = allTabs;
 
   // Always resolve partners tabs to absolute /partners paths so
   // the links work even when the app is mounted under a prefix

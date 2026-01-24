@@ -1,0 +1,120 @@
+/* Custom styling for react-datepicker calendar */
+
+/* Occupied dates - Red styling */
+.react-datepicker__day.occupied-date {
+    background-color: #dc3545 !important;
+    color: white !important;
+    font-weight: bold;
+    position: relative;
+}
+
+.react-datepicker__day.occupied-date:hover {
+    background-color: #bb2d3b !important;
+    cursor: not-allowed;
+}
+
+/* Available dates - Green styling */
+.react-datepicker__day.available-date {
+    background-color: #d4edda !important;
+    color: #155724 !important;
+}
+
+.react-datepicker__day.available-date:hover {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+/* Selected date styling */
+.react-datepicker__day--selected.available-date,
+.react-datepicker__day--selected.occupied-date {
+    background-color: #0d6efd !important;
+    color: white !important;
+}
+
+/* Disabled/excluded dates */
+.react-datepicker__day--disabled {
+    background-color: #f8d7da !important;
+    color: #721c24 !important;
+    text-decoration: line-through;
+    cursor: not-allowed !important;
+}
+
+.react-datepicker__day--disabled:hover {
+    background-color: #f5c6cb !important;
+}
+
+/* Today's date */
+.react-datepicker__day--today.available-date {
+    border: 2px solid #28a745;
+}
+
+.react-datepicker__day--today.occupied-date {
+    border: 2px solid #dc3545;
+}
+
+/* Calendar container */
+.react-datepicker {
+    font-family: inherit;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+/* Calendar header */
+.react-datepicker__header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Month/Year dropdown */
+.react-datepicker__current-month {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Day names */
+.react-datepicker__day-name {
+    color: #6c757d;
+    font-weight: 600;
+}
+
+/* Input field styling */
+.react-datepicker-wrapper {
+    width: 100%;
+}
+
+.react-datepicker__input-container {
+    width: 100%;
+}
+
+/* Legend for calendar */
+.calendar-legend {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+    font-size: 0.875rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    border: 1px solid #dee2e6;
+}
+
+.legend-color.occupied {
+    background-color: #dc3545;
+}
+
+.legend-color.available {
+    background-color: #d4edda;
+}
+
+.legend-color.selected {
+    background-color: #0d6efd;
+}

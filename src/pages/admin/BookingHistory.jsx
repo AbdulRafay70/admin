@@ -157,7 +157,6 @@ const BookingHistory = () => {
   const [error, setError] = useState(null);
 
   const [searchData, setSearchData] = useState({
-    agencyCode: "",
     orderNo: "",
     fromDate: "",
     toDate: "",
@@ -177,9 +176,9 @@ const BookingHistory = () => {
     // Filter bookings based on active tab
     const filtered = bookings.filter(booking => {
       if (activeTab === "UMRAH BOOKINGS") {
-        return booking.category === "Package";
+        return booking.booking_type === "Umrah Package";
       } else if (activeTab === "Groups Tickets") {
-        return booking.category === "Ticket_Booking";
+        return booking.booking_type === "TICKET";
       }
       return true;
     });
@@ -216,6 +215,15 @@ const BookingHistory = () => {
       const organizationId = orgData?.id;
       const token = localStorage.getItem("accessToken");
 
+      if (!organizationId || !token) {
+        console.error("Missing organization ID or token");
+        setError("Missing organization or authentication. Please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("🔍 Fetching booking history for organization:", organizationId);
+
       setLoading(true);
       const response = await axios.get(`http://127.0.0.1:8000/api/bookings/`, {
         params: { organization: organizationId },
@@ -224,12 +232,19 @@ const BookingHistory = () => {
           "Content-Type": "application/json",
         },
       });
-      // const response = await axios.get(`http://127.0.0.1:8000/api/bookings/?organization=${k}`);
-      setBookings(response.data);
-      setFilteredBookings(response.data);
+
+      console.log("✅ Booking History API Response:", response.data);
+      console.log("📊 Total bookings fetched:", response.data?.length || 0);
+
+      const bookingsData = Array.isArray(response.data) ? response.data : [];
+      console.log("📋 Bookings data structure:", bookingsData.length > 0 ? bookingsData[0] : "No bookings");
+
+      setBookings(bookingsData);
+      setFilteredBookings(bookingsData);
     } catch (err) {
       setError("Failed to fetch bookings. Please try again later.");
-      console.error("Error fetching bookings:", err);
+      console.error("❌ Error fetching bookings:", err);
+      console.error("Error details:", err.response?.data);
     } finally {
       setLoading(false);
     }
@@ -249,10 +264,6 @@ const BookingHistory = () => {
     const filtered = bookings.filter(booking => {
       let matches = true;
 
-      if (searchData.agencyCode && !booking.agency?.includes(searchData.agencyCode)) {
-        matches = false;
-      }
-
       if (searchData.orderNo && !booking.booking_number?.includes(searchData.orderNo)) {
         matches = false;
       }
@@ -266,9 +277,9 @@ const BookingHistory = () => {
       }
 
       // Apply category filter
-      if (activeTab === "UMRAH BOOKINGS" && booking.category !== "Package") {
+      if (activeTab === "UMRAH BOOKINGS" && booking.booking_type !== "Umrah Package") {
         matches = false;
-      } else if (activeTab === "Groups Tickets" && booking.category !== "Ticket_Booking") {
+      } else if (activeTab === "Groups Tickets" && booking.booking_type !== "TICKET") {
         matches = false;
       }
 
@@ -379,19 +390,6 @@ const BookingHistory = () => {
                 <div className="row g-3">
                   <div className="col-md-3">
                     <label htmlFor="" className="form-label">
-                      Agency Code
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control rounded shadow-none px-1 py-2"
-                      name="agencyCode"
-                      placeholder="Enter Agency Code"
-                      value={searchData.agencyCode}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="col-md-2">
-                    <label htmlFor="" className="form-label">
                       Order No.
                     </label>
                     <input
@@ -403,7 +401,7 @@ const BookingHistory = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="col-md-2">
+                  <div className="col-md-3">
                     <label htmlFor="" className="form-label">
                       From Date
                     </label>
@@ -415,7 +413,7 @@ const BookingHistory = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="col-md-2">
+                  <div className="col-md-3">
                     <label htmlFor="" className="form-label">
                       To Date
                     </label>
@@ -496,7 +494,6 @@ const BookingHistory = () => {
                             <th>Booking Expiry</th>
                             <th>Booking Status</th>
                             <th>Amount</th>
-                            <th>Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -512,46 +509,16 @@ const BookingHistory = () => {
                                   }
                                 </td>
                                 <td>
-                                  {booking.category === "Package" ? "Umrah Package" :
-                                    booking.category === "Ticket_Booking" ? "Flight Tickets" :
-                                      booking.category || "N/A"}
+                                  {booking.booking_type || "N/A"}
                                 </td>
                                 <td>{formatDate(booking.expiry_time)}</td>
                                 <td>{getStatusBadge(booking.status)}</td>
                                 <td>{formatCurrency(booking.total_amount)}</td>
-                                <td>
-                                  <div className="dropdown">
-                                    <button
-                                      className="btn btn-link p-0"
-                                      type="button"
-                                      data-bs-toggle="dropdown"
-                                    >
-                                      <EllipsisVertical />
-                                    </button>
-                                    <ul className="dropdown-menu">
-                                      <li>
-                                        <a className="dropdown-item" href="#">
-                                          View
-                                        </a>
-                                      </li>
-                                      <li>
-                                        <a className="dropdown-item" href="#">
-                                          Edit
-                                        </a>
-                                      </li>
-                                      <li>
-                                        <a className="dropdown-item" href="#">
-                                          Delete
-                                        </a>
-                                      </li>
-                                    </ul>
-                                  </div>
-                                </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="8" className="text-center py-4">
+                              <td colSpan="7" className="text-center py-4">
                                 No bookings found
                               </td>
                             </tr>

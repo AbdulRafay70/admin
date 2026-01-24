@@ -161,6 +161,14 @@ const EditHotelAvailabilityAndPrices = () => {
         section.id === id ? { ...section, [field]: value } : section
       ),
     });
+
+    // Clear errors when user changes dates
+    if (formErrors[`price_${id}`]) {
+      setFormErrors({
+        ...formErrors,
+        [`price_${id}`]: null,
+      });
+    }
   };
 
   // Add new bed price to a section
@@ -289,6 +297,51 @@ const EditHotelAvailabilityAndPrices = () => {
     });
   };
 
+  // Validate price date ranges to prevent overlaps and ensure they're within availability
+  const validatePriceDateRanges = () => {
+    const errors = {};
+
+    if (!hotelData.available_start_date || !hotelData.available_end_date) {
+      return { valid: true, errors }; // Skip if availability not set
+    }
+
+    const availStart = new Date(hotelData.available_start_date);
+    const availEnd = new Date(hotelData.available_end_date);
+
+    // Check each price section
+    for (const section of hotelData.prices) {
+      if (!section.start_date || !section.end_date) continue;
+
+      const priceStart = new Date(section.start_date);
+      const priceEnd = new Date(section.end_date);
+
+      // 1. Check if price dates are within availability range
+      if (priceStart < availStart || priceEnd > availEnd) {
+        errors[`price_${section.id}`] =
+          `Price dates must be within availability range (${hotelData.available_start_date} to ${hotelData.available_end_date})`;
+        return { valid: false, errors };
+      }
+
+      // 2. Check for overlaps with other price sections
+      for (const otherSection of hotelData.prices) {
+        if (section.id === otherSection.id) continue;
+        if (!otherSection.start_date || !otherSection.end_date) continue;
+
+        const otherStart = new Date(otherSection.start_date);
+        const otherEnd = new Date(otherSection.end_date);
+
+        // Check if dates overlap
+        if (priceStart <= otherEnd && priceEnd >= otherStart) {
+          errors[`price_${section.id}`] =
+            `Price dates overlap with another price section (${otherSection.start_date} to ${otherSection.end_date})`;
+          return { valid: false, errors };
+        }
+      }
+    }
+
+    return { valid: true, errors };
+  };
+
   // Validate that price date ranges cover availability without gaps
   const validateDateRanges = () => {
     const errors = {};
@@ -298,6 +351,16 @@ const EditHotelAvailabilityAndPrices = () => {
     if (!hotelData.available_start_date) {
       errors.available_start_date = "Start date is required";
       isValid = false;
+    } else {
+      // Check if start date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDate = new Date(hotelData.available_start_date);
+
+      if (startDate < today) {
+        errors.available_start_date = "Start date cannot be in the past";
+        isValid = false;
+      }
     }
 
     if (!hotelData.available_end_date) {
@@ -441,6 +504,15 @@ const EditHotelAvailabilityAndPrices = () => {
       return;
     }
 
+    // Validate price date ranges (overlaps and availability range)
+    const priceValidation = validatePriceDateRanges();
+    if (!priceValidation.valid) {
+      setFormErrors({ ...formErrors, ...priceValidation.errors });
+      setError("Please fix price date conflicts before saving");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("accessToken");
       const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
@@ -556,6 +628,7 @@ const EditHotelAvailabilityAndPrices = () => {
                       type="date"
                       name="available_start_date"
                       value={hotelData.available_start_date}
+                      min={new Date().toISOString().split('T')[0]}
                       onChange={handleAvailabilityChange}
                       className={`form-control  ${formErrors.available_start_date ? "is-invalid" : ""
                         }`}
@@ -577,6 +650,7 @@ const EditHotelAvailabilityAndPrices = () => {
                       type="date"
                       name="available_end_date"
                       value={hotelData.available_end_date}
+                      min={hotelData.available_start_date || new Date().toISOString().split('T')[0]}
                       onChange={handleAvailabilityChange}
                       className={`form-control  ${formErrors.available_end_date ? "is-invalid" : ""
                         }`}
@@ -611,6 +685,15 @@ const EditHotelAvailabilityAndPrices = () => {
 
                 <h4 className="fw-bold mt-5">Price</h4>
 
+                {/* Availability Range Info */}
+                {hotelData.available_start_date && hotelData.available_end_date && (
+                  <div className="alert alert-info mt-3">
+                    <strong>Availability Period:</strong> {hotelData.available_start_date} to {hotelData.available_end_date}
+                    <br />
+                    <small>All price dates must be within this range and cannot overlap</small>
+                  </div>
+                )}
+
                 {formErrors.coverage && (
                   <div className="alert alert-danger mb-3">
                     {formErrors.coverage}
@@ -625,6 +708,13 @@ const EditHotelAvailabilityAndPrices = () => {
 
                 {hotelData.prices.map((section) => (
                   <div key={section.id} className="p-4 mb-3 position-relative">
+                    {/* Price Section Error */}
+                    {formErrors[`price_${section.id}`] && (
+                      <div className="alert alert-danger mt-2">
+                        {formErrors[`price_${section.id}`]}
+                      </div>
+                    )}
+
                     {hotelData.prices.length > 1 && (
                       <div className="d-flex justify-content-end">
                         <button
@@ -647,6 +737,8 @@ const EditHotelAvailabilityAndPrices = () => {
                           <input
                             type="date"
                             value={section.start_date}
+                            min={hotelData.available_start_date || new Date().toISOString().split('T')[0]}
+                            max={hotelData.available_end_date}
                             onChange={(e) =>
                               handlePriceSectionChange(
                                 section.id,
@@ -666,6 +758,8 @@ const EditHotelAvailabilityAndPrices = () => {
                           <input
                             type="date"
                             value={section.end_date}
+                            min={section.start_date || hotelData.available_start_date || new Date().toISOString().split('T')[0]}
+                            max={hotelData.available_end_date}
                             onChange={(e) =>
                               handlePriceSectionChange(
                                 section.id,

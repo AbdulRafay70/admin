@@ -65,7 +65,8 @@ const UniversalList = () => {
           parent_name: it.parent_name || (it.parent && it.parent.name) || "",
           name: it.name || "",
           email: it.email || "",
-          phone: it.phone || "",
+          phone: it.phone || it.contact_no || "",
+          cnic: it.cnic || "",
           address: it.address || "",
           city: it.city || "",
           created_at: it.created_at || it.created_at,
@@ -218,10 +219,19 @@ const UniversalList = () => {
     try {
       const ok = window.confirm("Are you sure you want to approve this registration?");
       if (!ok) return;
-      await approveUniversal(id);
-      const updated = records.map(r => r.id === id ? { ...r, status: "active" } : r);
+      console.log('Approving registration:', id);
+      const response = await approveUniversal(id);
+      console.log('Approval response:', response.data);
+      const updated = records.map(r => r.id === id ? { ...r, status: "active", is_active: true } : r);
       setRecords(updated);
-      showAlert("success", "Registration approved");
+      
+      // Clear organization cache so it appears in Partners page immediately
+      localStorage.removeItem('organizations_cache');
+      localStorage.removeItem('organizations_cache_timestamp');
+      
+      showAlert("success", response.data?.message || "Registration approved. Organization will appear in Partners page.");
+      // Reload the list to get fresh data
+      setTimeout(() => loadRecords(), 1000);
     } catch (error) {
       console.error("Error approving registration:", error, error.response?.data || error.response || error);
       const status = error?.response?.status;
@@ -572,7 +582,7 @@ const UniversalList = () => {
                           <td style={{ padding: "16px" }}>
                             <div className="d-flex align-items-center gap-2">
                               <Phone size={16} className="text-muted" />
-                              <span className="text-muted">{record.phone}</span>
+                              <span className="text-muted">{record.phone || "-"}</span>
                             </div>
                           </td>
                           <td style={{ padding: "16px" }}>
@@ -700,6 +710,15 @@ const UniversalList = () => {
                 </p>
                 <p className="mb-0">{selectedRecord.phone}</p>
               </Col>
+              {selectedRecord.cnic && (
+                <Col md={6} className="mb-3">
+                  <p className="text-muted mb-1" style={{ fontSize: "14px" }}>
+                    <FileText size={14} className="me-1" />
+                    CNIC
+                  </p>
+                  <p className="mb-0">{selectedRecord.cnic}</p>
+                </Col>
+              )}
               {selectedRecord.city && (
                 <Col md={6} className="mb-3">
                   <p className="text-muted mb-1" style={{ fontSize: "14px" }}>

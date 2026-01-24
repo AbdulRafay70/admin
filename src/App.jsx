@@ -44,6 +44,9 @@ import CustomerManagement from "./pages/admin/CustomerManagement";
 // New Advanced Admin Pages
 import CommissionManagement from "./pages/admin/CommissionManagement";
 import CommissionAssignValues from "./pages/admin/CommissionAssignValues";
+import CommissionEarnings from "./pages/admin/CommissionEarnings";
+import ServiceChargeManagement from "./pages/admin/ServiceChargeManagement";
+import ServiceChargeAssignValues from "./pages/admin/ServiceChargeAssignValues";
 import MarkupManagement from "./pages/admin/MarkupManagement";
 import MarkupAssignValues from "./pages/admin/MarkupAssignValues";
 import HotelOutsourcing from "./pages/admin/HotelOutsourcing";
@@ -390,14 +393,14 @@ function App() {
               }
             />
 
-           <Route
-            path="/public-users"
-            element={
-              <PrivateRoute>
-                <PublicUserDashboard />
-              </PrivateRoute>
-            }
-          /> 
+            <Route
+              path="/public-users"
+              element={
+                <PrivateRoute>
+                  <PublicUserDashboard />
+                </PrivateRoute>
+              }
+            />
             <Route
               path="/admin/partners/branche"
               element={
@@ -524,6 +527,54 @@ function App() {
               element={
                 <PrivateRoute>
                   <CommissionAssignValues />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/commission-earnings"
+              element={
+                <PrivateRoute>
+                  <CommissionEarnings />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/commission-earnings"
+              element={
+                <PrivateRoute>
+                  <CommissionEarnings />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/service-charges"
+              element={
+                <PrivateRoute>
+                  <ServiceChargeManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/service-charges"
+              element={
+                <PrivateRoute>
+                  <ServiceChargeManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/partners/service-charges/assign-values"
+              element={
+                <PrivateRoute>
+                  <ServiceChargeAssignValues />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/partners/service-charges/assign-values"
+              element={
+                <PrivateRoute>
+                  <ServiceChargeAssignValues />
                 </PrivateRoute>
               }
             />

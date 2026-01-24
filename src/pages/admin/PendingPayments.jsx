@@ -56,10 +56,9 @@ const PendingPayments = () => {
         const transformedPayments = (response.data.unpaid_bookings || []).map(booking => ({
           id: booking.booking_id,
           bookingNo: booking.booking_no,
-          agentId: booking.agent_id || "N/A",
-          agencyName: "N/A", // Will be populated from user/agency data
+          agentId: booking.agency_code || "N/A",
+          agencyName: booking.agency_name || "N/A",
           agentName: booking.customer_name || "N/A",
-          contactNo: booking.contact_number || "N/A",
           pendingBalance: `PKR ${(booking.pending_payment || 0).toLocaleString()}`,
           totalAmount: booking.total_amount || 0,
           paidAmount: booking.paid_payment || 0,
@@ -91,7 +90,6 @@ const PendingPayments = () => {
       payment.agentId.toString().includes(searchLower) ||
       payment.agencyName.toLowerCase().includes(searchLower) ||
       payment.agentName.toLowerCase().includes(searchLower) ||
-      payment.contactNo.includes(searchLower) ||
       payment.bookingNo.toLowerCase().includes(searchLower);
 
     return matchesStatus && matchesSearch;
@@ -195,10 +193,9 @@ const PendingPayments = () => {
                         <thead className="">
                           <tr>
                             <th>Booking No.</th>
-                            <th>Agent ID</th>
+                            <th>Agency Code</th>
                             <th>Agency Name</th>
                             <th>Customer Name</th>
-                            <th>Contact No.</th>
                             <th>Total Amount</th>
                             <th>Paid Amount</th>
                             <th>Pending Balance</th>
@@ -212,7 +209,6 @@ const PendingPayments = () => {
                               <td>{payment.agentId}</td>
                               <td>{payment.agencyName}</td>
                               <td>{payment.agentName}</td>
-                              <td>{payment.contactNo}</td>
                               <td>PKR {payment.totalAmount.toLocaleString()}</td>
                               <td className="text-success">PKR {payment.paidAmount.toLocaleString()}</td>
                               <td className="fw-bold text-danger">
@@ -232,12 +228,6 @@ const PendingPayments = () => {
                                     </Dropdown.Item>
                                     <Dropdown.Item className="text-primary">
                                       Add Notes
-                                    </Dropdown.Item>
-                                    <Dropdown.Item className="text-primary">
-                                      ID Block
-                                    </Dropdown.Item>
-                                    <Dropdown.Item className="text-primary">
-                                      Copy SMS
                                     </Dropdown.Item>
                                     <Dropdown.Item className="text-danger">Cancel</Dropdown.Item>
                                   </Dropdown.Menu>

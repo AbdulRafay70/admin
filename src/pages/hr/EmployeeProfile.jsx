@@ -189,7 +189,7 @@ const EmployeeCommissions = ({ employeeId }) => {
           <thead>
             <tr>
               <th>Date</th>
-              <th>Description</th>
+              <th>Booking Details</th>
               <th>Amount</th>
               <th>Status</th>
             </tr>
@@ -198,7 +198,14 @@ const EmployeeCommissions = ({ employeeId }) => {
             {records.map(r => (
               <tr key={r.id}>
                 <td>{r.date}</td>
-                <td className="small">{r.description || '-'}</td>
+                <td>
+                  <div className="small">
+                    <div className="fw-bold">#{r.booking_id || 'N/A'}</div>
+                    <div className="text-muted" style={{ fontSize: '0.85em' }}>
+                      {r.service_type ? r.service_type.replace('_', ' ').toUpperCase() : (r.description || 'Booking')}
+                    </div>
+                  </div>
+                </td>
                 <td><strong>PKR {parseFloat(r.amount).toLocaleString()}</strong></td>
                 <td>
                   {r.status === 'paid' ? (
@@ -216,18 +223,17 @@ const EmployeeCommissions = ({ employeeId }) => {
   );
 };
 
-const EmployeeSalary = ({ employeeId, currentSalary }) => {
-  const [history, setHistory] = useState([]);
+const EmployeeLedger = ({ employeeId }) => {
+  const [ledger, setLedger] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const resp = await api.get(`/hr/salary-history/?employee=${employeeId}`);
-        const data = Array.isArray(resp.data) ? resp.data : resp.data.results || [];
-        setHistory(data.sort((a, b) => new Date(b.effective_date) - new Date(a.effective_date)));
+        const resp = await api.get(`/hr/employee-ledger/${employeeId}/`);
+        setLedger(resp.data);
       } catch (e) {
-        console.error('Failed to fetch salary history:', e);
+        console.error('Failed to fetch ledger:', e);
       } finally {
         setLoading(false);
       }
@@ -239,31 +245,43 @@ const EmployeeSalary = ({ employeeId, currentSalary }) => {
 
   return (
     <div>
-      <h5 className="mb-3">My Salary</h5>
-      <Card className="border-0 shadow-sm bg-primary text-white mb-3">
-        <Card.Body>
-          <div className="small mb-1">Current Salary</div>
-          <h2 className="mb-0">PKR {currentSalary ? parseFloat(currentSalary).toLocaleString() : '0'}</h2>
-        </Card.Body>
-      </Card>
-      <h6 className="mb-2">Salary History</h6>
-      {history.length === 0 ? (
-        <div className="text-center text-muted py-4">No salary history found</div>
+      <h5 className="mb-3">Financial Ledger</h5>
+      {ledger.length === 0 ? (
+        <div className="text-center text-muted py-4">No ledger records found</div>
       ) : (
-        <Table responsive hover>
-          <thead>
+        <Table responsive hover className="align-middle">
+          <thead className="bg-light">
             <tr>
-              <th>Effective Date</th>
-              <th>Salary</th>
-              <th>Reason</th>
+              <th>Date</th>
+              <th>Order Number</th>
+              <th>Type</th>
+              <th className="text-end">Debit</th>
+              <th className="text-end">Credit</th>
+              <th className="text-end">Balance</th>
             </tr>
           </thead>
           <tbody>
-            {history.map(h => (
-              <tr key={h.id}>
-                <td><strong>{h.effective_date}</strong></td>
-                <td>PKR {parseFloat(h.salary).toLocaleString()}</td>
-                <td className="small text-muted">{h.reason || '-'}</td>
+            {ledger.map((row, idx) => (
+              <tr key={idx}>
+                <td>
+                  <div>{new Date(row.date).toLocaleDateString()}</div>
+                  <small className="text-muted">{new Date(row.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                </td>
+                <td>
+                  <span className="fw-medium text-dark">#{row.order_number}</span>
+                </td>
+                <td>
+                  <Badge bg="light" text="dark" className="border fw-normal">{row.type}</Badge>
+                </td>
+                <td className="text-end text-danger fw-medium">
+                  {row.debit > 0 ? row.debit.toLocaleString() : '-'}
+                </td>
+                <td className="text-end text-success fw-medium">
+                  {row.credit > 0 ? row.credit.toLocaleString() : '-'}
+                </td>
+                <td className="text-end fw-bold text-dark">
+                  {row.balance.toLocaleString()}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -290,13 +308,13 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
   const { show: toast } = useToast();
 
 
-  
+
   useEffect(() => {
     const fetch = async () => {
       try {
         const resp = await api.get(`/hr/employees/${id}/`);
         setEmployee(resp.data);
-        
+
         // Fetch today's attendance
         const today = new Date().toISOString().slice(0, 10);
         try {
@@ -307,15 +325,15 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
           console.warn('Could not fetch attendance:', e?.message);
           setTodayAttendance(null);
         }
-        
+
         // Fetch all early checkout requests for this employee
         const leaveResp = await api.get(`/hr/leave-requests/?employee=${id}&request_type=early_checkout`);
         const requests = Array.isArray(leaveResp.data) ? leaveResp.data : leaveResp.data.results || [];
         setAllCheckoutRequests(requests);
-        
+
         // Check for pending early checkout request for today
         const pendingToday = requests.find(r => r.status === 'pending' && r.date === today);
-        
+
         if (pendingToday) {
           setPendingCheckoutRequest(pendingToday);
           setApprovalNotice('Early checkout request pending approval');
@@ -337,11 +355,11 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
       const resp = await api.post(`/hr/employees/${employee.id}/check_in/`);
       toast('success', 'Checked in', resp.data.message || 'Successfully checked in');
       setShowCheckInModal(false);
-      
+
       // Refresh employee data and attendance
       const refresh = await api.get(`/hr/employees/${id}/`);
       setEmployee(refresh.data);
-      
+
       const today = new Date().toISOString().slice(0, 10);
       const attResp = await api.get(`/hr/attendance/?employee=${id}&date=${today}`);
       const attRecords = Array.isArray(attResp.data) ? attResp.data : attResp.data.results || [];
@@ -370,16 +388,16 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
       }
       setShowCheckOutModal(false);
       setReason('');
-      
+
       // Refresh employee data and attendance
       const refresh = await api.get(`/hr/employees/${id}/`);
       setEmployee(refresh.data);
-      
+
       const today = new Date().toISOString().slice(0, 10);
       const attResp = await api.get(`/hr/attendance/?employee=${id}&date=${today}`);
       const attRecords = Array.isArray(attResp.data) ? attResp.data : attResp.data.results || [];
       setTodayAttendance(attRecords.length > 0 ? attRecords[0] : null);
-      
+
       // Refresh checkout requests
       const leaveResp = await api.get(`/hr/leave-requests/?employee=${id}&request_type=early_checkout`);
       const requests = Array.isArray(leaveResp.data) ? leaveResp.data : leaveResp.data.results || [];
@@ -430,37 +448,38 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
     <Container fluid className="hr-container">
       <Row className="mb-3 align-items-center">
         <Col>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Button className="btn-ghost" onClick={() => navigate('/hr?tab=employees')}>Back</Button>
-            <h3 style={{margin:0}}>Employee Profile</h3>
+            <h3 style={{ margin: 0 }}>Employee Profile</h3>
           </div>
-          
+
         </Col>
         <Col xs="auto">
           <Button className="btn-primary me-2">Save</Button>
           <Button className="btn-ghost">More</Button>
         </Col>
       </Row>
-      
+
 
       <Row>
         <Col xs={12} md={4}>
           <Card className="mb-3 hr-panel">
             <Card.Body>
-              <div style={{display:'flex',gap:12}}>
-                <div className="avatar" style={{width:72,height:72,fontSize:20}}>{employee ? `${(employee.first_name||'')[0]}${(employee.last_name||'')[0]}` : 'NN'}</div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="avatar" style={{ width: 72, height: 72, fontSize: 20 }}>{employee ? `${(employee.first_name || '')[0]}${(employee.last_name || '')[0]}` : 'NN'}</div>
                 <div>
-                  <h4 style={{margin:0}}>{employee ? `${employee.first_name} ${employee.last_name || ''}` : 'Employee'}</h4>
+                  <h4 style={{ margin: 0 }}>{employee ? `${employee.first_name} ${employee.last_name || ''}` : 'Employee'}</h4>
                   <div className="small-muted">Role: {employee?.role || '-'}</div>
                   <div className="small-muted">Joined: {employee?.joining_date || '-'}</div>
                 </div>
               </div>
 
               <hr />
-              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div><strong>Salary</strong><div>PKR {employee?.salary || '50,000'}</div></div>
                 <div><strong>Branch</strong><div>{employee?.branch_name || '-'}</div></div>
-                <div><strong>Status</strong><div className="status-chip status-in" style={{display:'inline-block',marginTop:6}}>{employee?.is_active ? 'Active' : 'Inactive'}</div></div>
+                <div><strong>Commission Rule</strong><div>{employee?.commission_group_name || <span className="text-muted">None</span>}</div></div>
+                <div><strong>Status</strong><div className="status-chip status-in" style={{ display: 'inline-block', marginTop: 6 }}>{employee?.is_active ? 'Active' : 'Inactive'}</div></div>
               </div>
 
               {approvalNotice && (
@@ -477,7 +496,7 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
 
               <hr />
               <h6>Quick Actions</h6>
-              <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
                 {!todayAttendance || !todayAttendance.check_in ? (
                   // Not checked in - show Check In button
                   <Button className="btn-primary" onClick={() => setShowCheckInModal(true)}>
@@ -485,8 +504,8 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
                   </Button>
                 ) : !todayAttendance.check_out ? (
                   // Checked in but not checked out - show Check Out button
-                  <Button 
-                    className="btn-primary" 
+                  <Button
+                    className="btn-primary"
                     onClick={() => setShowCheckOutModal(true)}
                     disabled={!!pendingCheckoutRequest}
                   >
@@ -524,7 +543,7 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
                 <Tab eventKey="info" title="Info">
                   <div className="p-3">
                     <h5>Basic Info</h5>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label>First name</label>
                         <input className="form-control" defaultValue={employee?.first_name || ''} />
@@ -573,29 +592,29 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
                           {allCheckoutRequests
                             .sort((a, b) => new Date(b.date) - new Date(a.date))
                             .map(req => (
-                            <tr key={req.id}>
-                              <td>
-                                <strong>{req.date}</strong>
-                                {req.date === new Date().toISOString().slice(0, 10) && (
-                                  <Badge bg="info" className="ms-2">Today</Badge>
-                                )}
-                              </td>
-                              <td className="small">{req.reason || '-'}</td>
-                              <td>{getStatusBadge(req.status)}</td>
-                              <td className="small text-muted">
-                                {req.approved_by ? `User #${req.approved_by}` : '-'}
-                              </td>
-                              <td className="small text-muted">{req.approval_notes || '-'}</td>
-                            </tr>
-                          ))}
+                              <tr key={req.id}>
+                                <td>
+                                  <strong>{req.date}</strong>
+                                  {req.date === new Date().toISOString().slice(0, 10) && (
+                                    <Badge bg="info" className="ms-2">Today</Badge>
+                                  )}
+                                </td>
+                                <td className="small">{req.reason || '-'}</td>
+                                <td>{getStatusBadge(req.status)}</td>
+                                <td className="small text-muted">
+                                  {req.approved_by ? `User #${req.approved_by}` : '-'}
+                                </td>
+                                <td className="small text-muted">{req.approval_notes || '-'}</td>
+                              </tr>
+                            ))}
                         </tbody>
                       </Table>
                     )}
                   </div>
                 </Tab>
-                <Tab eventKey="salary" title="💰 Salary">
+                <Tab eventKey="salary" title="📒 Ledger">
                   <div className="p-3">
-                    <EmployeeSalary employeeId={id} currentSalary={employee?.salary} />
+                    <EmployeeLedger employeeId={id} />
                   </div>
                 </Tab>
                 <Tab eventKey="commissions" title="💵 Commissions">
@@ -652,7 +671,7 @@ const InnerEmployeeProfile = ({ embedded = false }) => {
             />
           </Form.Group>
           <div className="alert alert-warning small mb-0">
-            <strong>⚠️ Important:</strong> If you checkout before your scheduled time ({employee?.check_out_time || '18:00'}), 
+            <strong>⚠️ Important:</strong> If you checkout before your scheduled time ({employee?.check_out_time || '18:00'}),
             a request will be created and sent to your manager for approval. You will only be checked out after the request is approved.
           </div>
         </Modal.Body>

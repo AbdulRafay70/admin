@@ -11,14 +11,22 @@ const ChangeCommissionModal = ({ show, onHide, employee, onChanged }) => {
 
   useEffect(() => {
     if (show && employee) {
+      // commission_group might be an object or ID depending on serializer, usually ID in edit form
+      // but EmployeeSerializer has commission_group as ID and commission_group_name as string
       setCommissionGroup(employee.commission_group || '');
-      // Fetch commission groups
+
+      // Fetch commission rules (using the commissions app API)
       const fetchGroups = async () => {
         try {
-          const resp = await api.get('/hr/commission-groups/');
-          setGroups(Array.isArray(resp.data) ? resp.data : resp.data.results || []);
+          // Check if we can filter by receiver_type via query param, if not we filter in JS
+          const resp = await api.get('/commissions/rules/');
+          const allRules = Array.isArray(resp.data) ? resp.data : resp.data.results || [];
+
+          // Filter for employee rules
+          const employeeRules = allRules.filter(r => r.receiver_type === 'employee');
+          setGroups(employeeRules);
         } catch (err) {
-          console.warn('Failed to fetch commission groups', err);
+          console.warn('Failed to fetch commission rules', err);
         }
       };
       fetchGroups();
@@ -28,7 +36,7 @@ const ChangeCommissionModal = ({ show, onHide, employee, onChanged }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!employee) return;
-    
+
     setSaving(true);
     try {
       await api.patch(`/hr/employees/${employee.id}/`, {

@@ -120,6 +120,30 @@ const CommissionEarnings = () => {
         return labels[type] || type;
     };
 
+    const handlePay = async (id) => {
+        if (!window.confirm("Are you sure you want to mark this commission as PAID? This will create a ledger entry.")) return;
+        try {
+            await getAxiosInstance().post(`commissions/redeem/${id}`);
+            alert("Commission paid successfully!");
+            fetchData();
+        } catch (error) {
+            console.error("Pay failed", error);
+            alert(error.response?.data?.detail || "Failed to pay commission");
+        }
+    };
+
+    const handleCancel = async (id) => {
+        if (!window.confirm("Are you sure you want to CANCEL this commission?")) return;
+        try {
+            await getAxiosInstance().patch(`commissions/earning/update_status/${id}`, { status: 'cancelled' });
+            alert("Commission cancelled!");
+            fetchData();
+        } catch (error) {
+            console.error("Cancel failed", error);
+            alert("Failed to cancel commission");
+        }
+    };
+
     return (
         <div className="d-flex">
             <Sidebar />
@@ -309,13 +333,13 @@ const CommissionEarnings = () => {
                                                 #
                                             </th>
                                             <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
-                                                Booking
-                                            </th>
-                                            <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
-                                                Type
+                                                Booking Details
                                             </th>
                                             <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
                                                 Earned By
+                                            </th>
+                                            <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
+                                                Partner
                                             </th>
                                             <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
                                                 Amount
@@ -326,12 +350,15 @@ const CommissionEarnings = () => {
                                             <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
                                                 Date
                                             </th>
+                                            <th className="border-0 py-3" style={{ color: '#6B7280', fontWeight: '600' }}>
+                                                Actions
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {loading ? (
                                             <tr>
-                                                <td colSpan="7" className="text-center py-5">
+                                                <td colSpan="8" className="text-center py-5">
                                                     <div className="spinner-border text-primary" role="status">
                                                         <span className="visually-hidden">Loading...</span>
                                                     </div>
@@ -339,7 +366,7 @@ const CommissionEarnings = () => {
                                             </tr>
                                         ) : paginatedCommissions.length === 0 ? (
                                             <tr>
-                                                <td colSpan="7" className="text-center py-5">
+                                                <td colSpan="8" className="text-center py-5">
                                                     <div className="text-muted">
                                                         <TrendingUp size={48} className="mb-3 opacity-25" />
                                                         <p className="mb-0">No commissions found</p>
@@ -354,7 +381,10 @@ const CommissionEarnings = () => {
                                                         <span className="text-muted">{(currentPage - 1) * perPage + index + 1}</span>
                                                     </td>
                                                     <td className="py-3">
-                                                        #{commission.booking_id || '-'}
+                                                        <div className="fw-bold">#{commission.booking_number || commission.booking_id || '-'}</div>
+                                                        <div className="text-muted small" style={{ fontSize: '0.85em' }}>
+                                                            {commission.booking_type_display || 'BOOKING'}
+                                                        </div>
                                                     </td>
                                                     <td className="py-3">{getTypeBadge(commission.earned_by_type)}</td>
                                                     <td className="py-3">
@@ -372,6 +402,30 @@ const CommissionEarnings = () => {
                                                             day: 'numeric',
                                                             year: 'numeric',
                                                         })}
+                                                    </td>
+                                                    <td className="py-3">
+                                                        {['pending', 'earned'].includes(commission.status) && (
+                                                            <div className="d-flex gap-2">
+                                                                <Button
+                                                                    variant="success"
+                                                                    size="sm"
+                                                                    className="px-2 py-1"
+                                                                    style={{ fontSize: '0.75rem' }}
+                                                                    onClick={() => handlePay(commission.id)}
+                                                                >
+                                                                    Pay
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline-danger"
+                                                                    size="sm"
+                                                                    className="px-2 py-1"
+                                                                    style={{ fontSize: '0.75rem' }}
+                                                                    onClick={() => handleCancel(commission.id)}
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))

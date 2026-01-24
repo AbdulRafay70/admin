@@ -4,6 +4,7 @@ import { Gear } from "react-bootstrap-icons";
 import { Funnel, Search } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
+import PartnersTabs from "../../components/PartnersTabs";
 import { NavLink, Link } from "react-router-dom";
 import axios from "axios";
 import AdminFooter from "../../components/AdminFooter";
@@ -504,17 +505,6 @@ const Agencies = () => {
     fetchBranches();
   }, [refreshTrigger]);
 
-  // Navigation tabs
-  const tabs = [
-    { name: "All Partners", path: "/partners" },
-    { name: "Request", path: "/partners/request" },
-    { name: "Group And Permissions", path: "/partners/role-permissions" },
-    { name: "Discounts", path: "/partners/discounts" },
-    { name: "Organizations", path: "/partners/organization" },
-    { name: "Branches", path: "/partners/branche" },
-    { name: "Agencies", path: "/partners/agencies" },
-  ];
-
   return (
     <>
       <style>
@@ -544,32 +534,10 @@ const Agencies = () => {
               <Header />
               <div className="px-3 px-lg-4 my-3">
                 {/* Navigation Tabs */}
-                <div className="row ">
-                  <div className="d-flex flex-wrap justify-content-between align-items-center w-100">
-                    <nav className="nav flex-wrap gap-2">
-                      {tabs.map((tab, index) => (
-                        <NavLink
-                          key={index}
-                          to={tab.path}
-                          className={`nav-link btn btn-link text-decoration-none px-0 me-3 border-0 ${tab.name === "Agencies"
-                            ? "text-primary fw-semibold"
-                            : "text-muted"
-                            }`}
-                          style={{ backgroundColor: "transparent" }}
-                        >
-                          {tab.name}
-                        </NavLink>
-                      ))}
-                    </nav>
-                    {/* <div className="d-flex align-items-center gap-3">
-                    {branchId && (
-                      <div className="badge bg-primary">
-                        Branch:{" "}
-                        {JSON.parse(localStorage.getItem("selectedBranch"))
-                          ?.name || branchId}
-                      </div>
-                    )}
-                  </div> */}
+                <PartnersTabs activeName="Agencies" />
+
+                <div className="row mt-3">
+                  <div className="d-flex flex-wrap justify-content-end align-items-center w-100">
                     <div className="input-group" style={{ maxWidth: "300px" }}>
                       <span className="input-group-text">
                         <Search />

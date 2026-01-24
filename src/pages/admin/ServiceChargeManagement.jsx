@@ -6,11 +6,11 @@ import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import PartnersTabs from '../../components/PartnersTabs';
 import axios from 'axios';
-// import './styles/commission-management.css';
+import './styles/commission-management.css';
 
-const CommissionManagement = () => {
+const ServiceChargeManagement = () => {
   // State
-  const [groups, setGroups] = useState([]);
+  const [charges, setCharges] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -19,7 +19,6 @@ const CommissionManagement = () => {
 
   // Form state
   const [name, setName] = useState('');
-  const [receiverType, setReceiverType] = useState('branch');
 
   // Get organization and branch from localStorage
   const orgDataRaw = localStorage.getItem('selectedOrganization');
@@ -37,7 +36,7 @@ const CommissionManagement = () => {
   }
 
   useEffect(() => {
-    fetchGroups();
+    fetchCharges();
   }, []);
 
   const showAlert = (type, message) => {
@@ -45,18 +44,18 @@ const CommissionManagement = () => {
     setTimeout(() => setAlert(null), 3000);
   };
 
-  const fetchGroups = async () => {
+  const fetchCharges = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/commissions/rules', {
-        params: organizationId ? { organization: organizationId } : {},
+      const res = await axios.get('http://127.0.0.1:8000/api/service-charges/service-charges/', {
+        params: organizationId ? { organization_id: organizationId } : {},
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.results) ? res.data.results : []);
-      setGroups(data);
+      setCharges(data);
     } catch (e) {
-      console.error('Failed to fetch commission groups', e);
-      setGroups([]);
+      console.error('Failed to fetch service charges', e);
+      setCharges([]);
     } finally {
       setLoading(false);
     }
@@ -65,14 +64,12 @@ const CommissionManagement = () => {
   const openAdd = () => {
     setEditing(null);
     setName('');
-    setReceiverType('branch');
     setShowModal(true);
   };
 
-  const openEdit = (group) => {
-    setEditing(group);
-    setName(group.name || '');
-    setReceiverType(group.receiver_type || 'branch');
+  const openEdit = (charge) => {
+    setEditing(charge);
+    setName(charge.name || '');
     setShowModal(true);
   };
 
@@ -90,75 +87,70 @@ const CommissionManagement = () => {
       name: name.trim(),
       organization_id: organizationId,
       branch_id: branchId,
-      receiver_type: receiverType,
-      commission: {
-        group_ticket_commission_amount: '',
-        umrah_package_commission_amount: '',
-      },
-      hotel_night_commission: [
-        {
-          quint_per_night_commission: '',
-          quad_per_night_commission: '',
-          triple_per_night_commission: '',
-          double_per_night_commission: '',
-          sharing_per_night_commission: '',
-          other_per_night_commission: '',
-          commission_hotels: [],
-        },
-      ],
+      ticket_charge_type: 'fixed',  // Default value
+      ticket_charge_value: 0,        // Default value
+      package_charge_value: 0,       // Default value
+      active: true,
     };
 
     try {
       if (editing && editing.id) {
         await axios.patch(
-          `http://127.0.0.1:8000/api/commissions/rules/${editing.id}/`,
-          { name: name.trim(), receiver_type: receiverType },
+          `http://127.0.0.1:8000/api/service-charges/service-charges/${editing.id}/`,
+          { name: name.trim() },
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
-        showAlert('success', 'Commission group updated successfully');
+        showAlert('success', 'Service charge group updated successfully');
       } else {
-        await axios.post('http://127.0.0.1:8000/api/commissions/rule/create', payload, {
+        await axios.post('http://127.0.0.1:8000/api/service-charges/service-charges/', payload, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        showAlert('success', 'Commission group created successfully');
+        showAlert('success', 'Service charge group created successfully');
       }
       closeModal();
-      fetchGroups();
+      fetchCharges();
     } catch (e) {
-      console.error('Failed to save commission group', e);
-      showAlert('danger', 'Failed to save commission group');
+      console.error('Failed to save service charge group', e);
+      showAlert('danger', 'Failed to save service charge group');
     }
   };
 
-  const removeGroup = async (id) => {
-    if (!window.confirm('Delete this commission group?')) return;
+  const removeCharge = async (id) => {
+    if (!window.confirm('Delete this service charge?')) return;
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/commissions/rules/${id}/`, {
+      await axios.delete(`http://127.0.0.1:8000/api/service-charges/service-charges/${id}/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showAlert('success', 'Commission group deleted successfully');
-      fetchGroups();
+      showAlert('success', 'Service charge deleted successfully');
+      fetchCharges();
     } catch (e) {
-      console.error('Failed to delete commission group', e);
-      showAlert('danger', 'Failed to delete commission group');
+      console.error('Failed to delete service charge', e);
+      showAlert('danger', 'Failed to delete service charge');
     }
   };
 
-  const filteredGroups = groups.filter((g) => {
+  const filteredCharges = charges.filter((c) => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
-    const name = (g.name || '').toString().toLowerCase();
-    const type = (g.receiver_type || '').toString().toLowerCase();
-    return name.includes(s) || type.includes(s);
+    const name = (c.name || '').toString().toLowerCase();
+    return name.includes(s);
   });
 
-  const getReceiverTypeBadge = (type) => {
+  const getChargeTypeBadge = (type) => {
     const badges = {
-      branch: <Badge bg="primary">Branch</Badge>,
-      area_agent: <Badge bg="info">Area Agent</Badge>,
-      employee: <Badge bg="success">Employee</Badge>,
+      fixed: <Badge bg="primary">Fixed Amount</Badge>,
+      percentage: <Badge bg="info">Percentage</Badge>,
     };
     return badges[type] || <Badge bg="secondary">{type}</Badge>;
+  };
+
+  const getAppliedOnBadge = (appliedOn) => {
+    const badges = {
+      package: <Badge bg="success">Package</Badge>,
+      ticket: <Badge bg="warning">Ticket</Badge>,
+      hotel: <Badge bg="danger">Hotel</Badge>,
+    };
+    return badges[appliedOn] || <Badge bg="secondary">{appliedOn}</Badge>;
   };
 
   return (
@@ -175,7 +167,7 @@ const CommissionManagement = () => {
 
           <Row className="mb-3">
             <Col>
-              <PartnersTabs activeName="Commission Rules" />
+              <PartnersTabs activeName="Service Charges" />
             </Col>
           </Row>
 
@@ -183,8 +175,8 @@ const CommissionManagement = () => {
             <Col>
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h2 className="mb-1">Commission Groups</h2>
-                  <p className="text-muted mb-0">Manage commission groups and assign commission values</p>
+                  <h2 className="mb-1">Service Charge Groups</h2>
+                  <p className="text-muted mb-0">Manage service charge groups and assign values</p>
                 </div>
               </div>
             </Col>
@@ -195,7 +187,7 @@ const CommissionManagement = () => {
               <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
                 <div className="d-flex align-items-center gap-3">
                   <Badge bg="secondary" pill style={{ fontSize: '0.9rem' }}>
-                    {filteredGroups.length} {filteredGroups.length === 1 ? 'Group' : 'Groups'}
+                    {filteredCharges.length} {filteredCharges.length === 1 ? 'Group' : 'Groups'}
                   </Badge>
                 </div>
 
@@ -207,14 +199,14 @@ const CommissionManagement = () => {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <button className="btn btn-outline-secondary btn-sm" type="button" onClick={fetchGroups}>
+                    <button className="btn btn-outline-secondary btn-sm" type="button" onClick={fetchCharges}>
                       <RefreshCw size={16} />
                     </button>
                   </div>
                   <Button size="sm" variant="primary" onClick={openAdd}>
                     <Plus size={16} className="me-1" /> Add Group
                   </Button>
-                  <Link to="/commission-management/assign-values" className="btn btn-outline-secondary btn-sm">
+                  <Link to="/partners/service-charges/assign-values" className="btn btn-outline-secondary btn-sm">
                     <Edit2 size={16} className="me-1" /> Assign Values
                   </Link>
                 </div>
@@ -224,7 +216,6 @@ const CommissionManagement = () => {
                 <thead className="table-light">
                   <tr>
                     <th>Group Name</th>
-                    <th>Receiver Type</th>
                     <th>Organization ID</th>
                     <th>Branch ID</th>
                     <th>Actions</th>
@@ -233,19 +224,19 @@ const CommissionManagement = () => {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-4">
+                      <td colSpan={4} className="text-center py-4">
                         Loading...
                       </td>
                     </tr>
-                  ) : filteredGroups.length === 0 ? (
+                  ) : filteredCharges.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-5">
+                      <td colSpan={4} className="text-center py-5">
                         <div>
                           <div style={{ fontSize: 36, opacity: 0.6 }}>💼</div>
                           <div className="mt-2">
-                            {groups.length === 0 ? 'No commission groups found' : 'No matching commission groups'}
+                            {charges.length === 0 ? 'No service charge groups found' : 'No matching groups'}
                           </div>
-                          {groups.length === 0 ? (
+                          {charges.length === 0 ? (
                             <div className="mt-3">
                               <Button variant="primary" size="sm" onClick={openAdd}>
                                 <Plus size={16} className="me-1" /> Create first group
@@ -262,30 +253,29 @@ const CommissionManagement = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredGroups.map((g) => (
-                      <tr key={g.id}>
+                    filteredCharges.map((c) => (
+                      <tr key={c.id}>
                         <td>
-                          <div className="fw-bold">{g.name}</div>
-                        </td>
-                        <td>{getReceiverTypeBadge(g.receiver_type)}</td>
-                        <td>
-                          <span className="text-muted">{g.organization_id || '-'}</span>
+                          <div className="fw-bold">{c.name}</div>
                         </td>
                         <td>
-                          <span className="text-muted">{g.branch_id || '-'}</span>
+                          <span className="text-muted">{c.organization_id || '-'}</span>
+                        </td>
+                        <td>
+                          <span className="text-muted">{c.branch_id || '-'}</span>
                         </td>
                         <td>
                           <div className="d-flex gap-2">
-                            <Button size="sm" variant="outline-primary" onClick={() => openEdit(g)} title="Edit Group">
+                            <Button size="sm" variant="outline-primary" onClick={() => openEdit(c)} title="Edit Group">
                               <Edit2 size={16} />
                             </Button>
-                            <Button size="sm" variant="outline-danger" onClick={() => removeGroup(g.id)} title="Delete Group">
+                            <Button size="sm" variant="outline-danger" onClick={() => removeCharge(c.id)} title="Delete Group">
                               <Trash2 size={16} />
                             </Button>
                             <Link
-                              to={`/commission-management/assign-values?group=${g.id}`}
+                              to={`/partners/service-charges/assign-values?group=${c.id}`}
                               className="btn btn-sm btn-outline-success"
-                              title="Assign Commission Values"
+                              title="Assign Service Charge Values"
                             >
                               <DollarSign size={16} />
                             </Link>
@@ -303,7 +293,7 @@ const CommissionManagement = () => {
 
       <Modal show={showModal} onHide={closeModal} centered>
         <Modal.Header closeButton className="border-0">
-          <Modal.Title className="fw-semibold">{editing ? 'Edit' : 'Add'} Commission Group</Modal.Title>
+          <Modal.Title className="fw-semibold">{editing ? 'Edit' : 'Add'} Service Charge Group</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
@@ -312,23 +302,13 @@ const CommissionManagement = () => {
               <Form.Control
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Low Level, High Level"
+                placeholder="e.g. Standard Service Charge, Premium Service Charge"
               />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label className="small text-muted">Receiver Type *</Form.Label>
-              <Form.Select value={receiverType} onChange={(e) => setReceiverType(e.target.value)}>
-                <option value="branch">Branch</option>
-                <option value="area_agent">Area Agent</option>
-                <option value="employee">Employee</option>
-              </Form.Select>
-              <Form.Text className="text-muted">Who will receive this commission</Form.Text>
             </Form.Group>
 
             <Alert variant="info" className="small mb-0">
               <strong>Note:</strong> Organization ID and Branch ID will be automatically set based on your login.
-              Commission values can be assigned after creating the group.
+              Service charge values can be assigned after creating the group.
             </Alert>
           </Form>
         </Modal.Body>
@@ -345,4 +325,4 @@ const CommissionManagement = () => {
   );
 };
 
-export default CommissionManagement;
+export default ServiceChargeManagement;

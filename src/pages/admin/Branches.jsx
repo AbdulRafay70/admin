@@ -69,6 +69,8 @@ const Branches = () => {
     email: "",
     address: "",
     organization: "",
+    service_charge_group: "",
+    commission_group: "",
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -76,6 +78,8 @@ const Branches = () => {
   const [toastMessage, setToastMessage] = useState("");
   const [toastVariant, setToastVariant] = useState("danger");
   const [currentPage, setCurrentPage] = useState(1);
+  const [serviceChargeGroups, setServiceChargeGroups] = useState([]);
+  const [commissionGroups, setCommissionGroups] = useState([]);
   const perPage = 8;
 
   const getAccessToken = () => localStorage.getItem("accessToken");
@@ -166,28 +170,66 @@ const Branches = () => {
       setLoading(true);
       setError(null);
 
-      // First try to load from cache
-      if (loadFromCache()) {
-        setLoading(false);
-        return;
+      const axiosInstance = getAxiosInstance();
+
+      // Always fetch service charges and commission rules (not cached)
+      const serviceChargesPromise = axiosInstance.get("service-charges/service-charges/");
+      const commissionsPromise = axiosInstance.get("commissions/rules");
+
+      // Try to load branches/orgs from cache
+      const cacheLoaded = loadFromCache();
+
+      let branchesData, orgsData;
+
+      if (cacheLoaded) {
+        // Use cached data for branches and orgs
+        branchesData = branches;
+        orgsData = organizations;
+      } else {
+        // Fetch from API
+        const [branchesRes, orgsRes] = await Promise.all([
+          axiosInstance.get("branches/"),
+          axiosInstance.get("organizations/"),
+        ]);
+
+        branchesData = branchesRes.data;
+        orgsData = orgsRes.data;
+
+        setBranches(branchesData);
+        setOrganizations(orgsData);
+
+        const map = {};
+        orgsData.forEach((org) => (map[org.id] = org.name));
+        setOrgMap(map);
+
+        // Save to cache
+        saveToCache(branchesData, orgsData);
       }
 
-      // If cache not available or expired, fetch from API
-      const axiosInstance = getAxiosInstance();
-      const [branchesRes, orgsRes] = await Promise.all([
-        axiosInstance.get("branches/"),
-        axiosInstance.get("organizations/"),
+      // Always fetch and set service charges and commission groups
+      const [serviceChargesRes, commissionsRes] = await Promise.all([
+        serviceChargesPromise,
+        commissionsPromise
       ]);
 
-      setBranches(branchesRes.data);
-      setOrganizations(orgsRes.data);
+      // Handle service charges response - could be array or paginated
+      const serviceChargesData = Array.isArray(serviceChargesRes.data)
+        ? serviceChargesRes.data
+        : Array.isArray(serviceChargesRes.data?.results)
+          ? serviceChargesRes.data.results
+          : [];
 
-      const map = {};
-      orgsRes.data.forEach((org) => (map[org.id] = org.name));
-      setOrgMap(map);
+      // Handle commission rules response - could be array or paginated
+      const commissionsData = Array.isArray(commissionsRes.data)
+        ? commissionsRes.data
+        : Array.isArray(commissionsRes.data?.results)
+          ? commissionsRes.data.results
+          : [];
 
-      // Save to cache
-      saveToCache(branchesRes.data, orgsRes.data);
+      console.log("Service Charges Data:", serviceChargesData);
+      console.log("Commission Groups Data:", commissionsData);
+      setServiceChargeGroups(serviceChargesData);
+      setCommissionGroups(commissionsData);
 
       setLoading(false);
     } catch (err) {
@@ -234,6 +276,8 @@ const Branches = () => {
         email: currentBranch.email,
         address: currentBranch.address,
         organization: currentBranch.organization,
+        service_charge_group: currentBranch.service_charge_group || null,
+        commission_group: currentBranch.commission_group || null,
       };
 
       const axiosInstance = getAxiosInstance();
@@ -271,6 +315,8 @@ const Branches = () => {
         email: currentBranch.email,
         address: currentBranch.address,
         organization: currentBranch.organization,
+        service_charge_group: currentBranch.service_charge_group || null,
+        commission_group: currentBranch.commission_group || null,
       };
 
       const axiosInstance = getAxiosInstance();
@@ -327,6 +373,8 @@ const Branches = () => {
       email: "",
       address: "",
       organization: selectedOrg && selectedOrg.id ? selectedOrg.id : "",
+      service_charge_group: "",
+      commission_group: "",
     });
     setShowModal(true);
   };
@@ -340,6 +388,8 @@ const Branches = () => {
       email: branch.email,
       address: branch.address,
       organization: branch.organization,
+      service_charge_group: branch.service_charge_group || "",
+      commission_group: branch.commission_group || "",
     });
     setShowModal(true);
   };
@@ -725,6 +775,60 @@ const Branches = () => {
                     No organizations available. Please create an organization first.
                   </small>
                 )}
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="serviceChargeGroupSelect" className="Control-label">
+                  Service Charge Group
+                </label>
+                <select
+                  id="serviceChargeGroupSelect"
+                  name="service_charge_group"
+                  className="form-select rounded shadow-none px-1 py-2"
+                  value={currentBranch.service_charge_group || ""}
+                  onChange={(e) => {
+                    const groupId = e.target.value ? parseInt(e.target.value) : null;
+                    setCurrentBranch((prev) => ({ ...prev, service_charge_group: groupId }));
+                  }}
+                  disabled={apiLoading}
+                >
+                  <option value="">-- No Service Charge Group --</option>
+                  {serviceChargeGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <small className="text-muted">
+                  Optional: Select a service charge group to apply to this branch
+                </small>
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="commissionGroupSelect" className="Control-label">
+                  Commission Group
+                </label>
+                <select
+                  id="commissionGroupSelect"
+                  name="commission_group"
+                  className="form-select rounded shadow-none px-1 py-2"
+                  value={currentBranch.commission_group || ""}
+                  onChange={(e) => {
+                    const groupId = e.target.value ? parseInt(e.target.value) : null;
+                    setCurrentBranch((prev) => ({ ...prev, commission_group: groupId }));
+                  }}
+                  disabled={apiLoading}
+                >
+                  <option value="">-- No Commission Group --</option>
+                  {commissionGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <small className="text-muted">
+                  Optional: Select a commission group to apply to this branch
+                </small>
               </div>
 
               <div className="d-flex justify-content-between">
