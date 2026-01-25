@@ -634,12 +634,19 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
         display: "inline-block",
         fontWeight: 500,
       }
-      : {
-        color: "#3391FF",
-        border: "1px solid #3391FF",
-        display: "inline-block",
-        fontWeight: 500,
-      };
+      : ticket.left_seats <= 0
+        ? {
+          color: "#DC3545", // Red for no seats
+          border: "1px solid #DC3545",
+          display: "inline-block",
+          fontWeight: 500,
+        }
+        : {
+          color: "#3391FF",
+          border: "1px solid #3391FF",
+          display: "inline-block",
+          fontWeight: 500,
+        };
 
   // Refundable badge style
   const refundableBadgeStyle = ticket.is_refundable
@@ -769,9 +776,13 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
               className="small mt-1 px-2 py-1 rounded"
               style={seatWarningStyle}
             >
-              {ticket.left_seats <= 9
-                ? `Only ${ticket.left_seats} seats left`
-                : `${ticket.left_seats} seats left`}
+              {ticket.left_seats <= 0 ? (
+                "No seats left"
+              ) : ticket.left_seats <= 9 ? (
+                `Only ${ticket.left_seats} seats left`
+              ) : (
+                `${ticket.left_seats} seats left`
+              )}
             </div>
           </div>
         </div>
@@ -924,16 +935,17 @@ const FlightCard = ({ ticket, airlineMap, cityMap, orgId }) => {
           <div className="col-md-5 text-md-end text-center d-flex flight-right">
             <div className="d-flex flex-column me-3 align-items-center">
               <div className="flight-price">
-                PKR {ticket.adult_price}{" "}
+                PKR {(ticket.adult_selling_price ?? ticket.adult_price ?? ticket.adult_fare ?? 0).toLocaleString()}{" "}
                 <span className="text-muted fw-normal" style={{ fontWeight: 500, fontSize: '0.85rem' }}>/per person</span>
               </div>
             </div>
             <Link to={`/ticket-booking/detail/${ticket.id}`}>
               <button
-                className="btn btn-primary btn-sm w-100 rounded btn-see-details"
+                className={`btn btn-sm w-100 rounded btn-see-details ${ticket.left_seats <= 0 ? "btn-secondary" : "btn-primary"}`}
                 style={{ padding: "0.5rem 1.2rem" }}
+                disabled={ticket.left_seats <= 0}
               >
-                See Details
+                {ticket.left_seats <= 0 ? "Sold Out" : "See Details"}
               </button>
             </Link>
           </div>

@@ -82,79 +82,88 @@ const FlightModal = ({
                 </tr>
               </thead>
               <tbody>
-                {flights.map((flightRaw) => {
-                  // Support different API shapes: some endpoints return a wrapper
-                  // object with `ticket_info` or `ticket`, others return the ticket
-                  // fields at top-level. Normalize to `ticket` for rendering.
-                  const ticket = flightRaw.ticket_info ?? flightRaw.ticket ?? flightRaw;
+                {flights
+                  .filter(flightRaw => {
+                    const ticket = flightRaw.ticket_info ?? flightRaw.ticket ?? flightRaw;
+                    const seats = Number(ticket.left_seats ?? flightRaw.left_seats ?? 0);
+                    return seats > 0;
+                  })
+                  .map((flightRaw) => {
+                    // Support different API shapes: some endpoints return a wrapper
+                    // object with `ticket_info` or `ticket`, others return the ticket
+                    // fields at top-level. Normalize to `ticket` for rendering.
+                    const ticket = flightRaw.ticket_info ?? flightRaw.ticket ?? flightRaw;
 
-                  // Prefer explicit trip_type markers, but fall back to the
-                  // first trip_details element when trip_type is not provided
-                  // (many ticket objects only include an array of segments).
-                  const departureTrip =
-                    ticket.trip_details?.find((t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "departure")
-                    || (ticket.trip_details && ticket.trip_details.length > 0 ? ticket.trip_details[0] : undefined);
-                  const returnTrip =
-                    ticket.trip_details?.find((t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "return")
-                    || undefined;
+                    // Prefer explicit trip_type markers, but fall back to the
+                    // first trip_details element when trip_type is not provided
+                    // (many ticket objects only include an array of segments).
+                    const departureTrip =
+                      ticket.trip_details?.find((t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "departure")
+                      || (ticket.trip_details && ticket.trip_details.length > 0 ? ticket.trip_details[0] : undefined);
+                    const returnTrip =
+                      ticket.trip_details?.find((t) => ((t && t.trip_type) ? String(t.trip_type).toLowerCase() : "") === "return")
+                      || undefined;
 
-                  const safeNumber = (v) => {
-                    const n = Number(v);
-                    return Number.isFinite(n) ? n : 0;
-                  };
+                    const safeNumber = (v) => {
+                      const n = Number(v);
+                      return Number.isFinite(n) ? n : 0;
+                    };
 
-                  const formatPrice = (v) => {
-                    try {
-                      return safeNumber(v).toLocaleString();
-                    } catch (e) {
-                      return String(v || "0");
-                    }
-                  };
+                    const formatPrice = (v) => {
+                      try {
+                        return safeNumber(v).toLocaleString();
+                      } catch (e) {
+                        return String(v || "0");
+                      }
+                    };
 
-                  const airlineName = airlinesMap[ticket.airline ?? ticket.airline_id]?.name || "N/A";
-                  const pnr = ticket.pnr ?? ticket.ticket_pnr ?? "N/A";
-                  const seats = ticket.left_seats ?? flightRaw.left_seats ?? "N/A";
+                    const airlineSource = ticket.airline ?? ticket.airline_id ?? ticket.trip_details?.[0]?.airline ?? ticket.trip_details?.[0]?.airline_id;
+                    const airlineName = typeof airlineSource === 'object' ? airlineSource.name : (airlinesMap[airlineSource]?.name || "N/A");
+                    const pnr = ticket.pnr ?? ticket.ticket_pnr ?? "N/A";
+                    const seats = ticket.left_seats ?? flightRaw.left_seats ?? "N/A";
 
-                  return (
-                    <tr key={ticket.id ?? flightRaw.id}>
-                      <td>{airlineName}</td>
-                      <td>{pnr}</td>
-                      <td>
-                        {ticket.trip_type ? ticket.trip_type : (returnTrip ? "Round Trip" : "One Way")}
-                        {ticket.is_umrah_seat && " (Umrah)"}
-                      </td>
-                      <td>
-                        {departureTrip?.departure_date_time
-                          ? new Date(departureTrip.departure_date_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-                          : departureTrip?.departure_date || departureTrip?.departure_date_time || "N/A"}
-                      </td>
-                      <td>
-                        {returnTrip?.arrival_date_time
-                          ? new Date(returnTrip.arrival_date_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-                          : returnTrip?.arrival_date || returnTrip?.arrival_date_time || "-"}
-                      </td>
-                      <td>
-                        {departureTrip?.departure_city
-                          ? (citiesMap[departureTrip.departure_city]?.code || citiesMap[departureTrip.departure_city]?.name || "-")
-                          : "N/A"}
-                      </td>
-                      <td>
-                        {departureTrip?.arrival_city
-                          ? (citiesMap[departureTrip.arrival_city]?.code || citiesMap[departureTrip.arrival_city]?.name || "-")
-                          : "-"}
-                      </td>
-                      <td className="text-success fw-bold">Rs. {formatPrice(ticket.adult_price ?? ticket.adult_fare ?? ticket.adultFare ?? ticket.adult ?? ticket.adault_price ?? 0)}</td>
-                      <td className="text-success fw-bold">Rs. {formatPrice(ticket.child_price ?? ticket.child_fare ?? ticket.childFare ?? ticket.child ?? 0)}</td>
-                      <td className="text-success fw-bold">Rs. {formatPrice(ticket.infant_price ?? ticket.infant_fare ?? ticket.infantFare ?? ticket.infant ?? 0)}</td>
-                      <td>{seats}</td>
-                      <td>
-                        <button className="btn btn-sm btn-primary" onClick={() => onSelect(ticket)}>
-                          Select
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    const getCityName = (cityVal) => {
+                      if (!cityVal) return "-";
+                      if (typeof cityVal === 'object') return cityVal.code || cityVal.name || "-";
+                      return citiesMap[cityVal]?.code || citiesMap[cityVal]?.name || "-";
+                    };
+
+                    return (
+                      <tr key={ticket.id ?? flightRaw.id}>
+                        <td>{airlineName}</td>
+                        <td>{pnr}</td>
+                        <td>
+                          {ticket.trip_type ? ticket.trip_type : (returnTrip ? "Round Trip" : "One Way")}
+                          {ticket.is_umrah_seat && " (Umrah)"}
+                        </td>
+                        <td>
+                          {departureTrip?.departure_date_time
+                            ? new Date(departureTrip.departure_date_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                            : departureTrip?.departure_date || departureTrip?.departure_date_time || "N/A"}
+                        </td>
+                        <td>
+                          {returnTrip?.arrival_date_time
+                            ? new Date(returnTrip.arrival_date_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                            : returnTrip?.arrival_date || returnTrip?.arrival_date_time || "-"}
+                        </td>
+                        <td>
+                          {getCityName(departureTrip?.departure_city)}
+                        </td>
+                        <td>
+                          {getCityName(departureTrip?.arrival_city)}
+                        </td>
+                        <td className="text-success fw-bold">Rs. {formatPrice(ticket.adult_selling_price ?? ticket.adult_price ?? ticket.adult_fare ?? 0)}</td>
+                        <td className="text-success fw-bold">Rs. {formatPrice(ticket.child_selling_price ?? ticket.child_price ?? ticket.child_fare ?? 0)}</td>
+                        <td className="text-success fw-bold">Rs. {formatPrice(ticket.infant_selling_price ?? ticket.infant_price ?? ticket.infant_fare ?? 0)}</td>
+                        <td>{seats}</td>
+                        <td>
+                          <button className="btn btn-sm btn-primary" onClick={() => onSelect(ticket)}>
+                            Select
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -562,62 +571,65 @@ const AddPackages = ({ mode = "add" }) => {
 
     // Check if hotel_details array exists and has data
     if (pkgData.hotel_details && pkgData.hotel_details.length > 0) {
-      hotelDetails = pkgData.hotel_details.map((hotel) => ({
-        hotelName: hotel.hotel_info?.name || "",
-        hotelId: hotel.hotel,
-        checkIn: (() => {
-          const d = hotel.check_in_date ?? hotel.check_in_time ?? hotel.check_in ?? hotel.checkIn ?? null;
-          return d ? formatDateForInput(new Date(d)) : "";
-        })(),
-        nights: (() => {
-          const n = hotel.number_of_nights ?? hotel.number_of_nights_count ?? hotel.nights ?? hotel.numberOfNights ?? "";
-          return n !== null && n !== undefined ? (String(n) === "" ? "" : Number(n)) : "";
-        })(),
-        checkOut: (() => {
-          const d = hotel.check_out_date ?? hotel.check_out_time ?? hotel.check_out ?? hotel.checkOut ?? null;
-          return d ? formatDateForInput(new Date(d)) : "";
-        })(),
-        sharingSellingPrice:
-          (hotel.sharing_bed_selling_price && Number(hotel.sharing_bed_selling_price) > 0)
-            ? hotel.sharing_bed_selling_price
-            : hotel.sharing_bed_price || "",
-        sharingPurchasePrice:
-          (hotel.sharing_bed_purchase_price && Number(hotel.sharing_bed_purchase_price) > 0)
-            ? hotel.sharing_bed_purchase_price
-            : "",
-        quintSellingPrice:
-          (hotel.quaint_bed_selling_price && Number(hotel.quaint_bed_selling_price) > 0)
-            ? hotel.quaint_bed_selling_price
-            : hotel.quaint_bed_price || "",
-        quintPurchasePrice:
-          (hotel.quaint_bed_purchase_price && Number(hotel.quaint_bed_purchase_price) > 0)
-            ? hotel.quaint_bed_purchase_price
-            : "",
-        quadSellingPrice:
-          (hotel.quad_bed_selling_price && Number(hotel.quad_bed_selling_price) > 0)
-            ? hotel.quad_bed_selling_price
-            : hotel.quad_bed_price || "",
-        quadPurchasePrice:
-          (hotel.quad_bed_purchase_price && Number(hotel.quad_bed_purchase_price) > 0)
-            ? hotel.quad_bed_purchase_price
-            : "",
-        tripleSellingPrice:
-          (hotel.triple_bed_selling_price && Number(hotel.triple_bed_selling_price) > 0)
-            ? hotel.triple_bed_selling_price
-            : hotel.triple_bed_price || "",
-        triplePurchasePrice:
-          (hotel.triple_bed_purchase_price && Number(hotel.triple_bed_purchase_price) > 0)
-            ? hotel.triple_bed_purchase_price
-            : "",
-        doubleSellingPrice:
-          (hotel.double_bed_selling_price && Number(hotel.double_bed_selling_price) > 0)
-            ? hotel.double_bed_selling_price
-            : hotel.double_bed_price || "",
-        doublePurchasePrice:
-          (hotel.double_bed_purchase_price && Number(hotel.double_bed_purchase_price) > 0)
-            ? hotel.double_bed_purchase_price
-            : "",
-      }));
+      hotelDetails = pkgData.hotel_details.map((hotel) => {
+        const getPrice = (roomType, fieldType) => {
+          // 1. Try explicit flat field (e.g. sharing_bed_selling_price)
+          // Model uses 'quaint' for 'quint'
+          let flatRoom = roomType;
+          if (roomType === 'quint') flatRoom = 'quaint';
+
+          const flatKey = `${flatRoom}_bed_${fieldType}`;
+          if (hotel[flatKey] && Number(hotel[flatKey]) > 0) return hotel[flatKey];
+
+          // 2. Try nested prices array
+          if (hotel.prices && Array.isArray(hotel.prices)) {
+            const p = hotel.prices.find(x => x.room_type === roomType);
+            if (p && p[fieldType]) return p[fieldType];
+          }
+
+          // 3. Fallback for selling price (legacy flat field)
+          if (fieldType === 'selling_price') {
+            const legacyKey = `${flatRoom}_bed_price`;
+            if (hotel[legacyKey]) return hotel[legacyKey];
+          }
+
+          return "";
+        };
+
+        return {
+          hotelName: hotel.hotel_info?.name || "",
+          hotelId: hotel.hotel, // Note: backend now returns 'hotel' as an object sometimes? 
+          // If 'hotel' field in response is just ID (from my serializer change it returns ID now in 'hotel' field? 
+          // No, 'hotel_info' is the object. 'hotel' is write_only in serializer? 
+          // Wait, 'hotel' field in my serializer (Step 62) is WriteOnly. Read is 'hotel_info'.
+          // SO 'hotel' key might NOT be in the response JSON!
+          // We should use hotel_info.id if hotel is missing.
+          hotelId: hotel.hotel || hotel.hotel_info?.id || 0,
+
+          checkIn: (() => {
+            const d = hotel.check_in_date ?? hotel.check_in_time ?? hotel.check_in ?? hotel.checkIn ?? null;
+            return d ? formatDateForInput(new Date(d)) : "";
+          })(),
+          nights: (() => {
+            const n = hotel.number_of_nights ?? hotel.number_of_nights_count ?? hotel.nights ?? hotel.numberOfNights ?? "";
+            return n !== null && n !== undefined ? (String(n) === "" ? "" : Number(n)) : "";
+          })(),
+          checkOut: (() => {
+            const d = hotel.check_out_date ?? hotel.check_out_time ?? hotel.check_out ?? hotel.checkOut ?? null;
+            return d ? formatDateForInput(new Date(d)) : "";
+          })(),
+          sharingSellingPrice: getPrice('sharing', 'selling_price'),
+          sharingPurchasePrice: getPrice('sharing', 'purchase_price'),
+          quintSellingPrice: getPrice('quint', 'selling_price'),
+          quintPurchasePrice: getPrice('quint', 'purchase_price'),
+          quadSellingPrice: getPrice('quad', 'selling_price'),
+          quadPurchasePrice: getPrice('quad', 'purchase_price'),
+          tripleSellingPrice: getPrice('triple', 'selling_price'),
+          triplePurchasePrice: getPrice('triple', 'purchase_price'),
+          doubleSellingPrice: getPrice('double', 'selling_price'),
+          doublePurchasePrice: getPrice('double', 'purchase_price'),
+        };
+      });
     } else {
       // If no hotel_details array, check for direct makkah_hotel and madina_hotel fields
       const directHotels = [];
@@ -694,11 +706,13 @@ const AddPackages = ({ mode = "add" }) => {
       // Prefer explicit fields on the transport object, then transport_sector_info prices,
       // then fall back to package-level transport price fields for compatibility.
       transportSellingPrice:
+        transport.transport_prices?.selling_price ??
         transport.transport_selling_price ??
         transport.transport_sector_info?.adault_price ??
         pkgData.transport_selling_price ??
         "",
       transportPurchasePrice:
+        transport.transport_prices?.purchase_price ??
         transport.transport_purchase_price ??
         pkgData.transport_purchase_price ??
         "",
@@ -945,7 +959,7 @@ const AddPackages = ({ mode = "add" }) => {
       }
 
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/transport-sector-prices/",
+        "http://127.0.0.1:8000/api/transport-prices/",
         {
           params: { organization: organizationId },
           headers: {
@@ -953,7 +967,10 @@ const AddPackages = ({ mode = "add" }) => {
           },
         }
       );
-      setTransportSectors(response.data);
+      let data = Array.isArray(response.data)
+        ? response.data
+        : response.data?.results ?? [];
+      setTransportSectors(data);
     } catch (error) {
       console.error("Error fetching transport sectors:", error, error?.response?.status, error?.response?.data);
       if (error?.response?.status === 403) {
@@ -1144,51 +1161,12 @@ const AddPackages = ({ mode = "add" }) => {
   const handleFlightSelect = (flight) => {
     setSelectedFlight(flight);
     setTicketId(flight.id);
-    setPnr(flight.pnr);
-
-    // Process departure trip
-    const departureTrip = flight.trip_details?.find(
-      (t) => t.trip_type === "departure"
-    );
-    if (departureTrip) {
-      setAirlineName(airlinesMap[flight.airline]?.name || "");
-      setFlightNumber(departureTrip.flight_number || "");
-      setFromSector(citiesMap[departureTrip.departure_city]?.code || "");
-      setToSector(citiesMap[departureTrip.arrival_city]?.code || "");
-
-      if (departureTrip.departure_date_time) {
-        setDepartureDate(
-          formatDateTimeForInput(departureTrip.departure_date_time)
-        );
-      }
-      if (departureTrip.arrival_date_time) {
-        setReturnDate(formatDateTimeForInput(departureTrip.arrival_date_time));
-      }
-    }
-
-    // Process return trip
-    const returnTrip = flight.trip_details?.find(
-      (t) => t.trip_type === "return"
-    );
-    if (returnTrip) {
-      setReturnAirline(airlinesMap[flight.airline]?.name || "");
-      setReturnFlightNumber(returnTrip.flight_number || "");
-      setReturnFromSector(citiesMap[returnTrip.departure_city]?.code || "");
-      setReturnToSector(citiesMap[returnTrip.arrival_city]?.code || "");
-
-      if (returnTrip.departure_date_time) {
-        setReturnDepartureDate(
-          formatDateTimeForInput(returnTrip.departure_date_time)
-        );
-      }
-      if (returnTrip.arrival_date_time) {
-        setReturnReturnDate(
-          formatDateTimeForInput(returnTrip.arrival_date_time)
-        );
-      }
-    }
-
+    setFlightOptions("select");
+    setWithoutFlight(false);
     setShowFlightModal(false);
+
+    // Optional: Log or Toast
+    toast.success("Flight selected successfully");
   };
 
   const resetFlightFields = () => {
@@ -1343,6 +1321,8 @@ const AddPackages = ({ mode = "add" }) => {
     setHotels(updatedHotels);
   };
 
+
+
   const formatDateForInput = (date) => {
     if (!date) return "";
     const iso = date.toISOString();
@@ -1383,17 +1363,18 @@ const AddPackages = ({ mode = "add" }) => {
       return false;
     }
 
-    if (
-      discounts.some(
-        (discount) =>
-          !discount.discountAdultFrom ||
-          !discount.discountAdultTo ||
-          !discount.maxDiscount
-      )
-    ) {
-      toast.error("Please fill all required discount fields");
-      return false;
-    }
+    // Discount validation removed as per request
+    // if (
+    //   discounts.some(
+    //     (discount) =>
+    //       !discount.discountAdultFrom ||
+    //       !discount.discountAdultTo ||
+    //       !discount.maxDiscount
+    //   )
+    // ) {
+    //   toast.error("Please fill all required discount fields");
+    //   return false;
+    // }
 
     return true;
   };
@@ -1497,8 +1478,8 @@ const AddPackages = ({ mode = "add" }) => {
     try {
       // Prepare hotel details with correct time format
       const hotelDetails = hotels.map((hotel) => ({
-        check_in_time: hotel.checkIn ? `${hotel.checkIn}` : null,
-        check_out_time: hotel.checkOut ? `${hotel.checkOut}` : null,
+        check_in_date: hotel.checkIn ? `${hotel.checkIn}` : null,
+        check_out_date: hotel.checkOut ? `${hotel.checkOut}` : null,
         number_of_nights: parseInt(hotel.nights) || 0,
         // Backwards-compatible single-price fields set to selling price
         quaint_bed_price: parseFloat(hotel.quintSellingPrice) || 0,
@@ -1524,10 +1505,15 @@ const AddPackages = ({ mode = "add" }) => {
       const transportDetails = selfTransport
         ? []
         : routes.map((route) => ({
-          vehicle_type: normalizeVehicleType(route.transportType),
-          transport_type: determineTransportType(route.transportType),
+          vehicle_type: route.transportType,
           transport_sector: parseInt(route.transportSector) || 0,
+          transport_prices: {
+            selling_price: parseFloat(route.transportSellingPrice) || 0,
+            purchase_price: parseFloat(route.transportPurchasePrice) || 0
+          }
         }));
+
+      console.debug("DEBUG: transportDetails payload:", transportDetails);
 
       // Prepare ticket details if flight is selected
       const ticketDetails = withoutFlight
@@ -1547,42 +1533,8 @@ const AddPackages = ({ mode = "add" }) => {
 
       // Prepare the complete package data (includes extra optional fields expected by backend)
       const packageData = {
-        hotel_details: hotelDetails.map((h) => ({
-          // backend expects dates named check_in_date / check_out_date
-          check_in_date: h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time || h.check_in_time,
-          check_out_date: h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time || h.check_out_time,
-          number_of_nights: h.number_of_nights || h.number_of_nights || parseInt(h.nights) || 0,
-          // keep legacy single-price fields but prefer explicit selling prices
-          quaint_bed_price:
-            parseFloat(h.quaint_bed_selling_price || h.quaint_bed_price || h.quintSellingPrice) || 0,
-          sharing_bed_price:
-            parseFloat(h.sharing_bed_selling_price || h.sharing_bed_price || h.sharingSellingPrice) || 0,
-          quad_bed_price:
-            parseFloat(h.quad_bed_selling_price || h.quad_bed_price || h.quadSellingPrice) || 0,
-          triple_bed_price:
-            parseFloat(h.triple_bed_selling_price || h.triple_bed_price || h.tripleSellingPrice) || 0,
-          double_bed_price:
-            parseFloat(h.double_bed_selling_price || h.double_bed_price || h.doubleSellingPrice) || 0,
-          // explicit selling/purchase fields
-          quaint_bed_selling_price: parseFloat(h.quaint_bed_selling_price || h.quintSellingPrice) || 0,
-          quaint_bed_purchase_price: parseFloat(h.quaint_bed_purchase_price || h.quintPurchasePrice) || 0,
-          sharing_bed_selling_price: parseFloat(h.sharing_bed_selling_price || h.sharingSellingPrice) || 0,
-          sharing_bed_purchase_price: parseFloat(h.sharing_bed_purchase_price || h.sharingPurchasePrice) || 0,
-          quad_bed_selling_price: parseFloat(h.quad_bed_selling_price || h.quadSellingPrice) || 0,
-          quad_bed_purchase_price: parseFloat(h.quad_bed_purchase_price || h.quadPurchasePrice) || 0,
-          triple_bed_selling_price: parseFloat(h.triple_bed_selling_price || h.tripleSellingPrice) || 0,
-          triple_bed_purchase_price: parseFloat(h.triple_bed_purchase_price || h.triplePurchasePrice) || 0,
-          double_bed_selling_price: parseFloat(h.double_bed_selling_price || h.doubleSellingPrice) || 0,
-          double_bed_purchase_price: parseFloat(h.double_bed_purchase_price || h.doublePurchasePrice) || 0,
-          hotel: h.hotel || h.hotelId || 0,
-          // (Do not duplicate `reselling_allowed` per-hotel here;
-          // a single top-level `reselling_allowed` field will be sent.)
-        })),
-        transport_details: transportDetails.map((t) => ({
-          vehicle_type: t.vehicle_type || t.vehicle_type || t.vehicle_type || t.transportType || t.transportType || t.transportType || t.transport_type || "sedan",
-          transport_type: t.transport_type || t.transport_type || t.transport_type || (t.transportType ? "private" : "private"),
-          transport_sector: parseInt(t.transport_sector || t.transport_sector || t.transportSector) || 0,
-        })),
+        hotel_details: hotelDetails,
+        transport_details: transportDetails,
         ticket_details: ticketDetails,
         discount_details: discountDetails,
         inclusions: [],
@@ -3082,14 +3034,10 @@ const AddPackages = ({ mode = "add" }) => {
                                   disabled={selfTransport}
                                 >
                                   <option value="">Select vehicle</option>
-                                  <option value="sedan">Sedan</option>
-                                  <option value="suv">SUV</option>
-                                  <option value="van">Van</option>
-                                  <option value="minibus">Minibus</option>
-                                  <option value="coaster">Coaster</option>
-                                  <option value="bus">Bus</option>
-                                  <option value="luxury_bus">Luxury Bus</option>
-                                  <option value="hiace">Hiace</option>
+                                  {/* Extract unique vehicle types from transportSectors */}
+                                  {[...new Set(transportSectors.map(t => t.vehicle_type))].filter(Boolean).map(type => (
+                                    <option key={type} value={normalizeVehicleType(type)}>{type}</option>
+                                  ))}
                                 </select>
                               </div>
 
@@ -3098,22 +3046,46 @@ const AddPackages = ({ mode = "add" }) => {
                                 <select
                                   className="form-select rounded shadow-none"
                                   value={route.transportSector}
-                                  onChange={(e) =>
-                                    handleRouteChange(
-                                      index,
-                                      "transportSector",
-                                      e.target.value
-                                    )
-                                  }
+                                  onChange={(e) => {
+                                    handleRouteChange(index, "transportSector", e.target.value);
+                                    // Optional: Auto-fill prices based on selection if desired, currently just setting sector
+                                  }}
                                   disabled={selfTransport}
                                   required
                                 >
                                   <option value="">Select Transport Sector</option>
-                                  {transportSectors.map((sector) => (
-                                    <option key={sector.id} value={sector.id}>
-                                      {sector.name}
-                                    </option>
-                                  ))}
+                                  {transportSectors
+                                    .filter(sector => !route.transportType || (sector.vehicle_type && normalizeVehicleType(sector.vehicle_type) === route.transportType))
+                                    .map((sector) => {
+                                      // Determine sector ID (small or big)
+                                      const sectorId = sector.small_sector?.id || sector.big_sector?.id;
+
+                                      // Format route display: City -> City
+                                      let routeDisplay = sector.name;
+                                      if (sector.small_sector) {
+                                        routeDisplay = `${sector.small_sector.departure_city} ➔ ${sector.small_sector.arrival_city}`;
+                                      } else if (sector.big_sector) {
+                                        // For big sectors, maybe show first and last? Or just "Big Sector"
+                                        // The user usage suggests simple A -> B routes mostly for "Transport Sector" dropdown in this context
+                                        const smalls = sector.big_sector.small_sectors;
+                                        if (smalls && smalls.length > 0) {
+                                          // Chain all cities: Start -> [Arrivals...]
+                                          const cities = [smalls[0].departure_city];
+                                          smalls.forEach(s => cities.push(s.arrival_city));
+                                          routeDisplay = cities.join(" ➔ ");
+                                        } else {
+                                          routeDisplay = `Big Sector #${sector.big_sector.id}`;
+                                        }
+                                      } else {
+                                        routeDisplay = sector.name || "Unknown Route";
+                                      }
+
+                                      return (
+                                        <option key={sector.id} value={sector.id}>
+                                          {routeDisplay}
+                                        </option>
+                                      );
+                                    })}
                                 </select>
                               </div>
 
@@ -3196,20 +3168,27 @@ const AddPackages = ({ mode = "add" }) => {
                             <div style={{ minWidth: 0 }}>
                               <strong>Selected Flight</strong>
                               <div className="mt-2">
-                                <div><strong>Airline:</strong> {airlinesMap[selectedFlight.airline]?.name || 'N/A'}</div>
+                                <div>
+                                  <strong>Airline:</strong>{' '}
+                                  {(() => {
+                                    const source = selectedFlight.airline ?? selectedFlight.airline_id ?? selectedFlight.trip_details?.[0]?.airline ?? selectedFlight.trip_details?.[0]?.airline_id;
+                                    if (typeof source === 'object') return source.name || 'N/A';
+                                    return airlinesMap[source]?.name || 'N/A';
+                                  })()}
+                                </div>
                                 <div><strong>PNR:</strong> {selectedFlight.pnr || 'N/A'}</div>
-                                <div><strong>Seats:</strong> {selectedFlight.seats ?? 'N/A'}</div>
+                                <div><strong>Seats:</strong> {selectedFlight.seats ?? selectedFlight.total_seats ?? 'N/A'}</div>
                                 <div className="mt-2"><strong>Prices:</strong></div>
-                                <div className="ms-3">Adult: Rs. {selectedFlight.adult_price?.toLocaleString() ?? '0'}</div>
-                                <div className="ms-3">Child: Rs. {selectedFlight.child_price?.toLocaleString() ?? '0'}</div>
-                                <div className="ms-3">Infant: Rs. {selectedFlight.infant_price?.toLocaleString() ?? '0'}</div>
+                                <div className="ms-3">Adult: Rs. {(selectedFlight.adult_selling_price ?? selectedFlight.adult_price ?? selectedFlight.adult_fare ?? 0).toLocaleString()}</div>
+                                <div className="ms-3">Child: Rs. {(selectedFlight.child_selling_price ?? selectedFlight.child_price ?? selectedFlight.child_fare ?? 0).toLocaleString()}</div>
+                                <div className="ms-3">Infant: Rs. {(selectedFlight.infant_selling_price ?? selectedFlight.infant_price ?? selectedFlight.infant_fare ?? 0).toLocaleString()}</div>
 
                                 <div className="mt-2"><strong>Trip Segments:</strong></div>
                                 <div className="ms-3">
                                   {selectedFlight.trip_details && selectedFlight.trip_details.length > 0 ? (
                                     selectedFlight.trip_details.map((seg, i) => (
                                       <div key={i} className="mb-2">
-                                        <div><strong>Type:</strong> {seg.trip_type || 'N/A'}</div>
+                                        <div><strong>Type:</strong> {seg.trip_type || selectedFlight.trip_type || 'N/A'}</div>
                                         <div><strong>Flight #:</strong> {seg.flight_number || 'N/A'}</div>
                                         <div>
                                           <strong>Departure:</strong>{' '}
@@ -3220,9 +3199,11 @@ const AddPackages = ({ mode = "add" }) => {
                                           {seg.arrival_date_time ? new Date(seg.arrival_date_time).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                                         </div>
                                         <div>
-                                          <strong>From:</strong>{' '}{seg.departure_city ? (citiesMap[seg.departure_city]?.code || citiesMap[seg.departure_city]?.name || 'N/A') : 'N/A'}
+                                          <strong>From:</strong>{' '}
+                                          {(typeof seg.departure_city === 'object' ? (seg.departure_city.code || seg.departure_city.name) : (citiesMap[seg.departure_city]?.code || citiesMap[seg.departure_city]?.name)) || 'N/A'}
                                           {'  '}
-                                          <strong>To:</strong>{' '}{seg.arrival_city ? (citiesMap[seg.arrival_city]?.code || citiesMap[seg.arrival_city]?.name || 'N/A') : 'N/A'}
+                                          <strong>To:</strong>{' '}
+                                          {(typeof seg.arrival_city === 'object' ? (seg.arrival_city.code || seg.arrival_city.name) : (citiesMap[seg.arrival_city]?.code || citiesMap[seg.arrival_city]?.name)) || 'N/A'}
                                         </div>
                                       </div>
                                     ))
@@ -3351,77 +3332,7 @@ const AddPackages = ({ mode = "add" }) => {
                     </div>
                   </div>
 
-                  {/* Partial Payments Section */}
-                  <div className="row p-4">
-                    <h4 className="mb-3 fw-bold">Partial Payments</h4>
-                    <div className="col-12 d-flex flex-wrap gap-5">
-                      <div className=" mb-3">
-                        <div className="form-group">
-                          <label htmlFor="" className="Control-label">Adult Payment</label>
 
-                          <input
-                            type="number"
-                            className="form-control  shadow-none"
-                            id="adult-partial"
-                            value={adaultPartialPayment}
-                            onChange={(e) => setAdultPartialPayment(e.target.value)}
-                            min="0"
-                            step="1"
-                            placeholder="Enter amount"
-                          />
-                        </div>
-                      </div>
-
-                      <div className=" mb-3">
-                        <div>
-                          <label htmlFor="" className="Control-label">Child Payment</label>
-
-                          <input
-                            type="number"
-                            className="form-control  shadow-none"
-                            id="child-partial"
-                            value={childPartialPayment}
-                            onChange={(e) => setChildPartialPayment(e.target.value)}
-                            min="0"
-                            step="1"
-                            placeholder="Enter amount"
-                          />
-                        </div>
-                      </div>
-
-                      <div className=" mb-3">
-                        <div className="form-group">
-                          <label htmlFor="" className="Control-label">Infant Payment</label>
-
-                          <input
-                            type="number"
-                            className="form-control  shadow-none"
-                            id="infant-partial"
-                            value={infantPartialPayment}
-                            onChange={(e) =>
-                              setInfantPartialPayment(e.target.value)
-                            }
-                            min="0"
-                            step="1"
-                            placeholder="Enter amount"
-                          />
-                        </div>
-                      </div>
-                      <div className="form-check d-flex align-items-center">
-                        <input
-                          className="form-check-input border border-black me-2"
-                          type="checkbox"
-                          id="activePartial"
-                          checked={partialTrue}
-                          onChange={(e) => setPartialTrue(e.target.checked)}
-                          style={{ width: "1.3rem", height: "1.3rem" }}
-                        />
-                        <label className="form-check-label" htmlFor="activePartial">
-                          Active
-                        </label>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Flight Conditions Section */}
                   <div className="p-4">
@@ -3478,155 +3389,9 @@ const AddPackages = ({ mode = "add" }) => {
                     </div>
                   </div>
 
-                  {/* Discounts Sections */}
-                  {discounts.map((discount, index) => (
-                    <div className="p-4" key={index}>
-                      <div className="row">
-                        <div className="d-flex align-items-center justify-content-between mb-3">
-                          <h4 className="fw-bold mb-3">Discounts {index + 1}</h4>
-                          <div className="d-flex gap-2">
-                            {index === 0 && (
-                              <button
-                                onClick={addDiscount}
-                                className="btn btn-primary px-3 py-2"
-                              >
-                                Add Discounts
-                              </button>
-                            )}
-                            {discounts.length > 1 && (
-                              <button
-                                onClick={() => removeDiscount(index)}
-                                className="btn btn-danger px-3 py-2"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="col-12 d-flex flex-wrap gap-5">
-                          <div>
-                            <label htmlFor="" className="Control-label">If Adult from</label>
 
-                            <input
-                              type="text"
-                              className="form-control rounded shadow-none  px-1 py-2"
-                              required
-                              placeholder="7"
-                              value={discount.discountAdultFrom}
-                              onChange={(e) =>
-                                handleDiscountChange(
-                                  index,
-                                  "discountAdultFrom",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
 
-                          <div><label htmlFor="" className="Control-label">To Adult</label>
 
-                            <input
-                              type="text"
-                              className="form-control rounded shadow-none  px-1 py-2"
-                              required
-                              placeholder="10"
-                              value={discount.discountAdultTo}
-                              onChange={(e) =>
-                                handleDiscountChange(
-                                  index,
-                                  "discountAdultTo",
-                                  e.target.value
-                                )
-                              }
-                            /></div>
-
-                          <div>
-                            <label htmlFor="" className="Control-label">Max Discount</label>
-
-                            <input
-                              type="text"
-                              className="form-control rounded shadow-none  px-1 py-2"
-                              required
-                              placeholder="01"
-                              value={discount.maxDiscount}
-                              onChange={(e) =>
-                                handleDiscountChange(
-                                  index,
-                                  "maxDiscount",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Service Charges Section */}
-                  <div className="p-4">
-                    <div className="row">
-                      <h4 className="fw-bold mb-3">
-                        Service Charges for Area Customers
-                      </h4>
-                      <div className="col-12 d-flex flex-wrap gap-5">
-                        <div>
-                          <label htmlFor="" className="Control-label">Charges per adult</label>
-
-                          <input
-                            type="text"
-                            className="form-control rounded shadow-none  px-1 py-2"
-                            required
-                            placeholder="7"
-                            value={chargePerAdult}
-                            onChange={(e) => setChargePerAdult(e.target.value)}
-                          />
-                        </div>
-
-                        <div>
-                          <label htmlFor="" className="Control-label">Child</label>
-
-                          <input
-                            type="text"
-                            className="form-control rounded shadow-none  px-1 py-2"
-                            required
-                            placeholder="10"
-                            value={chargePerChild}
-                            onChange={(e) => setChargePerChild(e.target.value)}
-                          />
-                        </div>
-
-                        <div>
-                          <label htmlFor="" className="Control-label">Infant</label>
-
-                          <input
-                            type="text"
-                            className="form-control rounded shadow-none  px-1 py-2"
-                            required
-                            placeholder="01"
-                            value={chargePerInfant}
-                            onChange={(e) => setChargePerInfant(e.target.value)}
-                          />
-                        </div>
-                        <div className="form-check d-flex align-items-center">
-                          <input
-                            className="form-check-input border border-black me-2"
-                            type="checkbox"
-                            id="activeServiceCharge"
-                            checked={activeServiceCharge}
-                            onChange={(e) => setActiveServiceCharge(e.target.checked)}
-                            style={{ width: "1.3rem", height: "1.3rem" }}
-                          />
-                          <label
-                            className="form-check-label"
-                            htmlFor="activeServiceCharge"
-                          >
-                            Active
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Package Status Section */}
                   <div className="d-flex gap-5 p-4">

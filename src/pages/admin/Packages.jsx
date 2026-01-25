@@ -7,6 +7,7 @@ import { jwtDecode } from "jwt-decode";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import { usePermission } from "../../contexts/EnhancedPermissionContext";
+import { formatDateTime } from "../../utils/dateUtils";
 
 const tabs = [
   { name: "Umrah Package", path: "/packages" },
@@ -273,6 +274,34 @@ const UmrahPackage = () => {
     return `${d} ${t}`;
   };
 
+  // Helper to format transport route
+  const getTransportRouteDisplay = (transportInfo) => {
+    if (!transportInfo) return "N/A";
+
+    // Debug log to see what we actually receive
+    console.log("getTransportRouteDisplay info:", transportInfo);
+
+    // Handle Big Sector (Chain of cities)
+    if (transportInfo.big_sector) {
+      const smalls = transportInfo.big_sector.small_sectors || [];
+      if (smalls.length > 0) {
+        const cities = [smalls[0].departure_city];
+        smalls.forEach(s => cities.push(s.arrival_city));
+        return cities.join(" ➔ ");
+      }
+      // If big_sector exists but no small sectors?
+      return transportInfo.big_sector.name || `Region #${transportInfo.big_sector.id}`;
+    }
+
+    // Handle Small Sector
+    if (transportInfo.small_sector) {
+      return `${transportInfo.small_sector.departure_city} ➔ ${transportInfo.small_sector.arrival_city}`;
+    }
+
+    // Fallback - use vehicle_name or type if specific route name unavailable
+    return transportInfo.vehicle_name || transportInfo.vehicle_type || transportInfo.name || "N/A";
+  };
+
   // Format sector reference to readable route
   const formatSectorReference = (reference) => {
     if (!reference) return '';
@@ -420,12 +449,17 @@ const UmrahPackage = () => {
     const tripleHotelTotal = sumPerNight('triple_per_night');
     const doubleHotelTotal = sumPerNight('double_per_night');
 
-    const totalSharing = adultCost + sharingHotelTotal;
-    const totalQuint = adultCost + quaintHotelTotal;
-    const totalQuad = adultCost + quadHotelTotal;
-    const totalTriple = adultCost + tripleHotelTotal;
-    const totalDouble = adultCost + doubleHotelTotal;
+    // Use backend pre-calculated prices if available (Source of Truth)
+    const backendPrices = pkg?.package_selling_prices || {};
 
+    // Adult Totals (Prioritize backend)
+    const totalSharing = backendPrices.sharing || (adultCost + sharingHotelTotal);
+    const totalQuint = backendPrices.quint || (adultCost + quaintHotelTotal);
+    const totalQuad = backendPrices.quad || (adultCost + quadHotelTotal);
+    const totalTriple = backendPrices.triple || (adultCost + tripleHotelTotal);
+    const totalDouble = backendPrices.double || (adultCost + doubleHotelTotal);
+
+    // Infant Total (Prioritize backend)
     // Infant price should be ticket selling price + infant visa selling price.
     // Accept multiple possible field names from different backend versions.
     let infantTicketRaw = pick(ticketInfo, ['infant_selling_price', 'infant_price', 'infant_ticket_selling_price', 'infant_ticket_price', 'infantTicketPrice', 'infant_fare']);
@@ -454,25 +488,18 @@ const UmrahPackage = () => {
       infantTicket = Number(pkg?.infant_price || pkg?.infant_ticket_price || 0) || 0;
     }
 
-    const totalInfant = Number(infantTicket) + Number(infantVisa || 0);
+    const totalInfant = backendPrices.infant || (Number(infantTicket) + Number(infantVisa || 0));
 
-    const adultVisaForDiscount = pkgPick(['adault_visa_selling_price', 'adault_visa_price', 'adult_visa_selling_price', 'adult_visa_price']) || 0;
+
+    // Child Without Bed (Use backend 'child_without_bed' or calculate)
+    // Backend 'child_without_bed' = Transport + Food + Ziyarat + ChildVisa + (AdultTicket - ChildDiscount)
+    // Fallback Calculation:
+    const adultVisaForDiscount = pkgPick(['adault_visa_selling_price', 'adault_visa_price']) || 0;
     const childVisaForDiscount = pkgPick(['child_visa_selling_price', 'child_visa_price']) || 0;
-    const childDiscount = Math.max(0, adultVisaForDiscount - childVisaForDiscount);
+    // Note: This fallback is imperfect if backend logic changes, but serves as safety.
+    const childCostWithoutBed = backendPrices.child_without_bed ||
+      (food + makkah + madinah + transport + childVisaForDiscount + Math.max(0, ticketAdult - (ticketChild || 0)));
 
-    console.log('🔍 CHILD DISCOUNT DEBUG:', {
-      packageId: pkg?.id,
-      packageTitle: pkg?.title,
-      adultVisaForDiscount,
-      childVisaForDiscount,
-      childDiscount,
-      rawPkg: {
-        adault_visa_price: pkg?.adault_visa_price,
-        adult_visa_price: pkg?.adult_visa_price,
-        child_visa_price: pkg?.child_visa_price
-      },
-      FULL_PKG: pkg  // Log entire package to see all available fields
-    });
 
     const tripDetails = ticketInfo?.trip_details || [];
     const flightFrom = tripDetails[0];
@@ -505,8 +532,9 @@ const UmrahPackage = () => {
         infantVisa,
         totalInfant,
         ticketChild,
-        childDiscount,
+        childCostWithoutBed,
         hotelDetails,
+        backendPrices
       });
     } catch (e) { }
 
@@ -519,7 +547,7 @@ const UmrahPackage = () => {
       totalTriple,
       totalDouble,
       totalInfant,
-      childDiscount,
+      childCostWithoutBed,
       ticketInfo,
       flightFrom,
       flightTo,
@@ -800,42 +828,23 @@ const UmrahPackage = () => {
 
 
                     <div className="d-flex flex-wrap gap-3 mb-3">
-                      <div className="form-group d-flex align-items-center">
-                        <input
-                          type="checkbox"
-                          checked={filters.active}
-                          onChange={() => handleFilterChange('active')}
-                          className="form-check-input me-2"
-                        />
-                        <label className="form-label mb-0">Package Active</label>
-                      </div>
-                      <div className="form-group d-flex align-items-center">
-                        <input
-                          type="checkbox"
-                          checked={filters.inactive}
-                          onChange={() => handleFilterChange('inactive')}
-                          className="form-check-input me-2"
-                        />
-                        <label className="form-label mb-0">Package Inactive</label>
-                      </div>
-                      <div className="form-group d-flex align-items-center">
-                        <input
-                          type="checkbox"
-                          checked={filters.partialPayments}
-                          onChange={() => handleFilterChange('partialPayments')}
-                          className="form-check-input me-2"
-                        />
-                        <label className="form-label mb-0">Partial Payments</label>
-                      </div>
-                      <div className="form-group d-flex align-items-center">
-                        <input
-                          type="checkbox"
-                          checked={filters.serviceCharges}
-                          onChange={() => handleFilterChange('serviceCharges')}
-                          className="form-check-input me-2"
-                        />
-                        <label className="form-label mb-0">Service Charges</label>
-                      </div>
+                      {/* Filter checkboxes */}
+                      {['active', 'inactive', 'partialPayments', 'serviceCharges'].map((filter) => (
+                        <div key={filter} className="form-group d-flex align-items-center">
+                          <input
+                            type="checkbox"
+                            checked={filters[filter]}
+                            onChange={() => handleFilterChange(filter)}
+                            className="form-check-input me-2"
+                          />
+                          <label className="form-label mb-0">
+                            {filter === 'active' ? 'Package Active' :
+                              filter === 'inactive' ? 'Package Inactive' :
+                                filter === 'partialPayments' ? 'Partial Payments' :
+                                  filter === 'serviceCharges' ? 'Service Charges' : ''}
+                          </label>
+                        </div>
+                      ))}
                       <div className="form-group d-flex align-items-center">
                         <input
                           type="checkbox"
@@ -866,7 +875,7 @@ const UmrahPackage = () => {
                                 totalTriple,
                                 totalDouble,
                                 totalInfant,
-                                childDiscount,
+                                childCostWithoutBed,
                                 ticketInfo,
                                 flightFrom,
                                 flightTo,
@@ -1035,11 +1044,13 @@ const UmrahPackage = () => {
                                             <small className="text-muted">per PEX</small>
                                           </div>
 
-                                          {childDiscount > 0 && (
-                                            <div className="col-12 mt-2">
-                                              <small className="text-muted">
-                                                Per Child <span className="text-primary fw-bold">Rs {childDiscount.toLocaleString()}/.</span> discount.
-                                              </small>
+                                          {childCostWithoutBed > 0 && (
+                                            <div className="col-6 col-sm-4 col-md-2 mb-3">
+                                              <strong className="d-block">CHILD WITHOUT BED</strong>
+                                              <div className="fw-bold text-primary">
+                                                Rs. {childCostWithoutBed.toLocaleString()}/.
+                                              </div>
+                                              <small className="text-muted">per child</small>
                                             </div>
                                           )}
                                         </div>
@@ -1139,22 +1150,9 @@ const UmrahPackage = () => {
                                             Transport:
                                           </h6>
                                           <div className="small text-dark">
-                                            {pkg?.transport_details?.[0]?.transport_sector_info?.reference
-                                              ? formatSectorReference(pkg.transport_details[0].transport_sector_info.reference)
-                                              : pkg?.transport_details?.[0]?.transport_sector_info?.name || "N/A"}
+                                            {getTransportRouteDisplay(pkg?.transport_details?.[0]?.transport_sector_info)}
                                           </div>
                                         </div>
-
-                                        {childDiscount > 0 && (
-                                          <div className="mb-1">
-                                            <h6 className="fw-bold mb-1 text-muted fst-italic">
-                                              Child Discount:
-                                            </h6>
-                                            <div className="small text-dark">
-                                              Per Child Rs {childDiscount.toLocaleString()}/. discount.
-                                            </div>
-                                          </div>
-                                        )}
 
                                         <div className="mb-1">
                                           <h6 className="fw-bold mb-1 text-muted fst-italic">

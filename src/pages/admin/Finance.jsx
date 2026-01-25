@@ -187,32 +187,16 @@ const FinanceDashboard = () => {
 
         // Transform and get the most recent 10 transactions
         const transformedTransactions = (response.data.entries || []).map(entry => {
-          let displayLine;
-
-          if (entry.seller_organization_name && entry.inventory_owner_organization_name) {
-            if (entry.seller_organization === organizationId) {
-              displayLine = entry.lines?.find(line =>
-                line.account.account_type === 'PAYABLE' && line.credit > 0
-              );
-            } else if (entry.inventory_owner_organization === organizationId) {
-              displayLine = entry.lines?.find(line =>
-                line.account.account_type === 'RECEIVABLE' && line.debit > 0
-              );
-            }
-          }
-
-          if (!displayLine) {
-            displayLine = entry.lines?.find(line => line.account.organization === organizationId) || entry.lines?.[0] || {};
-          }
-
+          // Use the new profit tracking fields from the API
           return {
             record_date: new Date(entry.creation_datetime).toLocaleDateString('en-GB'),
             reference_no: entry.booking_no || entry.reference_no,
             booking_id: entry.booking_no || entry.reference_no,
             agent_name: entry.seller_organization_name || entry.agency_name || 'N/A',
-            income_amount: displayLine.debit || 0,
-            expense_amount: displayLine.credit || 0,
-            profit: (displayLine.debit || 0) - (displayLine.credit || 0)
+            // NEW: Use profit tracking fields directly from entry
+            income_amount: entry.income_amount || 0,
+            expense_amount: entry.expense_amount || 0,
+            profit: entry.profit || 0
           };
         });
 
