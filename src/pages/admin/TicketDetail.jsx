@@ -337,9 +337,9 @@ const TicketDetail = () => {
       ticketType: ticket.is_refundable ? "Refundable" : "Non-Refundable",
       pnr: ticket.pnr,
       adault_visa_price: ticket.price,
-      totalSeats: ticket.left_seats.toString(),
-      weight: ticket.weight.toString(),
-      piece: ticket.pieces.toString(),
+      totalSeats: (ticket.left_seats || 0).toString(),
+      weight: (ticket.baggage_weight || ticket.weight || 0).toString(),
+      piece: (ticket.baggage_pieces || ticket.pieces || 0).toString(),
       umrahSeat: ticket.is_umrah_seat ? "Yes" : "No",
       // Add pricing fields
       adultSellingPrice: ticket.adult_fare?.toString() || "",

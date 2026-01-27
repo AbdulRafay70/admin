@@ -178,24 +178,30 @@ const FinanceDashboard = () => {
           return;
         }
 
+        // Cache buster
+        const timestamp = new Date().getTime();
+
+        // Use the finance P&L endpoint (FinancialRecord)
         const response = await import('axios').then(axios =>
           axios.default.get(
-            `http://127.0.0.1:8000/api/ledger/organization/${organizationId}/`,
+            `http://127.0.0.1:8000/api/finance/ledger/by-service?organization=${organizationId}&_t=${timestamp}`,
             { headers: { Authorization: `Bearer ${token}` } }
           )
         );
 
+        // API returns { records: [...] }
+        const entries = response.data.records || [];
+
         // Transform and get the most recent 10 transactions
-        const transformedTransactions = (response.data.entries || []).map(entry => {
-          // Use the new profit tracking fields from the API
+        const transformedTransactions = entries.map(entry => {
           return {
-            record_date: new Date(entry.creation_datetime).toLocaleDateString('en-GB'),
+            record_date: entry.record_date || 'N/A',
             reference_no: entry.booking_no || entry.reference_no,
-            booking_id: entry.booking_no || entry.reference_no,
-            agent_name: entry.seller_organization_name || entry.agency_name || 'N/A',
-            // NEW: Use profit tracking fields directly from entry
+            booking_id: entry.booking_id || entry.booking_no || entry.reference_no,
+            agent_name: entry.agent_name || 'N/A',
+            // P&L Fields
             income_amount: entry.income_amount || 0,
-            expense_amount: entry.expense_amount || 0,
+            purchase_cost: entry.purchase_cost || 0,
             profit: entry.profit || 0
           };
         });
@@ -366,8 +372,8 @@ const FinanceDashboard = () => {
                 <th>Reference No</th>
                 <th>Module</th>
                 <th>Agent Name/Org</th>
-                <th>Income</th>
-                <th>Expense</th>
+                <th>Selling (Income)</th>
+                <th>Purchasing (Cost)</th>
                 <th>Profit</th>
               </tr>
             </thead>
@@ -398,7 +404,7 @@ const FinanceDashboard = () => {
                       Rs. {parseFloat(transaction.income_amount || 0).toLocaleString()}
                     </td>
                     <td className="text-danger fw-bold">
-                      Rs. {parseFloat(transaction.expense_amount || 0).toLocaleString()}
+                      Rs. {parseFloat(transaction.purchase_cost || 0).toLocaleString()}
                     </td>
                     <td className={`fw-bold ${parseFloat(transaction.profit || 0) >= 0 ? 'text-primary' : 'text-danger'}`}>
                       Rs. {parseFloat(transaction.profit || 0).toLocaleString()}

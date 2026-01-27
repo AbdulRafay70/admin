@@ -125,8 +125,42 @@ const Organization = () => {
     }
   };
 
+  const [markups, setMarkups] = useState([]); // State for markup groups
+  const [discountGroups, setDiscountGroups] = useState([]); // groups for org
+
+  // Fetch markups
+  const fetchMarkups = async () => {
+    try {
+      const res = await api.get("/api/markups/");
+      setMarkups(res.data.results || res.data || []);
+    } catch (e) {
+      console.error("Failed to fetch markups", e);
+    }
+  };
+
+  // Fetch discount groups for a given organization and keep only those with group_type 'org'
+  const fetchDiscountGroups = async (orgId) => {
+    if (!orgId) {
+      setDiscountGroups([]);
+      return;
+    }
+    try {
+      const res = await api.get("/api/discount-groups/", { params: { organization: orgId } });
+      const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.results) ? res.data.results : []);
+      const orgGroups = data.filter((g) => {
+        const t = (g.group_type || "").toString().toLowerCase();
+        return t === "org" || t === "organization" || t.includes("org");
+      });
+      setDiscountGroups(orgGroups);
+    } catch (e) {
+      console.error("Failed to fetch discount groups", e);
+      setDiscountGroups([]);
+    }
+  };
+
   useEffect(() => {
     fetchOrganizations();
+    fetchMarkups(); // Fetch markups on mount
     // debug: log when Organization mounts so we can verify routing
     try {
       // eslint-disable-next-line no-console
@@ -177,6 +211,8 @@ const Organization = () => {
       email: "",
       address: "",
       logo: null,
+      markup_group: "", // Add to form data
+      discount_group: "",
     });
     setLogoPreview(null);
     setCurrentOrganization(null);
@@ -197,10 +233,14 @@ const Organization = () => {
       email: org.email,
       address: org.address,
       logo: null,
+      markup_group: org.markup_group?.id || org.markup_group || "", // Load existing value
+      discount_group: org.discount_group?.id || org.discount_group || "",
     });
     setLogoPreview(org.logo || null);
     setCurrentOrganization(org);
     setEditMode(true);
+    // load discount groups for this organization so the select can be populated
+    fetchDiscountGroups(org.id);
     setShowModal(true);
   };
 
@@ -221,6 +261,16 @@ const Organization = () => {
     formDataToSend.append("address", formData.address);
     if (formData.logo) {
       formDataToSend.append("logo", formData.logo);
+    }
+    if (formData.markup_group) {
+      formDataToSend.append("markup_group", formData.markup_group);
+    } else {
+      // handle clearing if needed, though form-data empty string usually ignored by int field
+      // backend should handle null if unset.
+      formDataToSend.append("markup_group", "");
+    }
+    if (formData.discount_group) {
+      formDataToSend.append("discount_group", formData.discount_group);
     }
 
     try {
@@ -492,6 +542,45 @@ const Organization = () => {
                   onChange={handleInputChange}
                   rows="2"
                 />
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Markup Group (Optional)
+                </label>
+                <select
+                  name="markup_group"
+                  className="form-select rounded shadow-none px-1 py-2"
+                  value={formData.markup_group}
+                  onChange={handleInputChange}
+                >
+                  <option value="">-- Select Markup Group --</option>
+                  {markups.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="" className="Control-label">
+                  Discount Group (Org only, optional)
+                </label>
+                <select
+                  name="discount_group"
+                  className="form-select rounded shadow-none px-1 py-2"
+                  value={formData.discount_group}
+                  onChange={handleInputChange}
+                >
+                  <option value="">-- Select Discount Group --</option>
+                  {discountGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="small text-muted">Shows only groups with type "org" for this organization.</div>
               </div>
 
               <div className="mb-4 text-center">

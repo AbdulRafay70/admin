@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Button, Form, Badge, Alert } from 'react-bootstrap';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
@@ -13,6 +13,11 @@ const MarkupAssignValues = () => {
   const preselectedGroupId = searchParams.get('group');
 
   const [groups, setGroups] = useState([]);
+  const [hotels, setHotels] = useState([]); // NEW: Store hotels
+  const [selectedHotels, setSelectedHotels] = useState([]); // Array of hotel objects {id, name}
+  const [isHotelDropdownOpen, setIsHotelDropdownOpen] = useState(false);
+  const hotelDropdownRef = useRef(null);
+
   const [selectedGroupId, setSelectedGroupId] = useState(preselectedGroupId || null);
   const [alert, setAlert] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,6 +28,13 @@ const MarkupAssignValues = () => {
     ticket_markup: 0,
     hotel_per_night_markup: 0,
     umrah_package_markup: 0,
+    // Single set of detailed markup values for ALL selected hotels
+    quint_per_night_markup: 0,
+    quad_per_night_markup: 0,
+    triple_per_night_markup: 0,
+    double_per_night_markup: 0,
+    sharing_per_night_markup: 0,
+    other_per_night_markup: 0,
   });
 
   const token = localStorage.getItem('accessToken');
@@ -37,6 +49,7 @@ const MarkupAssignValues = () => {
 
   useEffect(() => {
     fetchGroups();
+    fetchHotels(); // NEW
   }, []);
 
   useEffect(() => {
@@ -63,6 +76,18 @@ const MarkupAssignValues = () => {
     }
   };
 
+  const fetchHotels = async () => {
+    try {
+      const res = await axios.get('http://127.0.0.1:8000/api/hotels/', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.results) ? res.data.results : []);
+      setHotels(data);
+    } catch (e) {
+      console.error('Failed to load hotels', e);
+    }
+  };
+
   const loadGroupDetails = async (groupId) => {
     if (!groupId) return;
     setLoading(true);
@@ -71,12 +96,33 @@ const MarkupAssignValues = () => {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = res.data || {};
+      // Extract existing hotel markups
+      const hotelMarkups = data.hotel_markups || [];
+      const firstMarkup = hotelMarkups.length > 0 ? hotelMarkups[0] : {};
+
+      // Collect all hotels involved
+      const existingHotels = hotelMarkups.map(hm => ({
+        id: hm.hotel,
+        name: hm.hotel_name || `Hotel ${hm.hotel}` // Fallback name if needed
+      }));
+      // Remove duplicates just in case
+      const uniqueHotels = Array.from(new Map(existingHotels.map(item => [item.id, item])).values());
+
+      setSelectedHotels(uniqueHotels);
+
       setFormData({
         name: data.name || '',
         applies_to: data.applies_to || 'group_ticket',
         ticket_markup: data.ticket_markup || 0,
         hotel_per_night_markup: data.hotel_per_night_markup || 0,
         umrah_package_markup: data.umrah_package_markup || 0,
+        // Load details from the first entry (assuming uniform) or default to 0
+        quint_per_night_markup: firstMarkup.quint || 0,
+        quad_per_night_markup: firstMarkup.quad || 0,
+        triple_per_night_markup: firstMarkup.triple || 0,
+        double_per_night_markup: firstMarkup.double || 0,
+        sharing_per_night_markup: firstMarkup.sharing || 0,
+        other_per_night_markup: firstMarkup.other || 0,
       });
     } catch (e) {
       console.error('Failed to load group details', e);
@@ -98,6 +144,16 @@ const MarkupAssignValues = () => {
       hotel_per_night_markup: parseFloat(formData.hotel_per_night_markup) || 0,
       umrah_package_markup: parseFloat(formData.umrah_package_markup) || 0,
       organization_id: organizationId,
+      // Create a MarkupHotel entry for EACH selected hotel with SAME values
+      hotel_markups: selectedHotels.map(h => ({
+        hotel: h.id,
+        quint: parseFloat(formData.quint_per_night_markup) || 0,
+        quad: parseFloat(formData.quad_per_night_markup) || 0,
+        triple: parseFloat(formData.triple_per_night_markup) || 0,
+        double: parseFloat(formData.double_per_night_markup) || 0,
+        sharing: parseFloat(formData.sharing_per_night_markup) || 0,
+        other: parseFloat(formData.other_per_night_markup) || 0,
+      }))
     };
 
     try {
@@ -111,34 +167,38 @@ const MarkupAssignValues = () => {
     }
   };
 
-  const addHotelNightMarkup = () => {
-    setFormData({
-      ...formData,
-      hotel_night_markup: [
-        ...formData.hotel_night_markup,
-        {
-          quint_per_night_markup: '',
-          quad_per_night_markup: '',
-          triple_per_night_markup: '',
-          double_per_night_markup: '',
-          sharing_per_night_markup: '',
-          other_per_night_markup: '',
-          markup_hotels: [],
-        },
-      ],
-    });
+  const toggleHotelSelection = (hotel) => {
+    const exists = selectedHotels.find(h => h.id === hotel.id);
+    if (exists) {
+      setSelectedHotels(selectedHotels.filter(h => h.id !== hotel.id));
+    } else {
+      setSelectedHotels([...selectedHotels, { id: hotel.id, name: hotel.name }]);
+    }
   };
 
-  const removeHotelNightMarkup = (index) => {
-    const updated = formData.hotel_night_markup.filter((_, i) => i !== index);
-    setFormData({ ...formData, hotel_night_markup: updated });
+  const removeHotel = (id) => {
+    setSelectedHotels(selectedHotels.filter(h => h.id !== id));
   };
 
-  const updateHotelNightMarkup = (index, field, value) => {
-    const updated = [...formData.hotel_night_markup];
-    updated[index] = { ...updated[index], [field]: value };
-    setFormData({ ...formData, hotel_night_markup: updated });
-  };
+  useEffect(() => {
+    fetchGroups();
+    fetchHotels();
+
+    // Click outside handler for dropdown
+    const handleClickOutside = (event) => {
+      if (hotelDropdownRef.current && !hotelDropdownRef.current.contains(event.target)) {
+        setIsHotelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (preselectedGroupId) {
+      loadGroupDetails(preselectedGroupId);
+    }
+  }, [preselectedGroupId]);
 
   const selectedGroup = groups.find(g => g.id === parseInt(selectedGroupId));
 
@@ -205,13 +265,40 @@ const MarkupAssignValues = () => {
                   <h5 className="mb-0">Markup Values</h5>
                 </Card.Header>
                 <Card.Body>
+                  <Row className="mb-4 text-muted border-bottom pb-4">
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Group Name</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Applies To</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={formData.applies_to}
+                          onChange={(e) => setFormData({ ...formData, applies_to: e.target.value })}
+                          placeholder="e.g. group_ticket, hotel, umrah_package"
+                        />
+                        <Form.Text className="text-muted">
+                          Tag what this group is for (optional)
+                        </Form.Text>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
                   <Row>
                     <Col md={4}>
                       <Form.Group className="mb-3">
                         <Form.Label>Ticket Markup</Form.Label>
                         <Form.Control
                           type="number"
-                          placeholder="Enter ticket markup amount"
+                          placeholder="0"
                           value={formData.ticket_markup}
                           onChange={(e) =>
                             setFormData({
@@ -225,31 +312,13 @@ const MarkupAssignValues = () => {
                         </Form.Text>
                       </Form.Group>
                     </Col>
-                    <Col md={4}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Hotel Per Night Markup</Form.Label>
-                        <Form.Control
-                          type="number"
-                          placeholder="Enter hotel per night markup"
-                          value={formData.hotel_per_night_markup}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              hotel_per_night_markup: e.target.value,
-                            })
-                          }
-                        />
-                        <Form.Text className="text-muted">
-                          Markup per hotel night
-                        </Form.Text>
-                      </Form.Group>
-                    </Col>
+
                     <Col md={4}>
                       <Form.Group className="mb-3">
                         <Form.Label>Umrah Package Markup</Form.Label>
                         <Form.Control
                           type="number"
-                          placeholder="Enter umrah package markup"
+                          placeholder="0"
                           value={formData.umrah_package_markup}
                           onChange={(e) =>
                             setFormData({
@@ -264,10 +333,130 @@ const MarkupAssignValues = () => {
                       </Form.Group>
                     </Col>
                   </Row>
+
+                  {/* Detailed Hotel Markups Section - Multi Select */}
+                  <div className="mt-5 border-top pt-4">
+                    <h6 className="mb-3 fw-bold">Hotel Night Discounts (Applies to Selected Hotels)</h6>
+
+                    <Row className="g-3">
+                      <Col md={12}>
+                        <Form.Group ref={hotelDropdownRef} className="position-relative">
+                          <Form.Label className="fw-bold">Select Hotels</Form.Label>
+
+                          {/* Custom Multi-Select Trigger */}
+                          <div
+                            className="form-control d-flex flex-wrap gap-2 align-items-center"
+                            style={{ minHeight: '38px', cursor: 'text' }}
+                            onClick={() => setIsHotelDropdownOpen(true)}
+                          >
+                            {selectedHotels.length === 0 && <span className="text-muted small">Select hotels...</span>}
+                            {selectedHotels.map(h => (
+                              <Badge key={h.id} bg="primary" className="d-flex align-items-center gap-1 py-2 px-3">
+                                {h.name}
+                                <X
+                                  size={14}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={(e) => { e.stopPropagation(); removeHotel(h.id); }}
+                                />
+                              </Badge>
+                            ))}
+                          </div>
+
+                          {/* Dropdown Menu */}
+                          {isHotelDropdownOpen && (
+                            <div className="position-absolute w-100 bg-white border rounded shadow-sm mt-1 z-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                              {hotels.length > 0 ? (
+                                hotels.map(h => {
+                                  const isSelected = selectedHotels.some(sh => sh.id === h.id);
+                                  return (
+                                    <div
+                                      key={h.id}
+                                      className={`px-3 py-2 cursor-pointer ${isSelected ? 'bg-light' : ''}`}
+                                      style={{ cursor: 'pointer' }}
+                                      onClick={() => toggleHotelSelection(h)}
+                                    >
+                                      <div className="d-flex align-items-center gap-2">
+                                        <input type="checkbox" checked={isSelected} readOnly />
+                                        <span>{h.name} <span className="text-muted small">({h.city_name || h.city})</span></span>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div className="px-3 py-2 text-muted">No hotels found</div>
+                              )}
+                            </div>
+                          )}
+                        </Form.Group>
+                      </Col>
+
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="small">Quint Per Night Discount</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={formData.quint_per_night_markup}
+                            onChange={(e) => setFormData({ ...formData, quint_per_night_markup: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="small">Quad Per Night Discount</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={formData.quad_per_night_markup}
+                            onChange={(e) => setFormData({ ...formData, quad_per_night_markup: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="small">Triple Per Night Discount</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={formData.triple_per_night_markup}
+                            onChange={(e) => setFormData({ ...formData, triple_per_night_markup: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="small">Double Per Night Discount</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={formData.double_per_night_markup}
+                            onChange={(e) => setFormData({ ...formData, double_per_night_markup: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="small">Sharing Per Night Discount</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={formData.sharing_per_night_markup}
+                            onChange={(e) => setFormData({ ...formData, sharing_per_night_markup: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Group>
+                          <Form.Label className="small">Other Per Night Discount</Form.Label>
+                          <Form.Control
+                            type="number"
+                            value={formData.other_per_night_markup}
+                            onChange={(e) => setFormData({ ...formData, other_per_night_markup: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  </div>
+
                 </Card.Body>
               </Card>
 
-              <div className="d-flex justify-content-end gap-2">
+              <div className="d-flex justify-content-end gap-2 mt-4 border-top pt-3">
                 <Button variant="secondary" onClick={() => navigate('/markup-management')}>
                   Cancel
                 </Button>

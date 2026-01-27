@@ -239,7 +239,11 @@ const Discounts = () => {
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label className="small text-muted">Group Type</Form.Label>
-              <Form.Control value={groupType} onChange={(e) => setGroupType(e.target.value)} placeholder="seasonal / campaign" />
+              <Form.Select value={groupType} onChange={(e) => setGroupType(e.target.value)}>
+                <option value="">Select group type (optional)</option>
+                <option value="org">Group for Org</option>
+                <option value="agency">Group for Agency</option>
+              </Form.Select>
               <Form.Text className="text-muted">Optional. Used for grouping and filters.</Form.Text>
             </Form.Group>
           </Form>

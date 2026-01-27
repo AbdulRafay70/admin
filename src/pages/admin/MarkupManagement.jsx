@@ -312,11 +312,12 @@ const MarkupManagement = () => {
 
             <Form.Group className="mb-3">
               <Form.Label className="small text-muted">Applies To *</Form.Label>
-              <Form.Select value={appliedOnType} onChange={(e) => setAppliedOnType(e.target.value)}>
-                <option value="group_ticket">Group Ticket</option>
-                <option value="hotel">Hotel</option>
-                <option value="umrah_package">Umrah Package</option>
-              </Form.Select>
+              <Form.Control
+                type="text"
+                value={appliedOnType}
+                onChange={(e) => setAppliedOnType(e.target.value)}
+                placeholder="e.g. group_ticket, hotel, umrah_package"
+              />
               <Form.Text className="text-muted">What this markup applies to</Form.Text>
             </Form.Group>
 
