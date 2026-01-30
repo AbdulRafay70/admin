@@ -269,9 +269,8 @@ const Organization = () => {
       // backend should handle null if unset.
       formDataToSend.append("markup_group", "");
     }
-    if (formData.discount_group) {
-      formDataToSend.append("discount_group", formData.discount_group);
-    }
+    // Always include discount_group (empty string to clear on backend if user removed)
+    formDataToSend.append("discount_group", formData.discount_group || "");
 
     try {
       if (editMode && currentOrganization) {
@@ -319,6 +318,10 @@ const Organization = () => {
         console.error("Error deleting organization:", error);
       }
     }
+  };
+
+  const handleRemoveDiscountGroup = () => {
+    setFormData((prev) => ({ ...prev, discount_group: "" }));
   };
 
   // Navigation is rendered by shared PartnersTabs
@@ -567,19 +570,30 @@ const Organization = () => {
                 <label htmlFor="" className="Control-label">
                   Discount Group (Org only, optional)
                 </label>
-                <select
-                  name="discount_group"
-                  className="form-select rounded shadow-none px-1 py-2"
-                  value={formData.discount_group}
-                  onChange={handleInputChange}
-                >
-                  <option value="">-- Select Discount Group --</option>
-                  {discountGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="d-flex align-items-center">
+                  <select
+                    name="discount_group"
+                    className="form-select rounded shadow-none px-1 py-2"
+                    value={formData.discount_group}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">-- Select Discount Group --</option>
+                    {discountGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary ms-2 btn-sm"
+                    onClick={handleRemoveDiscountGroup}
+                    disabled={!formData.discount_group}
+                    title="Remove discount group"
+                  >
+                    Remove
+                  </button>
+                </div>
                 <div className="small text-muted">Shows only groups with type "org" for this organization.</div>
               </div>
 

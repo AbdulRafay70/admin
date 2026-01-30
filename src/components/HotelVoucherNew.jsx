@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Gear } from 'react-bootstrap-icons';
+import { Gear, Pencil, Trash } from 'react-bootstrap-icons';
 
 
 
@@ -11,16 +11,6 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Edit mode states for each section
-    const [editMode, setEditMode] = useState({
-        passengers: false,
-        hotels: false,
-        flights: false,
-        transport: false,
-        food: false,
-        ziarat: false,
-    });
-
     // Editable data states
     const [editableData, setEditableData] = useState({
         passengers: [],
@@ -30,6 +20,33 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
         food: [],
         ziarat: [],
     });
+
+    const [hotelsList, setHotelsList] = useState([]);
+    const [roomTypesList, setRoomTypesList] = useState([]);
+    const [vehicleTypesList, setVehicleTypesList] = useState([]);
+    const [sectorsList, setSectorsList] = useState([]);
+    const [foodsList, setFoodsList] = useState([]);
+    const [ziyaratsList, setZiyaratsList] = useState([]);
+
+    // Edit mode states for each section
+    // Unified Modal State
+    const [activeModal, setActiveModal] = useState(null); // 'passenger', 'hotel', 'flight', 'transport', 'food', 'ziarat'
+    const [editingIndex, setEditingIndex] = useState(null); // Index of item being edited, or -1 for new
+    const [tempItemData, setTempItemData] = useState({}); // Temporary data for the modal inputs
+
+    // Delete Modal State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteSection, setDeleteSection] = useState(null);
+
+    const handleOpenDeleteModal = (section) => {
+        setDeleteSection(section);
+        setShowDeleteModal(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setShowDeleteModal(false);
+        setDeleteSection(null);
+    };
 
     // Service options states (checkboxes)
     const [serviceOptions, setServiceOptions] = useState({
@@ -46,6 +63,185 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
     const [notes, setNotes] = useState("");
     const [selectedShirka, setSelectedShirka] = useState("Rushd al Majd");
     const [openDropdown, setOpenDropdown] = useState(null); // Track which dropdown is open
+
+    // Helper to open modal for Add or Edit
+    const handleOpenModal = (section, index = -1, data = {}) => {
+        setActiveModal(section);
+        setEditingIndex(index);
+
+        // If adding new (index -1), initialize with empty/default object
+        // If editing, clone the data
+        if (index === -1) {
+            let defaultData = {};
+            if (section === 'hotels') defaultData = { quantity: 1, nights: 0 };
+            if (section === 'hotel') defaultData = { quantity: 1, nights: 0 };
+            if (section === 'passenger') defaultData = { age_group: "Adult", person_title: "" };
+            // Add other defaults as needed
+            setTempItemData(defaultData);
+        } else {
+            setTempItemData({ ...data }); // Shallow clone sufficient for simple objects
+        }
+    };
+
+    const handleCloseModal = () => {
+        setActiveModal(null);
+        setEditingIndex(null);
+        setTempItemData({});
+    };
+
+    const handleSaveModal = () => {
+        // Validation logic can go here
+
+        setEditableData(prev => {
+            const sectionMap = {
+                'passenger': 'passengers',
+                'hotel': 'hotels',
+                'flight': 'flights', // handled differently usually
+                'transport': 'transport',
+                'food': 'food',
+                'ziarat': 'ziarat'
+            };
+
+            const dataKey = sectionMap[activeModal];
+            if (!dataKey) return prev;
+
+            // Special handling for flights (object, not array)
+            if (activeModal === 'flight') {
+                // Assuming tempItemData structure matches flights object structure
+                return { ...prev, flights: tempItemData };
+            }
+
+            const newList = [...(prev[dataKey] || [])];
+
+            if (editingIndex === -1) {
+                // Add new
+                newList.push(tempItemData);
+            } else {
+                // Update existing
+                newList[editingIndex] = tempItemData;
+            }
+
+            return { ...prev, [dataKey]: newList };
+        });
+
+        // Trigger API update immediately (or user can click 'Save All' later? 
+        // User requested "Apply" like buttons usually imply immediate save, but let's check existing logic.
+        // Existing logic had a 'Save Section' button. Let's trigger that same logic using the updated editableData
+        // We might need to wait for state update or pass the new data directly to handleSaveSection equivalent.
+        // For now, let's just update local state and call the API update in a useEffect or separate function 
+        // that handles the actual API call with the LATEST editableData.
+        // Actually, to keep it simple and consistent with previous "Save Section" flow:
+        // We will call handleGlobalSave(activeModal) which sends the specific updated section.
+        // BUT `setEditableData` is async. So we pass the `newList` directly to the save function.
+
+        saveDataToBackend(activeModal, editingIndex, tempItemData);
+
+        handleCloseModal();
+    };
+
+    const saveDataToBackend = async (section, index, data) => {
+        // Logic to prepare payload and call API
+        // This re-uses the logic from 'handleSaveSection' but adapted for the new flow
+        // We'll need to reconstruct the full list for the API payload
+
+        // NOTE: Since state update is async, we need to construct the 'next state' data here to send to API
+        let currentList = [];
+        let dataKey = '';
+
+        if (section === 'passenger') { dataKey = 'passengers'; currentList = [...editableData.passengers]; }
+        else if (section === 'hotel') { dataKey = 'hotels'; currentList = [...editableData.hotels]; }
+        else if (section === 'transport') { dataKey = 'transport'; currentList = [...editableData.transport]; }
+        else if (section === 'food') { dataKey = 'food'; currentList = [...editableData.food]; }
+        else if (section === 'ziarat') { dataKey = 'ziarat'; currentList = [...editableData.ziarat]; }
+        else if (section === 'flight') {
+            // Flights logic
+            handleSaveSection('flights', data); // Pass data directly if possible or update state then call
+            return;
+        }
+
+        if (index === -1) currentList.push(data);
+        else currentList[index] = data;
+
+        // Now call the API with this 'currentList'
+        // We can adapt 'handleSaveSection' to accept data argument
+        handleSaveSection(dataKey, currentList);
+    };
+
+    const handleDeleteItem = async (section, index) => {
+        if (!window.confirm("Are you sure you want to delete this item?")) return;
+
+        let currentList = [];
+        let dataKey = '';
+
+        if (section === 'passengers') { dataKey = 'passengers'; currentList = [...editableData.passengers]; }
+        else if (section === 'hotels') { dataKey = 'hotels'; currentList = [...editableData.hotels]; }
+        else if (section === 'transport') { dataKey = 'transport'; currentList = [...editableData.transport]; }
+        else if (section === 'food') { dataKey = 'food'; currentList = [...editableData.food]; }
+        else if (section === 'ziarat') { dataKey = 'ziarat'; currentList = [...editableData.ziarat]; }
+
+        // Remove item at index
+        currentList.splice(index, 1);
+
+        // Update local state
+        setEditableData(prev => ({
+            ...prev,
+            [dataKey]: currentList
+        }));
+
+        // Trigger backend update
+        handleSaveSection(dataKey, currentList);
+
+        // If list empty, close modal
+        if (currentList.length === 0) {
+            handleCloseDeleteModal();
+        }
+    };
+
+    const handleDeleteAllItemsInSection = async () => {
+        let dataKey = '';
+        if (deleteSection === 'passengers') dataKey = 'passengers';
+        else if (deleteSection === 'hotels') dataKey = 'hotels';
+        else if (deleteSection === 'transport') dataKey = 'transport';
+        else if (deleteSection === 'food') dataKey = 'food';
+        else if (deleteSection === 'ziarat') dataKey = 'ziarat';
+
+        // Update local state to empty array for the section
+        setEditableData(prev => ({
+            ...prev,
+            [dataKey]: []
+        }));
+
+        // Trigger backend update with an empty list
+        await handleSaveSection(dataKey, []);
+        handleCloseDeleteModal();
+    };
+
+
+    const handleSaveAllChanges = async () => {
+        try {
+            const token = localStorage.getItem("accessToken");
+            let voucherStatus = "Draft";
+            if (serviceOptions.approve) voucherStatus = "Approved";
+            else if (serviceOptions.draft) voucherStatus = "Draft";
+
+            // Determine API endpoint
+            const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+            const apiEndpoint = isPublicBooking
+                ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+                : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+
+            await axios.patch(
+                apiEndpoint,
+                { voucher_status: voucherStatus },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            alert("Voucher status updated successfully!");
+        } catch (error) {
+            console.error("Error saving voucher status:", error);
+            alert("Failed to save voucher status.");
+        }
+    };
 
 
     // Fetch booking and agency data
@@ -164,6 +360,15 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                     ziarat: booking.ziyarat_details || [],
                 });
 
+                // Initialize service options based on voucher_status
+                if (booking.voucher_status) {
+                    setServiceOptions(prev => ({
+                        ...prev,
+                        approve: booking.voucher_status === 'Approved',
+                        draft: booking.voucher_status === 'Draft'
+                    }));
+                }
+
                 // Fetch agency data
                 if (booking.agency) {
                     try {
@@ -187,6 +392,85 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                 }
 
                 setLoading(false);
+
+                // Fetch Hotels List
+                try {
+                    const hotelsResponse = await axios.get(
+                        `http://127.0.0.1:8000/api/hotels/`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                            },
+                        }
+                    );
+                    const hotels = Array.isArray(hotelsResponse.data) ? hotelsResponse.data : (hotelsResponse.data.results || []);
+                    setHotelsList(hotels);
+                } catch (hotelErr) {
+                    console.error("Error fetching hotels:", hotelErr);
+                }
+
+                // Fetch Vehicle Types List
+                try {
+                    const vehicleTypesResponse = await axios.get(
+                        `http://127.0.0.1:8000/api/vehicle-types/`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                            },
+                        }
+                    );
+                    const vehicleTypes = Array.isArray(vehicleTypesResponse.data) ? vehicleTypesResponse.data : (vehicleTypesResponse.data.results || []);
+                    setVehicleTypesList(vehicleTypes);
+                } catch (vehicleErr) {
+                    console.error("Error fetching vehicle types:", vehicleErr);
+                }
+
+                // Fetch Sectors List
+                try {
+                    const sectorsResponse = await axios.get(
+                        `http://127.0.0.1:8000/api/small-sectors/`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                            },
+                        }
+                    );
+                    const sectors = Array.isArray(sectorsResponse.data) ? sectorsResponse.data : (sectorsResponse.data.results || []);
+                    setSectorsList(sectors);
+                } catch (sectorErr) {
+                    console.error("Error fetching sectors:", sectorErr);
+                }
+
+                // Fetch Foods List
+                try {
+                    const foodsResponse = await axios.get(
+                        `http://127.0.0.1:8000/api/food-prices/?organization=${organizationId}`,
+                        {
+                            headers: { Authorization: `Bearer ${token}` }
+                        }
+                    );
+                    const foods = Array.isArray(foodsResponse.data) ? foodsResponse.data : (foodsResponse.data.results || []);
+                    setFoodsList(foods);
+                } catch (err) {
+                    console.error("Error fetching foods:", err);
+                }
+
+                // Fetch Ziyarats List
+                try {
+                    const ziyaratsResponse = await axios.get(
+                        `http://127.0.0.1:8000/api/ziarat-prices/?organization=${organizationId}`,
+                        {
+                            headers: { Authorization: `Bearer ${token}` }
+                        }
+                    );
+                    const ziyarats = Array.isArray(ziyaratsResponse.data) ? ziyaratsResponse.data : (ziyaratsResponse.data.results || []);
+                    setZiyaratsList(ziyarats);
+                } catch (err) {
+                    console.error("Error fetching ziyarats:", err);
+                }
             } catch (err) {
                 console.error("Error fetching data:", err);
                 setError(err.message);
@@ -208,7 +492,8 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
     };
 
     // Handle save for a section
-    const handleSaveSection = async (section) => {
+    // Modified to accept 'overrideData' for immediate updates from Modals
+    const handleSaveSection = async (section, overrideData = null) => {
         try {
             const token = localStorage.getItem("accessToken");
             const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
@@ -217,54 +502,81 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
             // Prepare the data to send based on section
             let updateData = {};
 
+            // Helper to get data: use overrideData if provided, else fall back to state
+            // Note: overrideData is expected to be the FULL LIST for that section
+            const getData = (key) => overrideData || editableData[key];
+
             if (section === 'passengers') {
+                const passengers = getData('passengers');
                 updateData = {
-                    person_details: editableData.passengers,
-                    total_pax: editableData.passengers.length,
-                    total_adult: editableData.passengers.filter(p => p.age_group === 'Adult').length,
-                    total_child: editableData.passengers.filter(p => p.age_group === 'Child').length,
-                    total_infant: editableData.passengers.filter(p => p.age_group === 'Infant').length
+                    person_details: passengers,
+                    total_pax: passengers.length,
+                    total_adult: passengers.filter(p => p.age_group === 'Adult').length,
+                    total_child: passengers.filter(p => p.age_group === 'Child').length,
+                    total_infant: passengers.filter(p => p.age_group === 'Infant').length
                 };
             } else if (section === 'hotels') {
+                const hotels = getData('hotels');
+                // Sanitize hotel data - remove read-only fields and ensure correct structure
+                const sanitizedHotels = hotels.map(hotel => {
+                    const cleanHotel = { ...hotel };
+                    // Remove read-only fields that backend doesn't accept in PATCH
+                    delete cleanHotel.id;
+                    delete cleanHotel.booking;
+                    delete cleanHotel.created_at;
+                    delete cleanHotel.updated_at;
+                    delete cleanHotel.hotel_name; // This is derived from hotel FK
+                    delete cleanHotel.city_name; // This is derived from city FK
+                    delete cleanHotel.room_type_name; // This is derived from room_type FK
+
+                    return cleanHotel;
+                });
+
+                console.log('Sanitized hotel data being sent:', sanitizedHotels);
+
                 updateData = {
-                    hotel_details: editableData.hotels
+                    hotel_details: sanitizedHotels
                 };
             } else if (section === 'flights') {
+                const flights = getData('flights');
                 updateData = {
                     ticket_details: [{
-                        airline: editableData.flights.departure?.airline || editableData.flights.return?.airline,
-                        flight_number: editableData.flights.departure?.flight_number || editableData.flights.return?.flight_number,
+                        airline: flights.departure?.airline || flights.return?.airline,
+                        flight_number: flights.departure?.flight_number || flights.return?.flight_number,
                         trip_details: [
                             {
                                 trip_type: 'Departure',
-                                departure_city_name: editableData.flights.departure?.from_sector,
-                                arrival_city_name: editableData.flights.departure?.to_sector,
-                                departure_date_time: editableData.flights.departure?.travel_date,
-                                arrival_date_time: editableData.flights.departure?.return_date
+                                departure_city_name: flights.departure?.from_sector,
+                                arrival_city_name: flights.departure?.to_sector,
+                                departure_date_time: flights.departure?.travel_date,
+                                arrival_date_time: flights.departure?.return_date
                             },
                             {
                                 trip_type: 'Return',
-                                departure_city_name: editableData.flights.return?.from_sector,
-                                arrival_city_name: editableData.flights.return?.to_sector,
-                                departure_date_time: editableData.flights.return?.travel_date,
-                                arrival_date_time: editableData.flights.return?.return_date
+                                departure_city_name: flights.return?.from_sector,
+                                arrival_city_name: flights.return?.to_sector,
+                                departure_date_time: flights.return?.travel_date,
+                                arrival_date_time: flights.return?.return_date
                             }
                         ]
                     }]
                 };
             } else if (section === 'transport') {
                 updateData = {
-                    transport_details: editableData.transport
+                    transport_details: getData('transport')
                 };
             } else if (section === 'food') {
                 updateData = {
-                    food_details: editableData.food
+                    food_details: getData('food')
                 };
             } else if (section === 'ziarat') {
                 updateData = {
-                    ziyarat_details: editableData.ziarat
+                    ziyarat_details: getData('ziarat')
                 };
             }
+
+            // Log the data being sent for debugging
+            console.log('Update data being sent:', updateData);
 
             // Make API call to update booking
             const response = await axios.patch(
@@ -288,51 +600,34 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                 }));
 
                 // Show success message (you can add a toast notification here)
-                alert(`${section.charAt(0).toUpperCase() + section.slice(1)} saved successfully!`);
+                // alert(`${section.charAt(0).toUpperCase() + section.slice(1)} saved successfully!`);
             }
         } catch (error) {
-            console.error(`Error saving ${section}:`, error);
-            alert(`Error saving ${section}. Please try again.`);
+            console.error("Error saving section:", error);
+            console.error("Error response data:", error.response?.data);
+            console.error("Error status:", error.response?.status);
+
+            let errorMsg = "Failed to save changes.";
+            if (error.response && error.response.data) {
+                // Formatting error details
+                if (typeof error.response.data === 'object') {
+                    errorMsg += "\n" + JSON.stringify(error.response.data, null, 2);
+                } else {
+                    errorMsg += "\n" + error.response.data;
+                }
+            }
+            alert(errorMsg);
             // Don't exit edit mode if there's an error
             return;
         }
 
-        // Close dropdown
+        // Close dropdown if any
         setOpenDropdown(null);
-
-        // For passengers, exit edit mode for the specific row
-        if (section === 'passengers') {
-            setEditMode((prev) => ({ ...prev, passengers: false }));
-        } else {
-            toggleEditMode(section);
-        }
     };
 
-    // Handle cancel edit
+    // Handle cancel edit is now simple modal close
     const handleCancelEdit = (section) => {
-        // Close dropdown
-        setOpenDropdown(null);
-
-        // Reset editable data to original booking data
-        const originalData = {
-            passengers: bookingData.person_details || [],
-            hotels: bookingData.hotel_details || [],
-            flights: { departure: {}, return: {} },
-            transport: bookingData.transport_details || [],
-            food: bookingData.food_details || [],
-            ziarat: bookingData.ziyarat_details || [],
-        };
-        setEditableData(prev => ({
-            ...prev,
-            [section]: originalData[section]
-        }));
-
-        // For passengers, exit edit mode for the specific row
-        if (section === 'passengers') {
-            setEditMode((prev) => ({ ...prev, passengers: false }));
-        } else {
-            toggleEditMode(section);
-        }
+        handleCloseModal();
     };
 
     if (loading) {
@@ -354,6 +649,39 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
         );
     }
 
+    const getTitleOptions = (passengerType) => {
+        const type = passengerType || "Adult";
+        switch (type) {
+            case "Adult":
+                return (
+                    <>
+                        <option value="">Select Title</option>
+                        <option value="MR">MR</option>
+                        <option value="MRS">MRS</option>
+                        <option value="MS">MS</option>
+                    </>
+                );
+            case "Child":
+            case "Infant":
+                return (
+                    <>
+                        <option value="">Select Title</option>
+                        <option value="MSTR">MSTR</option>
+                        <option value="MISS">MISS</option>
+                    </>
+                );
+            default:
+                return (
+                    <>
+                        <option value="">Select Title</option>
+                        <option value="MR">MR</option>
+                        <option value="MRS">MRS</option>
+                        <option value="MS">MS</option>
+                    </>
+                );
+        }
+    };
+
     if (!bookingData) {
         return (
             <div className="alert alert-warning m-4" role="alert">
@@ -364,309 +692,85 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
     }
 
     return (
-        <div className="container-fluid p-4" style={{ backgroundColor: "#f8f9fa" }}>
-            <div className="card shadow-sm">
-                <div className="card-body">
+        <div className="container-fluid p-4" style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}>
+            <div className="card shadow-sm border-0" style={{ borderRadius: "12px", overflow: "hidden" }}>
+                <div className="card-header bg-white py-3 border-bottom">
+                    <h5 className="mb-0 fw-bold text-primary"><i className="bi bi-receipt me-2"></i>Hotel Voucher Details</h5>
+                </div>
+                <div className="card-body p-4">
                     {/* Passenger Details Section */}
                     <div className="mb-4">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h6 className="fw-bold mb-0">Passenger Details</h6>
+                            <div>
+                                {bookingData.person_details?.length > 0 && (
+                                    <button
+                                        className="btn btn-sm btn-outline-danger me-2"
+                                        onClick={() => handleOpenDeleteModal('passengers')}
+                                    >
+                                        <i className="bi bi-trash me-1"></i> Delete All
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => handleOpenModal('passenger', -1)}
+                                >
+                                    <i className="bi bi-person-plus me-1"></i> Add Passenger
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="table-responsive">
+                        <div className="table-responsive border rounded" style={{ maxHeight: '350px', overflowY: 'auto' }}>
                             <table
-                                className="table table-sm table-bordered"
+                                className="table table-bordered mb-0"
                                 style={{
                                     pointerEvents: 'auto',
-                                    width: editMode.passengers !== false ? '150%' : '100%',
                                     minWidth: '100%'
                                 }}
                             >
-                                <thead className="table-light">
+                                <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                                     <tr>
-                                        <th>Passenger Name</th>
-                                        <th>Passport No</th>
-                                        <th>PAX</th>
-                                        <th>DOB</th>
-                                        <th>Passport Issue Date</th>
-                                        <th>Passport Expiry Date</th>
-                                        <th>Country</th>
-                                        <th>Family Head</th>
-                                        <th>Family No</th>
-                                        <th>Actions</th>
+                                        <th className="py-3">Type</th>
+                                        <th className="py-3">Title</th>
+                                        <th className="py-3">Passenger Name</th>
+                                        <th className="py-3">Passport No</th>
+                                        <th className="py-3">DOB</th>
+                                        <th className="py-3">Passport Issue</th>
+                                        <th className="py-3">Passport Expiry</th>
+                                        <th className="py-3">Passport Image</th>
+                                        <th className="py-3" style={{ width: '100px' }}>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {bookingData.person_details?.map((passenger, index) => (
-                                        editMode.passengers === index ? (
-                                            // Edit Mode for this row
-                                            <tr key={index}>
-                                                <td>
-                                                    <div className="d-flex gap-1">
-                                                        <select
-                                                            className="form-select form-select-sm"
-                                                            style={{ width: '70px' }}
-                                                            value={editableData.passengers[index]?.person_title || ""}
-                                                            onChange={(e) => {
-                                                                const updated = [...editableData.passengers];
-                                                                updated[index].person_title = e.target.value;
-                                                                setEditableData({ ...editableData, passengers: updated });
-                                                            }}
-                                                        >
-                                                            <option value="">-</option>
-                                                            <option value="MR">Mr</option>
-                                                            <option value="MRS">Mrs</option>
-                                                            <option value="MS">Ms</option>
-                                                            <option value="MISS">Miss</option>
-                                                            <option value="DR">Dr</option>
-                                                        </select>
-                                                        <input
-                                                            type="text"
-                                                            className="form-control form-control-sm"
-                                                            placeholder="First"
-                                                            value={editableData.passengers[index]?.first_name || ""}
-                                                            onChange={(e) => {
-                                                                const updated = [...editableData.passengers];
-                                                                updated[index].first_name = e.target.value;
-                                                                setEditableData({ ...editableData, passengers: updated });
-                                                            }}
-                                                        />
-                                                        <input
-                                                            type="text"
-                                                            className="form-control form-control-sm"
-                                                            placeholder="Last"
-                                                            value={editableData.passengers[index]?.last_name || ""}
-                                                            onChange={(e) => {
-                                                                const updated = [...editableData.passengers];
-                                                                updated[index].last_name = e.target.value;
-                                                                setEditableData({ ...editableData, passengers: updated });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="text"
-                                                        className="form-control form-control-sm"
-                                                        value={editableData.passengers[index]?.passport_number || ""}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].passport_number = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <select
-                                                        className="form-select form-select-sm"
-                                                        value={editableData.passengers[index]?.age_group || "Adult"}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].age_group = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    >
-                                                        <option value="Adult">Adult</option>
-                                                        <option value="Child">Child</option>
-                                                        <option value="Infant">Infant</option>
-                                                    </select>
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="date"
-                                                        className="form-control form-control-sm"
-                                                        value={editableData.passengers[index]?.date_of_birth || ""}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].date_of_birth = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="date"
-                                                        className="form-control form-control-sm"
-                                                        value={editableData.passengers[index]?.passpoet_issue_date || editableData.passengers[index]?.passport_issue_date || ""}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].passport_issue_date = e.target.value;
-                                                            updated[index].passpoet_issue_date = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="date"
-                                                        className="form-control form-control-sm"
-                                                        value={editableData.passengers[index]?.passport_expiry_date || ""}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].passport_expiry_date = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="text"
-                                                        className="form-control form-control-sm"
-                                                        value={editableData.passengers[index]?.country || ""}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].country = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <div className="form-check">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="form-check-input"
-                                                            checked={editableData.passengers[index]?.is_family_head || false}
-                                                            onChange={(e) => {
-                                                                const updated = [...editableData.passengers];
-                                                                updated[index].is_family_head = e.target.checked;
-                                                                setEditableData({ ...editableData, passengers: updated });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="number"
-                                                        className="form-control form-control-sm"
-                                                        value={editableData.passengers[index]?.family_number || ""}
-                                                        onChange={(e) => {
-                                                            const updated = [...editableData.passengers];
-                                                            updated[index].family_number = e.target.value;
-                                                            setEditableData({ ...editableData, passengers: updated });
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <div className="position-relative">
-                                                        <button
-                                                            className="btn btn-sm btn-light"
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                                setOpenDropdown(openDropdown === `edit-${index}` ? null : {
-                                                                    id: `edit-${index}`,
-                                                                    top: rect.bottom,
-                                                                    left: rect.left
-                                                                });
-                                                            }}
-                                                            title="Actions"
-                                                        >
-                                                            <Gear size={16} />
-                                                        </button>
-                                                        {openDropdown?.id === `edit-${index}` && (
-                                                            <div
-                                                                className="dropdown-menu show"
-                                                                style={{
-                                                                    position: 'fixed',
-                                                                    top: `${openDropdown.top}px`,
-                                                                    left: `${openDropdown.left}px`,
-                                                                    zIndex: 9999,
-                                                                    minWidth: 'auto',
-                                                                    width: 'fit-content'
-                                                                }}
-                                                            >
-                                                                <button
-                                                                    className="dropdown-item"
-                                                                    onClick={() => {
-                                                                        handleSaveSection('passengers');
-                                                                        setOpenDropdown(null);
-                                                                    }}
-                                                                >
-                                                                    <i className="bi bi-check-lg me-2 text-success"></i>
-                                                                    Save
-                                                                </button>
-                                                                <button
-                                                                    className="dropdown-item"
-                                                                    onClick={() => {
-                                                                        handleCancelEdit('passengers');
-                                                                        setOpenDropdown(null);
-                                                                    }}
-                                                                >
-                                                                    <i className="bi bi-x-lg me-2 text-secondary"></i>
-                                                                    Cancel
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            // View Mode for this row
-                                            <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                <td>
-                                                    {passenger.person_title ? `${passenger.person_title}. ` : ''}
-                                                    {passenger.first_name} {passenger.last_name}
-                                                </td>
-                                                <td>{passenger.passport_number || "N/A"}</td>
-                                                <td>{passenger.age_group || "Adult"}</td>
-                                                <td>{passenger.date_of_birth || "N/A"}</td>
-                                                <td>{passenger.passpoet_issue_date || passenger.passport_issue_date || "N/A"}</td>
-                                                <td>{passenger.passport_expiry_date || "N/A"}</td>
-                                                <td>{passenger.country || "N/A"}</td>
-                                                <td>
-                                                    {passenger.is_family_head ? (
-                                                        <span className="badge bg-success">Yes</span>
-                                                    ) : (
-                                                        <span className="badge bg-secondary">No</span>
-                                                    )}
-                                                </td>
-                                                <td>{passenger.family_number || "N/A"}</td>
-                                                <td>
-                                                    <div className="position-relative">
-                                                        <button
-                                                            className="btn btn-sm btn-light"
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                                setOpenDropdown(openDropdown?.id === `view-${index}` ? null : {
-                                                                    id: `view-${index}`,
-                                                                    top: rect.bottom,
-                                                                    left: rect.left
-                                                                });
-                                                            }}
-                                                            title="Actions"
-                                                        >
-                                                            <Gear size={16} />
-                                                        </button>
-                                                        {openDropdown?.id === `view-${index}` && (
-                                                            <div
-                                                                className="dropdown-menu show"
-                                                                style={{
-                                                                    position: 'fixed',
-                                                                    top: `${openDropdown.top}px`,
-                                                                    left: `${openDropdown.left}px`,
-                                                                    zIndex: 9999,
-                                                                    minWidth: 'auto',
-                                                                    width: 'fit-content'
-                                                                }}
-                                                            >
-                                                                <button
-                                                                    className="dropdown-item"
-                                                                    onClick={() => {
-                                                                        setEditMode({ ...editMode, passengers: index });
-                                                                        setOpenDropdown(null);
-                                                                    }}
-                                                                >
-                                                                    <i className="bi bi-pencil me-2 text-primary"></i>
-                                                                    Edit
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )
+                                        <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
+                                            <td>{passenger.age_group || "Adult"}</td>
+                                            <td>{passenger.person_title || "N/A"}</td>
+                                            <td>
+                                                {passenger.first_name} {passenger.last_name}
+                                            </td>
+                                            <td>{passenger.passport_number || "N/A"}</td>
+                                            <td>{passenger.date_of_birth || "N/A"}</td>
+                                            <td>{passenger.passpoet_issue_date || passenger.passport_issue_date || "N/A"}</td>
+                                            <td>{passenger.passport_expiry_date || "N/A"}</td>
+                                            <td>
+                                                {/* Placeholder for Passport Image view */}
+                                                <i className="bi bi-image text-muted" title="Passport Image"></i>
+                                            </td>
+                                            <td>
+                                                <div className="d-flex gap-2">
+                                                    <button className="btn btn-sm btn-outline-secondary" onClick={() => handleOpenModal('passenger', index, passenger)} title="Edit">
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteItem('passengers', index)} title="Delete">
+                                                        <Trash size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     ))}
+
+
                                 </tbody>
                             </table>
                         </div>
@@ -676,658 +780,184 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                     <div className="mb-4">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h6 className="fw-bold mb-0">Hotel Details</h6>
-                            {!editMode.hotels ? (
-                                <button
-                                    className="btn btn-sm btn-primary"
-                                    onClick={() => toggleEditMode('hotels')}
-                                >
-                                    <i className="bi bi-pencil me-1"></i> Edit
-                                </button>
-                            ) : (
-                                <div className="d-flex gap-2">
-                                    <button
-                                        className="btn btn-sm btn-success"
-                                        onClick={() => handleSaveSection('hotels')}
-                                    >
-                                        <i className="bi bi-check-lg me-1"></i> Save
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-secondary"
-                                        onClick={() => handleCancelEdit('hotels')}
-                                    >
-                                        <i className="bi bi-x-lg me-1"></i> Cancel
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        {!editMode.hotels ? (
-                            // View Mode
-                            <div className="table-responsive">
-                                <table className="table table-sm table-bordered" style={{ pointerEvents: 'auto' }}>
-                                    <thead className="table-light">
-                                        <tr>
-                                            <th>Hotel Name</th>
-                                            <th>Check-in</th>
-                                            <th>Check-Out</th>
-                                            <th>Nights</th>
-                                            <th>Type</th>
-                                            <th>Sharing Type</th>
-                                            <th>QTY</th>
-                                            <th>Special Request</th>
-                                            <th>Voucher No</th>
-                                            <th>Rate</th>
-                                            <th>Net</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {bookingData.hotel_details?.map((hotel, index) => (
-                                            <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                <td>{hotel.hotel_name || hotel.hotel || "N/A"}</td>
-                                                <td>{hotel.check_in_date || hotel.check_in_time || "N/A"}</td>
-                                                <td>{hotel.check_out_date || hotel.check_out_time || "N/A"}</td>
-                                                <td>{hotel.number_of_nights || hotel.nights || 0}</td>
-                                                <td>{hotel.room_type || "N/A"}</td>
-                                                <td>{hotel.sharing_type || "N/A"}</td>
-                                                <td>{hotel.quantity || 1}</td>
-                                                <td>{hotel.special_request || "N/A"}</td>
-                                                <td>{hotel.hotel_voucher_number || "N/A"}</td>
-                                                <td>SAR {hotel.price || hotel.price_in_sar || 0}</td>
-                                                <td>SAR {hotel.total_price || hotel.total_price_sar || 0}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            // Edit Mode
                             <div>
-                                {editableData.hotels.map((hotel, index) => (
-                                    <div key={index} className="row g-2 mb-3 p-3 border rounded bg-light">
-                                        <div className="col-md-4">
-                                            <label className="form-label small mb-1">Hotel Name</label>
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm"
-                                                placeholder="Hotel Name"
-                                                value={hotel.hotel || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].hotel = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Check-in</label>
-                                            <input
-                                                type="date"
-                                                className="form-control form-control-sm"
-                                                value={hotel.check_in_date || hotel.check_in_time || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].check_in_date = e.target.value;
-                                                    updated[index].check_in_time = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Check-out</label>
-                                            <input
-                                                type="date"
-                                                className="form-control form-control-sm"
-                                                value={hotel.check_out_date || hotel.check_out_time || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].check_out_date = e.target.value;
-                                                    updated[index].check_out_time = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Nights</label>
-                                            <input
-                                                type="number"
-                                                className="form-control form-control-sm"
-                                                placeholder="Nights"
-                                                value={hotel.number_of_nights || hotel.nights || 0}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].number_of_nights = e.target.value;
-                                                    updated[index].nights = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Room Type</label>
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm"
-                                                placeholder="Room Type"
-                                                value={hotel.room_type || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].room_type = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Quantity</label>
-                                            <input
-                                                type="number"
-                                                className="form-control form-control-sm"
-                                                placeholder="Qty"
-                                                value={hotel.quantity || 1}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].quantity = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label small mb-1">Sharing Type</label>
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm"
-                                                placeholder="Sharing Type"
-                                                value={hotel.sharing_type || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].sharing_type = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label small mb-1">Special Request</label>
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm"
-                                                placeholder="Special Request"
-                                                value={hotel.special_request || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].special_request = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Voucher Number</label>
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm"
-                                                placeholder="Voucher No"
-                                                value={hotel.hotel_voucher_number || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].hotel_voucher_number = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Rate (SAR)</label>
-                                            <input
-                                                type="number"
-                                                className="form-control form-control-sm"
-                                                placeholder="Rate"
-                                                value={hotel.price || hotel.price_in_sar || 0}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].price = e.target.value;
-                                                    updated[index].price_in_sar = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2">
-                                            <label className="form-label small mb-1">Net (SAR)</label>
-                                            <input
-                                                type="number"
-                                                className="form-control form-control-sm"
-                                                placeholder="Net"
-                                                value={hotel.total_price || hotel.total_price_sar || 0}
-                                                onChange={(e) => {
-                                                    const updated = [...editableData.hotels];
-                                                    updated[index].total_price = e.target.value;
-                                                    updated[index].total_price_sar = e.target.value;
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-md-2 d-flex align-items-end">
-                                            <button
-                                                className="btn btn-sm btn-danger w-100"
-                                                onClick={() => {
-                                                    const updated = editableData.hotels.filter((_, i) => i !== index);
-                                                    setEditableData({ ...editableData, hotels: updated });
-                                                }}
-                                            >
-                                                <i className="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                {bookingData.hotel_details?.length > 0 && (
+                                    <button
+                                        className="btn btn-sm btn-outline-danger me-2"
+                                        onClick={() => handleOpenDeleteModal('hotels')}
+                                    >
+                                        <i className="bi bi-trash me-1"></i> Delete All
+                                    </button>
+                                )}
                                 <button
-                                    className="btn btn-sm btn-outline-primary mt-2"
-                                    onClick={() => {
-                                        setEditableData({
-                                            ...editableData,
-                                            hotels: [...editableData.hotels, {
-                                                hotel: "",
-                                                check_in_time: "",
-                                                check_out_time: "",
-                                                room_type: "",
-                                                quantity: 1
-                                            }]
-                                        });
-                                    }}
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => handleOpenModal('hotel', -1)}
                                 >
                                     <i className="bi bi-plus-lg me-1"></i> Add Hotel
                                 </button>
                             </div>
-                        )}
+                        </div>
+
+                        {/* View Mode Only - Editing via Modal */}
+                        <div className="table-responsive border rounded" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                            <table className="table table-bordered mb-0" style={{ pointerEvents: 'auto' }}>
+                                <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                    <tr>
+                                        <th className="py-3">Hotel Name</th>
+                                        <th className="py-3">Check In</th>
+                                        <th className="py-3">Check Out</th>
+                                        <th className="py-3">Room Type</th>
+                                        <th className="py-3">Qty</th>
+                                        <th className="py-3">Sharing</th>
+                                        <th className="py-3">Special Request</th>
+                                        <th className="py-3">BRN</th>
+                                        <th className="py-3">Voucher No</th>
+                                        <th className="py-3" style={{ width: '100px' }}>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {bookingData.hotel_details?.map((hotel, index) => (
+                                        <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
+                                            <td>{hotel.hotel_name || hotel.hotel || "N/A"}</td>
+                                            <td>{hotel.check_in_date || hotel.check_in_time || "N/A"}</td>
+                                            <td>{hotel.check_out_date || hotel.check_out_time || "N/A"}</td>
+                                            <td>{hotel.room_type || "N/A"}</td>
+                                            <td>{hotel.quantity || 1}</td>
+                                            <td>{hotel.sharing_type || "N/A"}</td>
+                                            <td>{hotel.special_request || "N/A"}</td>
+                                            <td>{hotel.hotel_brn || "N/A"}</td>
+                                            <td>{hotel.hotel_voucher_number || "N/A"}</td>
+                                            <td>
+                                                <div className="d-flex gap-2">
+                                                    <button className="btn btn-sm btn-outline-secondary" onClick={() => handleOpenModal('hotel', index, hotel)} title="Edit">
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteItem('hotels', index)} title="Delete">
+                                                        <Trash size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     {/* Flight Details Section */}
                     <div className="mb-4">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h6 className="fw-bold mb-0">Flight Details</h6>
-                            {!editMode.flights ? (
-                                <button
-                                    className="btn btn-sm btn-primary"
-                                    onClick={() => toggleEditMode('flights')}
-                                >
-                                    <i className="bi bi-pencil me-1"></i> Edit
-                                </button>
-                            ) : (
-                                <button
-                                    className="btn btn-sm btn-success"
-                                    onClick={() => toggleEditMode('flights')}
-                                >
-                                    <i className="bi bi-check-lg me-1"></i> Done
-                                </button>
-                            )}
+                            <button
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => handleOpenModal('flight', 0, editableData.flights)}
+                            >
+                                <i className="bi bi-pencil me-1"></i> Edit Flights
+                            </button>
                         </div>
 
-                        {!editMode.flights ? (
-                            // View Mode
-                            <div>
-                                {(() => {
-                                    const ticketDetails = bookingData.ticket_details || [];
-                                    const firstTicket = ticketDetails[0] || {};
-                                    const tripDetails = firstTicket.trip_details || [];
+                        <div>
+                            {(() => {
+                                const ticketDetails = bookingData.ticket_details || [];
+                                const firstTicket = ticketDetails[0] || {};
+                                const tripDetails = firstTicket.trip_details || [];
 
-                                    const departureTrip = tripDetails.find(t => t.trip_type === 'Departure') || {};
-                                    const returnTrip = tripDetails.find(t => t.trip_type === 'Return') || {};
+                                const departureTrip = tripDetails.find(t => t.trip_type === 'Departure') || {};
+                                const returnTrip = tripDetails.find(t => t.trip_type === 'Return') || {};
 
-                                    return (
-                                        <>
-                                            {/* Departure Flight Table */}
-                                            <h6 className="fw-semibold mb-2">Departure Flight</h6>
-                                            <div className="table-responsive mb-4">
-                                                <table className="table table-sm table-bordered" style={{ pointerEvents: 'auto' }}>
-                                                    <thead className="table-light">
-                                                        <tr>
-                                                            <th>Airline</th>
-                                                            <th>Flight Number</th>
-                                                            <th>From</th>
-                                                            <th>To</th>
-                                                            <th>Departure Date & Time</th>
-                                                            <th>Arrival Date & Time</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                            <td>{departureTrip.airline || editableData.flights.departure?.airline || "N/A"}</td>
-                                                            <td>{departureTrip.flight_number || editableData.flights.departure?.flight_number || "N/A"}</td>
-                                                            <td>{departureTrip.departure_city_name || editableData.flights.departure?.from_sector || "N/A"}</td>
-                                                            <td>{departureTrip.arrival_city_name || editableData.flights.departure?.to_sector || "N/A"}</td>
-                                                            <td>{departureTrip.departure_date_time ? new Date(departureTrip.departure_date_time).toLocaleString() : editableData.flights.departure?.travel_date || "N/A"}</td>
-                                                            <td>{departureTrip.arrival_date_time ? new Date(departureTrip.arrival_date_time).toLocaleString() : editableData.flights.departure?.return_date || "N/A"}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                return (
+                                    <>
+                                        {/* Departure Flight Table */}
+                                        <h6 className="fw-semibold mb-2">Departure Flight</h6>
+                                        <div className="table-responsive mb-4 border rounded" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                            <table className="table table-bordered mb-0" style={{ pointerEvents: 'auto' }}>
+                                                <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                                    <tr>
+                                                        <th className="py-3">Airline</th>
+                                                        <th className="py-3">Flight Number</th>
+                                                        <th className="py-3">From</th>
+                                                        <th className="py-3">To</th>
+                                                        <th className="py-3">Departure Date & Time</th>
+                                                        <th className="py-3">Arrival Date & Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
+                                                        <td>{departureTrip.airline || editableData.flights.departure?.airline || "N/A"}</td>
+                                                        <td>{departureTrip.flight_number || editableData.flights.departure?.flight_number || "N/A"}</td>
+                                                        <td>{departureTrip.departure_city || editableData.flights.departure?.from_sector || "N/A"}</td>
+                                                        <td>{departureTrip.arrival_city || editableData.flights.departure?.to_sector || "N/A"}</td>
+                                                        <td>{departureTrip.departure_date_time ? new Date(departureTrip.departure_date_time).toLocaleString() : editableData.flights.departure?.travel_date || "N/A"}</td>
+                                                        <td>{departureTrip.arrival_date_time ? new Date(departureTrip.arrival_date_time).toLocaleString() : editableData.flights.departure?.return_date || "N/A"}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
 
-                                            {/* Return Flight Table */}
-                                            <h6 className="fw-semibold mb-2 mt-3">Return Flight</h6>
-                                            <div className="table-responsive">
-                                                <table className="table table-sm table-bordered" style={{ pointerEvents: 'auto' }}>
-                                                    <thead className="table-light">
-                                                        <tr>
-                                                            <th>Airline</th>
-                                                            <th>Flight Number</th>
-                                                            <th>From</th>
-                                                            <th>To</th>
-                                                            <th>Departure Date & Time</th>
-                                                            <th>Arrival Date & Time</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                            <td>{returnTrip.airline || editableData.flights.return?.airline || "N/A"}</td>
-                                                            <td>{returnTrip.flight_number || editableData.flights.return?.flight_number || "N/A"}</td>
-                                                            <td>{returnTrip.departure_city_name || editableData.flights.return?.from_sector || "N/A"}</td>
-                                                            <td>{returnTrip.arrival_city_name || editableData.flights.return?.to_sector || "N/A"}</td>
-                                                            <td>{returnTrip.departure_date_time ? new Date(returnTrip.departure_date_time).toLocaleString() : editableData.flights.return?.travel_date || "N/A"}</td>
-                                                            <td>{returnTrip.arrival_date_time ? new Date(returnTrip.arrival_date_time).toLocaleString() : editableData.flights.return?.return_date || "N/A"}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                        ) : (
-                            // Edit Mode
-                            <div>
-                                {/* Departure Flight Edit */}
-                                <h6 className="fw-semibold mb-2 mt-3">Flight Details (Departure Flight)</h6>
-                                <div className="row g-2 mb-3 p-3 border rounded bg-light">
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Airline Name or Code</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="Airline"
-                                            value={editableData.flights.departure?.airline || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        departure: {
-                                                            ...editableData.flights.departure,
-                                                            airline: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Flight Number</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="Flight Number"
-                                            value={editableData.flights.departure?.flight_number || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        departure: {
-                                                            ...editableData.flights.departure,
-                                                            flight_number: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">From Sector</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="From"
-                                            value={editableData.flights.departure?.from_sector || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        departure: {
-                                                            ...editableData.flights.departure,
-                                                            from_sector: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">To Sector</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="To"
-                                            value={editableData.flights.departure?.to_sector || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        departure: {
-                                                            ...editableData.flights.departure,
-                                                            to_sector: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Travel Date And Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            className="form-control form-control-sm"
-                                            value={editableData.flights.departure?.travel_date || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        departure: {
-                                                            ...editableData.flights.departure,
-                                                            travel_date: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Return Date And Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            className="form-control form-control-sm"
-                                            value={editableData.flights.departure?.return_date || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        departure: {
-                                                            ...editableData.flights.departure,
-                                                            return_date: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Return Flight Edit */}
-                                <h6 className="fw-semibold mb-2 mt-4">Flight Details (Return Flight)</h6>
-                                <div className="row g-2 p-3 border rounded bg-light">
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Airline Name or Code</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="Airline"
-                                            value={editableData.flights.return?.airline || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        return: {
-                                                            ...editableData.flights.return,
-                                                            airline: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Flight Number</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="Flight Number"
-                                            value={editableData.flights.return?.flight_number || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        return: {
-                                                            ...editableData.flights.return,
-                                                            flight_number: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">From Sector</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="From"
-                                            value={editableData.flights.return?.from_sector || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        return: {
-                                                            ...editableData.flights.return,
-                                                            from_sector: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">To Sector</label>
-                                        <input
-                                            type="text"
-                                            className="form-control form-control-sm"
-                                            placeholder="To"
-                                            value={editableData.flights.return?.to_sector || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        return: {
-                                                            ...editableData.flights.return,
-                                                            to_sector: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Travel Date And Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            className="form-control form-control-sm"
-                                            value={editableData.flights.return?.travel_date || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        return: {
-                                                            ...editableData.flights.return,
-                                                            travel_date: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label className="form-label small mb-1">Return Date And Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            className="form-control form-control-sm"
-                                            value={editableData.flights.return?.return_date || ""}
-                                            onChange={(e) => {
-                                                setEditableData({
-                                                    ...editableData,
-                                                    flights: {
-                                                        ...editableData.flights,
-                                                        return: {
-                                                            ...editableData.flights.return,
-                                                            return_date: e.target.value
-                                                        }
-                                                    }
-                                                });
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                                        {/* Return Flight Table */}
+                                        <h6 className="fw-semibold mb-2 mt-3">Return Flight</h6>
+                                        <div className="table-responsive border rounded" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                            <table className="table table-bordered mb-0" style={{ pointerEvents: 'auto' }}>
+                                                <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                                    <tr>
+                                                        <th className="py-3">Airline</th>
+                                                        <th className="py-3">Flight Number</th>
+                                                        <th className="py-3">From</th>
+                                                        <th className="py-3">To</th>
+                                                        <th className="py-3">Departure Date & Time</th>
+                                                        <th className="py-3">Arrival Date & Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
+                                                        <td>{returnTrip.airline || editableData.flights.return?.airline || "N/A"}</td>
+                                                        <td>{returnTrip.flight_number || editableData.flights.return?.flight_number || "N/A"}</td>
+                                                        <td>{returnTrip.departure_city || editableData.flights.return?.from_sector || "N/A"}</td>
+                                                        <td>{returnTrip.arrival_city || editableData.flights.return?.to_sector || "N/A"}</td>
+                                                        <td>{returnTrip.departure_date_time ? new Date(returnTrip.departure_date_time).toLocaleString() : editableData.flights.return?.travel_date || "N/A"}</td>
+                                                        <td>{returnTrip.arrival_date_time ? new Date(returnTrip.arrival_date_time).toLocaleString() : editableData.flights.return?.return_date || "N/A"}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
 
                     {/* Transport Details Section */}
-                    <div className="mb-4">
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h6 className="fw-bold mb-0">Transportation</h6>
-                            {!editMode.transport ? (
-                                <button
-                                    className="btn btn-sm btn-primary"
-                                    onClick={() => toggleEditMode('transport')}
-                                >
-                                    <i className="bi bi-pencil me-1"></i> Edit
-                                </button>
-                            ) : (
-                                <div className="d-flex gap-2">
+                    {bookingData.transport_details && (
+                        <div className="mb-4">
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                <h6 className="fw-bold mb-0">Transportation Details</h6>
+                                <div>
+                                    {bookingData.transport_details?.length > 0 && (
+                                        <button
+                                            className="btn btn-sm btn-outline-danger me-2"
+                                            onClick={() => handleOpenDeleteModal('transport')}
+                                        >
+                                            <i className="bi bi-trash me-1"></i> Delete All
+                                        </button>
+                                    )}
                                     <button
-                                        className="btn btn-sm btn-success"
-                                        onClick={() => handleSaveSection('transport')}
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => handleOpenModal('transport', -1)}
                                     >
-                                        <i className="bi bi-check-lg me-1"></i> Save
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-secondary"
-                                        onClick={() => handleCancelEdit('transport')}
-                                    >
-                                        <i className="bi bi-x-lg me-1"></i> Cancel
+                                        <i className="bi bi-plus-lg me-1"></i> Add Transport
                                     </button>
                                 </div>
-                            )}
-                        </div>
+                            </div>
 
-                        {!editMode.transport ? (
-                            // View Mode
-                            <div className="table-responsive">
-                                <table className="table table-sm table-bordered" style={{ pointerEvents: 'auto' }}>
-                                    <thead className="table-light">
+                            <div className="table-responsive border rounded" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                <table className="table table-bordered mb-0" style={{ pointerEvents: 'auto' }}>
+                                    <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                                         <tr>
-                                            <th>Transport Type</th>
-                                            <th>Transport Sector</th>
-                                            <th>Voucher Number</th>
+                                            <th className="py-3">Transport Type</th>
+                                            <th className="py-3">Transport Sector</th>
+                                            <th className="py-3">BRN</th>
+                                            <th className="py-3">Voucher Number</th>
+                                            <th className="py-3" style={{ width: '100px' }}>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1346,319 +976,141 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                                             return (
                                                 <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
                                                     <td>{transport.vehicle_type_display || transport.vehicle_type || "N/A"}</td>
-                                                    <td>{fullRoute || "N/A"}</td>
-                                                    <td>{transport.voucher_no || transport.brn_no || "N/A"}</td>
+                                                    <td>{transport.sector_display || fullRoute || "N/A"}</td>
+                                                    <td>{transport.brn_no || "N/A"}</td>
+                                                    <td>{transport.voucher_no || "N/A"}</td>
+                                                    <td>
+                                                        <div className="d-flex gap-2">
+                                                            <button className="btn btn-sm btn-outline-secondary" onClick={() => handleOpenModal('transport', index, transport)} title="Edit">
+                                                                <Pencil size={14} />
+                                                            </button>
+                                                            <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteItem('transport', index)} title="Delete">
+                                                                <Trash size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
                                     </tbody>
                                 </table>
                             </div>
-                        ) : (
-                            // Edit Mode - Note: Transport has nested sectors
-                            <div className="alert alert-info">
-                                <strong>Note:</strong> Transport editing is complex due to nested sectors. Please use the main booking form to edit transport details.
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {/* Food Services Section */}
-                    {bookingData.food_details && bookingData.food_details.length > 0 && (
+                    {bookingData.food_details && (
                         <div className="mb-4">
                             <div className="d-flex justify-content-between align-items-center mb-3">
-                                <h6 className="fw-bold mb-0">Food Services</h6>
-                                {!editMode.food ? (
-                                    <button
-                                        className="btn btn-sm btn-primary"
-                                        onClick={() => toggleEditMode('food')}
-                                    >
-                                        <i className="bi bi-pencil me-1"></i> Edit
-                                    </button>
-                                ) : (
-                                    <div className="d-flex gap-2">
-                                        <button
-                                            className="btn btn-sm btn-success"
-                                            onClick={() => handleSaveSection('food')}
-                                        >
-                                            <i className="bi bi-check-lg me-1"></i> Save
-                                        </button>
-                                        <button
-                                            className="btn btn-sm btn-secondary"
-                                            onClick={() => handleCancelEdit('food')}
-                                        >
-                                            <i className="bi bi-x-lg me-1"></i> Cancel
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {!editMode.food ? (
-                                // View Mode
-                                <div className="table-responsive">
-                                    <table className="table table-sm table-bordered" style={{ pointerEvents: 'auto' }}>
-                                        <thead className="table-light">
-                                            <tr>
-                                                <th>Food</th>
-                                                <th>Contact Person</th>
-                                                <th>Contact Number</th>
-                                                <th>Voucher Number</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {bookingData.food_details.map((food, index) => (
-                                                <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                    <td>{food.food || "N/A"}</td>
-                                                    <td>{food.contact_person_name || "N/A"}</td>
-                                                    <td>{food.contact_number || "N/A"}</td>
-                                                    <td>{food.food_voucher_number || food.food_brn || "N/A"}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                // Edit Mode
+                                <h6 className="fw-bold mb-0">Food Details</h6>
                                 <div>
-                                    {editableData.food.map((food, index) => (
-                                        <div key={index} className="row g-2 mb-3 p-3 border rounded bg-light">
-                                            <div className="col-md-4">
-                                                <label className="form-label small mb-1">Food</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Food Name"
-                                                    value={food.food || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.food];
-                                                        updated[index].food = e.target.value;
-                                                        setEditableData({ ...editableData, food: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-3">
-                                                <label className="form-label small mb-1">Contact Person</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Contact Person"
-                                                    value={food.contact_person_name || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.food];
-                                                        updated[index].contact_person_name = e.target.value;
-                                                        setEditableData({ ...editableData, food: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-2">
-                                                <label className="form-label small mb-1">Contact Number</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Contact Number"
-                                                    value={food.contact_number || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.food];
-                                                        updated[index].contact_number = e.target.value;
-                                                        setEditableData({ ...editableData, food: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-2">
-                                                <label className="form-label small mb-1">Voucher Number</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Voucher No"
-                                                    value={food.food_voucher_number || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.food];
-                                                        updated[index].food_voucher_number = e.target.value;
-                                                        setEditableData({ ...editableData, food: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-1 d-flex align-items-end">
-                                                <button
-                                                    className="btn btn-sm btn-danger w-100"
-                                                    onClick={() => {
-                                                        const updated = editableData.food.filter((_, i) => i !== index);
-                                                        setEditableData({ ...editableData, food: updated });
-                                                    }}
-                                                >
-                                                    <i className="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {bookingData.food_details?.length > 0 && (
+                                        <button
+                                            className="btn btn-sm btn-outline-danger me-2"
+                                            onClick={() => handleOpenDeleteModal('food')}
+                                        >
+                                            <i className="bi bi-trash me-1"></i> Delete All
+                                        </button>
+                                    )}
                                     <button
-                                        className="btn btn-sm btn-outline-primary mt-2"
-                                        onClick={() => {
-                                            setEditableData({
-                                                ...editableData,
-                                                food: [...editableData.food, {
-                                                    food: "",
-                                                    contact_person_name: "",
-                                                    contact_number: "",
-                                                    food_voucher_number: ""
-                                                }]
-                                            });
-                                        }}
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => handleOpenModal('food', -1)}
                                     >
-                                        <i className="bi bi-plus-lg me-1"></i> Add Food Item
+                                        <i className="bi bi-plus-lg me-1"></i> Add Food
                                     </button>
                                 </div>
-                            )}
+                            </div>
+                            <div className="table-responsive border rounded" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                <table className="table table-bordered mb-0">
+                                    <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                        <tr>
+                                            <th className="py-3">Food / Menu</th>
+                                            <th className="py-3">BRN</th>
+                                            <th className="py-3">Voucher No</th>
+                                            <th className="py-3" style={{ width: '100px' }}>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bookingData.food_details?.map((food, index) => (
+                                            <tr key={index}>
+                                                <td>{food.food_display || food.food || "N/A"}</td>
+                                                <td>{food.food_brn || "N/A"}</td>
+                                                <td>{food.food_voucher_number || "N/A"}</td>
+                                                <td>
+                                                    <div className="d-flex gap-2">
+                                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => handleOpenModal('food', index, food)} title="Edit">
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteItem('food', index)} title="Delete">
+                                                            <Trash size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
                     {/* Ziarat Services Section */}
-                    {bookingData.ziyarat_details && bookingData.ziyarat_details.length > 0 && (
+                    {bookingData.ziyarat_details && (
                         <div className="mb-4">
                             <div className="d-flex justify-content-between align-items-center mb-3">
-                                <h6 className="fw-bold mb-0">Ziarat Services</h6>
-                                {!editMode.ziarat ? (
-                                    <button
-                                        className="btn btn-sm btn-primary"
-                                        onClick={() => toggleEditMode('ziarat')}
-                                    >
-                                        <i className="bi bi-pencil me-1"></i> Edit
-                                    </button>
-                                ) : (
-                                    <div className="d-flex gap-2">
-                                        <button
-                                            className="btn btn-sm btn-success"
-                                            onClick={() => handleSaveSection('ziarat')}
-                                        >
-                                            <i className="bi bi-check-lg me-1"></i> Save
-                                        </button>
-                                        <button
-                                            className="btn btn-sm btn-secondary"
-                                            onClick={() => handleCancelEdit('ziarat')}
-                                        >
-                                            <i className="bi bi-x-lg me-1"></i> Cancel
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {!editMode.ziarat ? (
-                                // View Mode
-                                <div className="table-responsive">
-                                    <table className="table table-sm table-bordered" style={{ pointerEvents: 'auto' }}>
-                                        <thead className="table-light">
-                                            <tr>
-                                                <th>Ziarat</th>
-                                                <th>Contact Person</th>
-                                                <th>Contact Number</th>
-                                                <th>Voucher Number</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {bookingData.ziyarat_details.map((ziarat, index) => (
-                                                <tr key={index} style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}>
-                                                    <td>{ziarat.ziarat || ziarat.ziyarat || "N/A"}</td>
-                                                    <td>{ziarat.contact_person_name || "N/A"}</td>
-                                                    <td>{ziarat.contact_number || "N/A"}</td>
-                                                    <td>{ziarat.ziarat_voucher_number || ziarat.ziarat_brn || "N/A"}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                // Edit Mode
+                                <h6 className="fw-bold mb-0">Ziarat Details</h6>
                                 <div>
-                                    {editableData.ziarat.map((ziarat, index) => (
-                                        <div key={index} className="row g-2 mb-3 p-3 border rounded bg-light">
-                                            <div className="col-md-4">
-                                                <label className="form-label small mb-1">Ziarat</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Ziarat Name"
-                                                    value={ziarat.ziarat || ziarat.ziyarat || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.ziarat];
-                                                        updated[index].ziarat = e.target.value;
-                                                        updated[index].ziyarat = e.target.value;
-                                                        setEditableData({ ...editableData, ziarat: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-3">
-                                                <label className="form-label small mb-1">Contact Person</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Contact Person"
-                                                    value={ziarat.contact_person_name || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.ziarat];
-                                                        updated[index].contact_person_name = e.target.value;
-                                                        setEditableData({ ...editableData, ziarat: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-2">
-                                                <label className="form-label small mb-1">Contact Number</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Contact Number"
-                                                    value={ziarat.contact_number || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.ziarat];
-                                                        updated[index].contact_number = e.target.value;
-                                                        setEditableData({ ...editableData, ziarat: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-2">
-                                                <label className="form-label small mb-1">Voucher Number</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm"
-                                                    placeholder="Voucher No"
-                                                    value={ziarat.ziarat_voucher_number || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...editableData.ziarat];
-                                                        updated[index].ziarat_voucher_number = e.target.value;
-                                                        setEditableData({ ...editableData, ziarat: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="col-md-1 d-flex align-items-end">
-                                                <button
-                                                    className="btn btn-sm btn-danger w-100"
-                                                    onClick={() => {
-                                                        const updated = editableData.ziarat.filter((_, i) => i !== index);
-                                                        setEditableData({ ...editableData, ziarat: updated });
-                                                    }}
-                                                >
-                                                    <i className="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {bookingData.ziyarat_details?.length > 0 && (
+                                        <button
+                                            className="btn btn-sm btn-outline-danger me-2"
+                                            onClick={() => handleOpenDeleteModal('ziarat')}
+                                        >
+                                            <i className="bi bi-trash me-1"></i> Delete All
+                                        </button>
+                                    )}
                                     <button
-                                        className="btn btn-sm btn-outline-primary mt-2"
-                                        onClick={() => {
-                                            setEditableData({
-                                                ...editableData,
-                                                ziarat: [...editableData.ziarat, {
-                                                    ziarat: "",
-                                                    ziyarat: "",
-                                                    contact_person_name: "",
-                                                    contact_number: "",
-                                                    ziarat_voucher_number: ""
-                                                }]
-                                            });
-                                        }}
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => handleOpenModal('ziarat', -1)}
                                     >
-                                        <i className="bi bi-plus-lg me-1"></i> Add Ziarat Item
+                                        <i className="bi bi-plus-lg me-1"></i> Add Ziarat
                                     </button>
                                 </div>
-                            )}
+                            </div>
+                            <div className="table-responsive border rounded" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                <table className="table table-bordered mb-0">
+                                    <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                        <tr>
+                                            <th className="py-3">Ziarat Name</th>
+                                            <th className="py-3">Contact Person</th>
+                                            <th className="py-3">Contact Number</th>
+                                            <th className="py-3">BRN</th>
+                                            <th className="py-3">Voucher No</th>
+                                            <th className="py-3" style={{ width: '100px' }}>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bookingData.ziyarat_details?.map((ziarat, index) => (
+                                            <tr key={index}>
+                                                <td>{ziarat.ziarat_display || ziarat.ziarat || ziarat.ziyarat || "N/A"}</td>
+                                                <td>{ziarat.contact_person_name || "N/A"}</td>
+                                                <td>{ziarat.contact_number || "N/A"}</td>
+                                                <td>{ziarat.ziyarat_brn || "N/A"}</td>
+                                                <td>{ziarat.ziyarat_voucher_number || "N/A"}</td>
+                                                <td>
+                                                    <div className="d-flex gap-2">
+                                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => handleOpenModal('ziarat', index, ziarat)} title="Edit">
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteItem('ziarat', index)} title="Delete">
+                                                            <Trash size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
@@ -1666,90 +1118,6 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                     <div className="mb-4">
                         <h6 className="fw-bold mb-3">Service Options</h6>
                         <div className="row g-3">
-                            <div className="col-md-3">
-                                <div className="form-check">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="longTermVisa"
-                                        checked={serviceOptions.longTermVisa}
-                                        onChange={(e) => setServiceOptions({ ...serviceOptions, longTermVisa: e.target.checked })}
-                                    />
-                                    <label className="form-check-label" htmlFor="longTermVisa">
-                                        Long term Visa
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="col-md-3">
-                                <div className="form-check">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="oneSideTransport"
-                                        checked={serviceOptions.oneSideTransport}
-                                        onChange={(e) => setServiceOptions({ ...serviceOptions, oneSideTransport: e.target.checked })}
-                                    />
-                                    <label className="form-check-label" htmlFor="oneSideTransport">
-                                        with one side transport
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="col-md-3">
-                                <div className="form-check">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="fullTransport"
-                                        checked={serviceOptions.fullTransport}
-                                        onChange={(e) => setServiceOptions({ ...serviceOptions, fullTransport: e.target.checked })}
-                                    />
-                                    <label className="form-check-label" htmlFor="fullTransport">
-                                        with full transport
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="col-md-3">
-                                <div className="form-check">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="onlyVisa"
-                                        checked={serviceOptions.onlyVisa}
-                                        onChange={(e) => setServiceOptions({ ...serviceOptions, onlyVisa: e.target.checked })}
-                                    />
-                                    <label className="form-check-label" htmlFor="onlyVisa">
-                                        Only Visa
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="col-md-3">
-                                <div className="form-check">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="meccaZiarat"
-                                        checked={serviceOptions.meccaZiarat}
-                                        onChange={(e) => setServiceOptions({ ...serviceOptions, meccaZiarat: e.target.checked })}
-                                    />
-                                    <label className="form-check-label" htmlFor="meccaZiarat">
-                                        Mecca Ziarat
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="col-md-3">
-                                <div className="form-check">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="medinaZiarat"
-                                        checked={serviceOptions.medinaZiarat}
-                                        onChange={(e) => setServiceOptions({ ...serviceOptions, medinaZiarat: e.target.checked })}
-                                    />
-                                    <label className="form-check-label" htmlFor="medinaZiarat">
-                                        Medina Ziarat
-                                    </label>
-                                </div>
-                            </div>
                             <div className="col-md-3">
                                 <div className="form-check">
                                     <input
@@ -1785,7 +1153,7 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                     <div className="mb-4">
                         <h6 className="fw-bold mb-3">Notes</h6>
                         <div className="row g-2">
-                            <div className="col-md-6">
+                            <div className="col-md-12">
                                 <label className="form-label small">Notes</label>
                                 <textarea
                                     className="form-control"
@@ -1795,23 +1163,12 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                                     onChange={(e) => setNotes(e.target.value)}
                                 />
                             </div>
-                            <div className="col-md-6">
-                                <label className="form-label small">Shirka</label>
-                                <select
-                                    className="form-select"
-                                    value={selectedShirka}
-                                    onChange={(e) => setSelectedShirka(e.target.value)}
-                                >
-                                    <option value="Rushd al Majd">Rushd al Majd</option>
-                                    <option value="Other Option">Other Option</option>
-                                </select>
-                            </div>
                         </div>
                     </div>
 
                     {/* Action Buttons */}
                     <div className="d-flex gap-2 justify-content-end">
-                        <button className="btn btn-primary">
+                        <button className="btn btn-primary" onClick={handleSaveAllChanges}>
                             <i className="bi bi-save me-1"></i> Save All Changes
                         </button>
                         <button className="btn btn-secondary" onClick={onClose}>
@@ -1819,12 +1176,684 @@ const HotelVoucherInterfaceNew = ({ onClose, orderNo }) => {
                         </button>
                     </div>
                 </div>
+                {/* Unified Modals */}
+
+                {/* Passenger Modal */}
+                {activeModal === 'passenger' && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-lg modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">{editingIndex === -1 ? 'Add New' : 'Edit'} Passenger</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="row g-3">
+                                        <div className="col-md-6">
+                                            <label className="form-label">Type (Age Group)</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.age_group || "Adult"}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, age_group: e.target.value })}
+                                            >
+                                                <option value="Adult">Adult</option>
+                                                <option value="Child">Child</option>
+                                                <option value="Infant">Infant</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Title</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.person_title || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, person_title: e.target.value })}
+                                            >
+                                                {getTitleOptions(tempItemData.age_group)}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">First Name</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.first_name || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, first_name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Last Name</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.last_name || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, last_name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Passport Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.passport_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, passport_number: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Date of Birth</label>
+                                            <input type="date" className="form-control"
+                                                value={tempItemData.date_of_birth || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, date_of_birth: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Passport Issue Date</label>
+                                            <input type="date" className="form-control"
+                                                value={tempItemData.passport_issue_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, passport_issue_date: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Passport Expiry Date</label>
+                                            <input type="date" className="form-control"
+                                                value={tempItemData.passport_expiry_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, passport_expiry_date: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-12">
+                                            <label className="form-label">Passport Image</label>
+                                            <input type="file" className="form-control"
+                                                onChange={(e) => {
+                                                    console.log("File selected", e.target.files[0]);
+                                                }}
+                                            />
+                                            <small className="text-muted">Upload Passport Image</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                                    <button type="button" className="btn btn-primary" onClick={handleSaveModal}>Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Hotel Modal */}
+                {activeModal === 'hotel' && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-lg modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">{editingIndex === -1 ? 'Add New' : 'Edit'} Hotel</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="row g-2 p-3 border rounded bg-light">
+                                        <div className="col-md-4">
+                                            <label className="form-label">Hotel Name</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.hotel || ""}
+                                                onChange={(e) => {
+                                                    const selectedHotel = hotelsList.find(h => h.id.toString() === e.target.value);
+                                                    setTempItemData({
+                                                        ...tempItemData,
+                                                        hotel: e.target.value,
+                                                        hotel_name: selectedHotel ? selectedHotel.name : ""
+                                                    });
+                                                }}
+                                            >
+                                                <option value="">Select Hotel</option>
+                                                {hotelsList.map((hotel) => (
+                                                    <option key={hotel.id} value={hotel.id}>
+                                                        {hotel.name} {hotel.city ? `(${hotel.city})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label">Check In</label>
+                                            <input
+                                                type="date"
+                                                className="form-control"
+                                                value={tempItemData.check_in_time || tempItemData.check_in_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, check_in_time: e.target.value, check_in_date: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label">Check Out</label>
+                                            <input
+                                                type="date"
+                                                className="form-control"
+                                                value={tempItemData.check_out_time || tempItemData.check_out_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, check_out_time: e.target.value, check_out_date: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-4">
+                                            <label className="form-label">Room Type</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.room_type || ""}
+                                                onChange={(e) => {
+                                                    setTempItemData({
+                                                        ...tempItemData,
+                                                        room_type: e.target.value,
+                                                        // Clear sharing type if not sharing room
+                                                        sharing_type: e.target.value?.toLowerCase() === 'sharing' ? tempItemData.sharing_type : ""
+                                                    });
+                                                }}
+                                            >
+                                                <option value="">Select Room Type</option>
+                                                <option value="single">Single</option>
+                                                <option value="double">Double</option>
+                                                <option value="triple">Triple</option>
+                                                <option value="quad">Quad</option>
+                                                <option value="sharing">Sharing</option>
+                                                <option value="suite">Suite</option>
+                                                {/* If current room type is not in the list, add it */}
+                                                {tempItemData.room_type &&
+                                                    !['single', 'double', 'triple', 'quad', 'sharing', 'suite', ''].includes(tempItemData.room_type.toLowerCase()) && (
+                                                        <option value={tempItemData.room_type}>{tempItemData.room_type}</option>
+                                                    )}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-4">
+                                            <label className="form-label">Sharing Type</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.sharing_type || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, sharing_type: e.target.value })}
+                                                disabled={tempItemData.room_type?.toLowerCase() !== 'sharing'}
+                                            >
+                                                <option value="">Select Sharing Type</option>
+                                                <option value="Family Sharing">Family Sharing</option>
+                                                <option value="Gender Sharing">Gender Sharing</option>
+                                                <option value="Gender or Family">Gender or Family</option>
+                                            </select>
+                                            {tempItemData.room_type?.toLowerCase() !== 'sharing' && <small className="text-muted">Only for sharing rooms</small>}
+                                        </div>
+                                        <div className="col-md-4">
+                                            <label className="form-label">Quantity</label>
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                value={tempItemData.quantity || 1}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, quantity: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Voucher Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.hotel_voucher_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, hotel_voucher_number: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">BRN</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.brn_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, brn_number: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Special Request</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.special_request || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, special_request: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                                    <button type="button" className="btn btn-primary" onClick={handleSaveModal}>Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Transport Modal */}
+                {activeModal === 'transport' && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">{editingIndex === -1 ? 'Add New' : 'Edit'} Transport</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="row g-3">
+                                        <div className="col-md-6">
+                                            <label className="form-label">Vehicle Type</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.vehicle_type?.id || tempItemData.vehicle_type || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, vehicle_type: e.target.value })}
+                                            >
+                                                <option value="">Select Vehicle Type</option>
+                                                {vehicleTypesList.map((vehicle) => (
+                                                    <option key={vehicle.id} value={vehicle.id}>
+                                                        {vehicle.name || vehicle.vehicle_type}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Sector</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.sector?.id || tempItemData.sector || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, sector: e.target.value })}
+                                            >
+                                                <option value="">Select Sector</option>
+                                                {sectorsList.map((sector) => (
+                                                    <option key={sector.id} value={sector.id}>
+                                                        {sector.name || `${sector.departure_city} - ${sector.arrival_city}`}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Voucher Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.voucher_no || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, voucher_no: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">BRN</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.brn_no || tempItemData.brn_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, brn_no: e.target.value, brn_number: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                                    <button type="button" className="btn btn-primary" onClick={handleSaveModal}>Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Food Modal */}
+                {activeModal === 'food' && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">{editingIndex === -1 ? 'Add New' : 'Edit'} Food</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="row g-3">
+                                        <div className="col-md-6">
+                                            <label className="form-label">Food / Menu</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.food_price || (tempItemData.food && !isNaN(tempItemData.food) ? tempItemData.food : "")}
+                                                onChange={(e) => {
+                                                    const selected = foodsList.find(f => f.id == e.target.value);
+                                                    setTempItemData({
+                                                        ...tempItemData,
+                                                        food_price: e.target.value,
+                                                        food: selected ? selected.title : tempItemData.food,
+                                                        food_display: selected ? selected.title : ""
+                                                    });
+                                                }}
+                                            >
+                                                <option value="">Select Food</option>
+                                                {foodsList.map((food) => (
+                                                    <option key={food.id} value={food.id}>
+                                                        {food.title} {food.city ? `(${food.city.name || food.city})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">City</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.city || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, city: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Voucher Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.food_voucher_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, food_voucher_number: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">BRN</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.food_brn || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, food_brn: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                                    <button type="button" className="btn btn-primary" onClick={handleSaveModal}>Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Ziarat Modal */}
+                {activeModal === 'ziarat' && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-lg modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">{editingIndex === -1 ? 'Add New' : 'Edit'} Ziarat</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="row g-3">
+                                        <div className="col-md-6">
+                                            <label className="form-label">Ziarat / Sightseeing</label>
+                                            <select
+                                                className="form-select"
+                                                value={tempItemData.ziarat_price || (tempItemData.ziarat && !isNaN(tempItemData.ziarat) ? tempItemData.ziarat : "")}
+                                                onChange={(e) => {
+                                                    const selected = ziyaratsList.find(z => z.id == e.target.value);
+                                                    setTempItemData({
+                                                        ...tempItemData,
+                                                        ziarat_price: e.target.value,
+                                                        ziarat: selected ? selected.ziarat_title : tempItemData.ziarat,
+                                                        ziarat_display: selected ? selected.ziarat_title : ""
+                                                    });
+                                                }}
+                                            >
+                                                <option value="">Select Ziarat</option>
+                                                {ziyaratsList.map((ziarat) => (
+                                                    <option key={ziarat.id} value={ziarat.id}>
+                                                        {ziarat.ziarat_title} {ziarat.city ? `(${ziarat.city.name || ziarat.city})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Voucher Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.ziyarat_voucher_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, ziyarat_voucher_number: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">BRN</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.ziyarat_brn || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, ziyarat_brn: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Contact Person</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.contact_person_name || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, contact_person_name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label">Contact Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={tempItemData.contact_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, contact_number: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                                    <button type="button" className="btn btn-primary" onClick={handleSaveModal}>Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Flight Modal */}
+                {activeModal === 'flight' && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-xl modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">Edit Flight Details</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    {/* Departure Flight Edit */}
+                                    <h6 className="fw-semibold mb-2">Departure Flight</h6>
+                                    <div className="row g-2 mb-4 p-3 border rounded bg-light">
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Airline Name or Code</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="Airline"
+                                                value={tempItemData.departure?.airline || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, departure: { ...tempItemData.departure, airline: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Flight Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="Flight Number"
+                                                value={tempItemData.departure?.flight_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, departure: { ...tempItemData.departure, flight_number: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">From Sector</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="From"
+                                                value={tempItemData.departure?.from_sector || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, departure: { ...tempItemData.departure, from_sector: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">To Sector</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="To"
+                                                value={tempItemData.departure?.to_sector || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, departure: { ...tempItemData.departure, to_sector: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Travel Date And Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                className="form-control form-control-sm"
+                                                value={tempItemData.departure?.travel_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, departure: { ...tempItemData.departure, travel_date: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Return Date And Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                className="form-control form-control-sm"
+                                                value={tempItemData.departure?.return_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, departure: { ...tempItemData.departure, return_date: e.target.value } })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Return Flight Edit */}
+                                    <h6 className="fw-semibold mb-2">Return Flight</h6>
+                                    <div className="row g-2 p-3 border rounded bg-light">
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Airline Name or Code</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="Airline"
+                                                value={tempItemData.return?.airline || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, return: { ...tempItemData.return, airline: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Flight Number</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="Flight Number"
+                                                value={tempItemData.return?.flight_number || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, return: { ...tempItemData.return, flight_number: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">From Sector</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="From"
+                                                value={tempItemData.return?.from_sector || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, return: { ...tempItemData.return, from_sector: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">To Sector</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                placeholder="To"
+                                                value={tempItemData.return?.to_sector || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, return: { ...tempItemData.return, to_sector: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Travel Date And Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                className="form-control form-control-sm"
+                                                value={tempItemData.return?.travel_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, return: { ...tempItemData.return, travel_date: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div className="col-md-3">
+                                            <label className="form-label small mb-1">Return Date And Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                className="form-control form-control-sm"
+                                                value={tempItemData.return?.return_date || ""}
+                                                onChange={(e) => setTempItemData({ ...tempItemData, return: { ...tempItemData.return, return_date: e.target.value } })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
+                                    <button type="button" className="btn btn-primary" onClick={handleSaveModal}>Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Selection Modal */}
+                {showDeleteModal && (
+                    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <div className="modal-dialog modal-dialog-centered">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">Delete {deleteSection?.charAt(0).toUpperCase() + deleteSection?.slice(1)}</h5>
+                                    <button type="button" className="btn-close" onClick={handleCloseDeleteModal}></button>
+                                </div>
+                                <div className="modal-body">
+                                    <p className="text-muted small">Select the item you want to delete:</p>
+                                    <div className="list-group">
+                                        {deleteSection === 'passengers' && bookingData.person_details?.map((item, idx) => (
+                                            <button key={idx} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => handleDeleteItem('passengers', idx)}>
+                                                <span>{item.first_name} {item.last_name} ({item.person_title})</span>
+                                                <i className="bi bi-trash text-danger"></i>
+                                            </button>
+                                        ))}
+                                        {deleteSection === 'hotels' && bookingData.hotel_details?.map((item, idx) => (
+                                            <button key={idx} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => handleDeleteItem('hotels', idx)}>
+                                                <span>{item.hotel_name || item.hotel} ({item.check_in_date})</span>
+                                                <i className="bi bi-trash text-danger"></i>
+                                            </button>
+                                        ))}
+                                        {deleteSection === 'transport' && bookingData.transport_details?.map((item, idx) => (
+                                            <button key={idx} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => handleDeleteItem('transport', idx)}>
+                                                <span>{item.vehicle_type_display || item.vehicle_type}</span>
+                                                <i className="bi bi-trash text-danger"></i>
+                                            </button>
+                                        ))}
+                                        {deleteSection === 'food' && bookingData.food_details?.map((item, idx) => (
+                                            <button key={idx} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => handleDeleteItem('food', idx)}>
+                                                <span>{item.food}</span>
+                                                <i className="bi bi-trash text-danger"></i>
+                                            </button>
+                                        ))}
+                                        {deleteSection === 'ziarat' && bookingData.ziyarat_details?.map((item, idx) => (
+                                            <button key={idx} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center" onClick={() => handleDeleteItem('ziarat', idx)}>
+                                                <span>{item.ziarat || item.ziyarat}</span>
+                                                <i className="bi bi-trash text-danger"></i>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {((!bookingData.person_details?.length && deleteSection === 'passengers') ||
+                                        (!bookingData.hotel_details?.length && deleteSection === 'hotels') ||
+                                        (!bookingData.transport_details?.length && deleteSection === 'transport') ||
+                                        (!bookingData.food_details?.length && deleteSection === 'food') ||
+                                        (!bookingData.ziyarat_details?.length && deleteSection === 'ziarat')) ? (
+                                        <div className="text-center p-3 text-muted">No items to delete.</div>
+                                    ) : null}
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={handleCloseDeleteModal}>Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );
 };
 
+
 export default HotelVoucherInterfaceNew;
-
-
-

@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Table, Button, Form, Card, Row, Col, Badge, Modal } from "react-bootstrap";
-import { TrendingUp, TrendingDown, DollarSign, PieChart, Download, Search, Filter } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, PieChart, Download, Search, Filter, Plus } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import AdminFooter from "../../components/AdminFooter";
 import { NavLink, useLocation } from "react-router-dom";
 import { usePermission } from "../../contexts/EnhancedPermissionContext";
+import ManualPostingModal from "../../components/Finance/ManualPostingModal";
+import AccountManagement from "../../components/Finance/AccountManagement";
+import BalanceSheet from "../../components/Finance/BalanceSheet";
+import api from '../../utils/Api';
 
 // Add table styles for preventing text wrap
 const tableStyles = `
@@ -39,6 +43,7 @@ const Finance = () => {
     { name: "Ledger", path: "/finance/ledger", permissions: ['view_financial_ledger_admin'] },
     { name: "Expenses", path: "/finance/expenses", permissions: ['view_expense_management_admin', 'add_expense_management_admin', 'edit_expense_management_admin', 'delete_expense_management_admin'] },
     { name: "Manual Posting", path: "/finance/manual-posting", permissions: ['view_manual_posting_admin', 'add_manual_posting_admin', 'edit_manual_posting_admin', 'delete_manual_posting_admin'] },
+    { name: "Chart of Accounts", path: "/finance/accounts", permissions: ['view_financial_ledger_admin'] }, // Basic permission for now
     { name: "Tax Reports", path: "/finance/tax-reports", permissions: ['view_tax_reports_fbr_admin'] },
     { name: "Balance Sheet", path: "/finance/balance-sheet", permissions: ['view_balance_sheet_admin'] },
     { name: "Audit Trail", path: "/finance/audit-trail", permissions: ['view_audit_trail_admin'] },
@@ -57,6 +62,7 @@ const Finance = () => {
     if (currentPath.includes("ledger")) return "Ledger";
     if (currentPath.includes("expenses")) return "Expenses";
     if (currentPath.includes("manual-posting")) return "Manual Posting";
+    if (currentPath.includes("accounts")) return "Chart of Accounts";
     if (currentPath.includes("tax-reports")) return "Tax Reports";
     if (currentPath.includes("balance-sheet")) return "Balance Sheet";
     if (currentPath.includes("audit-trail")) return "Audit Trail";
@@ -113,6 +119,7 @@ const Finance = () => {
               {activeTab === "Ledger" && <FinancialLedger />}
               {activeTab === "Expenses" && <ExpenseManagement />}
               {activeTab === "Manual Posting" && <ManualPosting />}
+              {activeTab === "Chart of Accounts" && <AccountManagement />}
               {activeTab === "Tax Reports" && <TaxReports />}
               {activeTab === "Balance Sheet" && <BalanceSheet />}
               {activeTab === "Audit Trail" && <AuditTrail />}
@@ -1447,204 +1454,117 @@ const ExpenseManagement = () => {
 
 // 5. Manual Posting
 const ManualPosting = () => {
-  const [postingData, setPostingData] = useState({
-    date: "",
-    branch: "",
-    debitAccount: "",
-    creditAccount: "",
-    amount: "",
-    description: "",
-  });
+  const [postings, setPostings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [filters, setFilters] = useState({ organization: '' });
 
-  const recentPostings = [
-    {
-      id: 1,
-      date: "2025-10-28",
-      branch: "Islamabad Branch",
-      debit: "Office Renovation Expense",
-      credit: "Cash",
-      amount: 120000,
-      description: "Renovation of Islamabad branch office",
-      postedBy: "Finance Manager",
-    },
-    {
-      id: 2,
-      date: "2025-10-25",
-      branch: "Karachi Branch",
-      debit: "Furniture & Fixtures",
-      credit: "Bank Account",
-      amount: 85000,
-      description: "New office furniture purchase",
-      postedBy: "Admin Manager",
-    },
-    {
-      id: 3,
-      date: "2025-10-20",
-      branch: "Lahore Branch",
-      debit: "Computer Equipment",
-      credit: "Cash",
-      amount: 95000,
-      description: "5 new computers for staff",
-      postedBy: "IT Manager",
-    },
-  ];
+  // Fetch Data
+  const fetchPostings = async () => {
+    setLoading(true);
+    try {
+      // Get organization context from local storage if needed
+      const orgData = localStorage.getItem("selectedOrganization");
+      const organizationId = orgData ? JSON.parse(orgData).id : null;
 
-  const chartOfAccounts = [
-    "Cash",
-    "Bank Account",
-    "Accounts Receivable",
-    "Office Equipment",
-    "Furniture & Fixtures",
-    "Computer Equipment",
-    "Accounts Payable",
-    "Staff Salary Expense",
-    "Office Renovation Expense",
-    "Utility Expense",
-    "Umrah Income",
-    "Hotel Income",
-    "Ticket Income",
-    "Visa Income",
-    "Transport Income",
-  ];
+      const res = await api.get('/finance/manual/post', {
+        params: { organization: organizationId }
+      });
+      setPostings(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch manual postings", err);
+      // alert("Failed to fetch data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPostings();
+  }, []);
+
+  const handleSuccess = () => {
+    fetchPostings();
+    // Optional: Show toast
+  };
 
   return (
     <div>
-      <h2 className="fw-bold mb-4">Manual Posting</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="fw-bold mb-0">Manual Postings</h2>
+        <Button variant="primary" onClick={() => setShowModal(true)}>
+          <Plus size={18} className="me-2" />
+          Create New Posting
+        </Button>
+      </div>
 
-      <Row className="g-4">
-        {/* Posting Form */}
-        <Col md={5} xs={12}>
-          <Card className="border-0 shadow-sm">
-            <Card.Body>
-              <h5 className="fw-semibold mb-4">Create New Posting</h5>
-              <Form>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Date</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={postingData.date}
-                    onChange={(e) => setPostingData({ ...postingData, date: e.target.value })}
-                  />
-                </Form.Group>
+      <Card className="border-0 shadow-sm">
+        <Card.Body>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h5 className="fw-semibold mb-0">Posted Entries</h5>
+            <Button variant="outline-dark" size="sm" onClick={fetchPostings} disabled={loading}>
+              Refresh
+            </Button>
+          </div>
 
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Branch</Form.Label>
-                  <Form.Select
-                    value={postingData.branch}
-                    onChange={(e) => setPostingData({ ...postingData, branch: e.target.value })}
-                  >
-                    <option value="">Select Branch</option>
-                    <option value="islamabad">Islamabad Branch</option>
-                    <option value="karachi">Karachi Branch</option>
-                    <option value="lahore">Lahore Branch</option>
-                    <option value="faisalabad">Faisalabad Branch</option>
-                  </Form.Select>
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Debit Account</Form.Label>
-                  <Form.Select
-                    value={postingData.debitAccount}
-                    onChange={(e) => setPostingData({ ...postingData, debitAccount: e.target.value })}
-                  >
-                    <option value="">Select Debit Account</option>
-                    {chartOfAccounts.map((account, idx) => (
-                      <option key={idx} value={account}>
-                        {account}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Credit Account</Form.Label>
-                  <Form.Select
-                    value={postingData.creditAccount}
-                    onChange={(e) => setPostingData({ ...postingData, creditAccount: e.target.value })}
-                  >
-                    <option value="">Select Credit Account</option>
-                    {chartOfAccounts.map((account, idx) => (
-                      <option key={idx} value={account}>
-                        {account}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-semibold">Amount (Rs.)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    placeholder="Enter amount"
-                    value={postingData.amount}
-                    onChange={(e) => setPostingData({ ...postingData, amount: e.target.value })}
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-4">
-                  <Form.Label className="fw-semibold">Description</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    placeholder="Enter description..."
-                    value={postingData.description}
-                    onChange={(e) => setPostingData({ ...postingData, description: e.target.value })}
-                  />
-                </Form.Group>
-
-                <Button variant="primary" className="w-100">
-                  Post Entry
-                </Button>
-              </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        {/* Recent Postings */}
-        <Col md={7} xs={12}>
-          <Card className="border-0 shadow-sm">
-            <Card.Body>
-              <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                <h5 className="fw-semibold mb-0">Recent Manual Postings</h5>
-                <div className="d-flex gap-2">
-                  <Button variant="outline-success" size="sm">
-                    <Download size={16} className="me-1" />
-                    Export CSV
-                  </Button>
-                  <Button variant="outline-danger" size="sm">
-                    <Download size={16} className="me-1" />
-                    Export PDF
-                  </Button>
-                </div>
-              </div>
-              <Table responsive hover className="finance-table">
-                <thead className="table-light">
-                  <tr>
-                    <th>Date</th>
-                    <th>Branch</th>
-                    <th>Debit</th>
-                    <th>Credit</th>
-                    <th>Amount</th>
-                    <th>Posted By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentPostings.map((posting) => (
+          {loading ? (
+            <div className="text-center py-5">Loading...</div>
+          ) : (
+            <Table responsive hover className="finance-table">
+              <thead className="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th>Ref No</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Lines</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {postings.length === 0 ? (
+                  <tr><td colSpan="7" className="text-center py-4">No manual postings found.</td></tr>
+                ) : (
+                  postings.map((posting) => (
                     <tr key={posting.id}>
                       <td>{posting.date}</td>
-                      <td className="small">{posting.branch}</td>
-                      <td className="fw-semibold text-danger small">{posting.debit}</td>
-                      <td className="fw-semibold text-success small">{posting.credit}</td>
-                      <td className="fw-bold">Rs. {posting.amount.toLocaleString()}</td>
-                      <td className="small">{posting.postedBy}</td>
+                      <td className="small text-muted">{posting.reference_no}</td>
+                      <td>
+                        <Badge bg="info" text="dark" className="text-uppercase">{posting.posting_type}</Badge>
+                      </td>
+                      <td className="small">{posting.description}</td>
+                      <td className="fw-bold">
+                        {posting.amount ? `Rs. ${Number(posting.amount).toLocaleString()}` : '-'}
+                      </td>
+                      <td>
+                        <small>
+                          {posting.lines.map((l, i) => (
+                            <div key={i} className="text-nowrap">
+                              {l.debit > 0 ? <span className="text-danger">Dr. </span> : <span className="text-success">Cr. </span>}
+                              {l.account_name} ({Number(l.debit || l.credit).toLocaleString()})
+                            </div>
+                          ))}
+                        </small>
+                      </td>
+                      <td>
+                        {posting.locked ? <Badge bg="secondary">Locked</Badge> : <Badge bg="success">Active</Badge>}
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          )}
+        </Card.Body>
+      </Card>
+
+      {/* Manual Posting Modal */}
+      <ManualPostingModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 };
@@ -1779,191 +1699,7 @@ const TaxReports = () => {
   );
 };
 
-// 7. Balance Sheet
-const BalanceSheet = () => {
-  const [asOfDate, setAsOfDate] = useState("2025-10-31");
 
-  const balanceSheetData = {
-    assets: {
-      currentAssets: [
-        { name: "Cash in Hand", amount: 850000 },
-        { name: "Bank Accounts", amount: 4500000 },
-        { name: "Accounts Receivable", amount: 1200000 },
-        { name: "Advance Payments", amount: 350000 },
-      ],
-      fixedAssets: [
-        { name: "Office Equipment", amount: 650000 },
-        { name: "Furniture & Fixtures", amount: 420000 },
-        { name: "Computer Equipment", amount: 380000 },
-        { name: "Vehicles", amount: 2200000 },
-      ],
-    },
-    liabilities: {
-      currentLiabilities: [
-        { name: "Accounts Payable", amount: 980000 },
-        { name: "Customer Advances", amount: 550000 },
-        { name: "Tax Payable", amount: 320000 },
-        { name: "Salaries Payable", amount: 450000 },
-      ],
-      longTermLiabilities: [
-        { name: "Bank Loan", amount: 1500000 },
-        { name: "Vehicle Loan", amount: 800000 },
-      ],
-    },
-    equity: [
-      { name: "Owner's Capital", amount: 5000000 },
-      { name: "Retained Earnings", amount: 1550000 },
-    ],
-  };
-
-  const totalCurrentAssets = balanceSheetData.assets.currentAssets.reduce((sum, a) => sum + a.amount, 0);
-  const totalFixedAssets = balanceSheetData.assets.fixedAssets.reduce((sum, a) => sum + a.amount, 0);
-  const totalAssets = totalCurrentAssets + totalFixedAssets;
-
-  const totalCurrentLiabilities = balanceSheetData.liabilities.currentLiabilities.reduce(
-    (sum, l) => sum + l.amount,
-    0
-  );
-  const totalLongTermLiabilities = balanceSheetData.liabilities.longTermLiabilities.reduce(
-    (sum, l) => sum + l.amount,
-    0
-  );
-  const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
-
-  const totalEquity = balanceSheetData.equity.reduce((sum, e) => sum + e.amount, 0);
-  const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
-
-  return (
-    <div>
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-        <h2 className="fw-bold mb-0">Balance Sheet</h2>
-        <div className="d-flex flex-wrap gap-2 align-items-center">
-          <span className="text-muted">As of:</span>
-          <Form.Control
-            type="date"
-            style={{ width: "180px" }}
-            value={asOfDate}
-            onChange={(e) => setAsOfDate(e.target.value)}
-          />
-          <Button variant="outline-success" size="sm">
-            <Download size={16} className="me-1" />
-            Export CSV
-          </Button>
-          <Button variant="outline-danger" size="sm">
-            <Download size={16} className="me-1" />
-            Export PDF
-          </Button>
-        </div>
-      </div>
-
-      <Row className="g-4">
-        {/* Assets */}
-        <Col md={6} xs={12}>
-          <Card className="border-0 shadow-sm h-100">
-            <Card.Body>
-              <h4 className="fw-bold text-success mb-4">ASSETS</h4>
-
-              <h6 className="fw-semibold mb-3">Current Assets</h6>
-              {balanceSheetData.assets.currentAssets.map((asset, idx) => (
-                <div key={idx} className="d-flex justify-content-between mb-2">
-                  <span>{asset.name}</span>
-                  <span className="fw-semibold">Rs. {asset.amount.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="d-flex justify-content-between mb-4 pt-2 border-top">
-                <span className="fw-bold">Total Current Assets</span>
-                <span className="fw-bold text-success">Rs. {totalCurrentAssets.toLocaleString()}</span>
-              </div>
-
-              <h6 className="fw-semibold mb-3">Fixed Assets</h6>
-              {balanceSheetData.assets.fixedAssets.map((asset, idx) => (
-                <div key={idx} className="d-flex justify-content-between mb-2">
-                  <span>{asset.name}</span>
-                  <span className="fw-semibold">Rs. {asset.amount.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="d-flex justify-content-between mb-4 pt-2 border-top">
-                <span className="fw-bold">Total Fixed Assets</span>
-                <span className="fw-bold text-success">Rs. {totalFixedAssets.toLocaleString()}</span>
-              </div>
-
-              <div className="d-flex justify-content-between pt-3 border-top border-2">
-                <h5 className="fw-bold mb-0">TOTAL ASSETS</h5>
-                <h5 className="fw-bold text-success mb-0">Rs. {totalAssets.toLocaleString()}</h5>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        {/* Liabilities & Equity */}
-        <Col md={6} xs={12}>
-          <Card className="border-0 shadow-sm h-100">
-            <Card.Body>
-              <h4 className="fw-bold text-danger mb-4">LIABILITIES & EQUITY</h4>
-
-              <h6 className="fw-semibold mb-3">Current Liabilities</h6>
-              {balanceSheetData.liabilities.currentLiabilities.map((liability, idx) => (
-                <div key={idx} className="d-flex justify-content-between mb-2">
-                  <span>{liability.name}</span>
-                  <span className="fw-semibold">Rs. {liability.amount.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="d-flex justify-content-between mb-4 pt-2 border-top">
-                <span className="fw-bold">Total Current Liabilities</span>
-                <span className="fw-bold text-danger">Rs. {totalCurrentLiabilities.toLocaleString()}</span>
-              </div>
-
-              <h6 className="fw-semibold mb-3">Long-term Liabilities</h6>
-              {balanceSheetData.liabilities.longTermLiabilities.map((liability, idx) => (
-                <div key={idx} className="d-flex justify-content-between mb-2">
-                  <span>{liability.name}</span>
-                  <span className="fw-semibold">Rs. {liability.amount.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="d-flex justify-content-between mb-4 pt-2 border-top">
-                <span className="fw-bold">Total Liabilities</span>
-                <span className="fw-bold text-danger">Rs. {totalLiabilities.toLocaleString()}</span>
-              </div>
-
-              <h6 className="fw-semibold mb-3">Equity</h6>
-              {balanceSheetData.equity.map((eq, idx) => (
-                <div key={idx} className="d-flex justify-content-between mb-2">
-                  <span>{eq.name}</span>
-                  <span className="fw-semibold">Rs. {eq.amount.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="d-flex justify-content-between mb-4 pt-2 border-top">
-                <span className="fw-bold">Total Equity</span>
-                <span className="fw-bold text-primary">Rs. {totalEquity.toLocaleString()}</span>
-              </div>
-
-              <div className="d-flex justify-content-between pt-3 border-top border-2">
-                <h5 className="fw-bold mb-0">TOTAL LIABILITIES & EQUITY</h5>
-                <h5 className="fw-bold text-danger mb-0">Rs. {totalLiabilitiesAndEquity.toLocaleString()}</h5>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Verification */}
-      <Card
-        className="border-0 shadow-sm mt-4"
-        style={{ backgroundColor: totalAssets === totalLiabilitiesAndEquity ? "#d4edda" : "#f8d7da" }}
-      >
-        <Card.Body className="text-center">
-          <h5 className="fw-bold mb-0">
-            {totalAssets === totalLiabilitiesAndEquity ? (
-              <span className="text-success">✓ Balance Sheet Balanced!</span>
-            ) : (
-              <span className="text-danger">⚠ Balance Sheet Not Balanced</span>
-            )}
-          </h5>
-        </Card.Body>
-      </Card>
-    </div>
-  );
-};
 
 // 8. Audit Trail
 const AuditTrail = () => {

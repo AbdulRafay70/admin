@@ -29,6 +29,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
   const [agencyData, setAgencyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hotelAvailabilityStatus, setHotelAvailabilityStatus] = useState('Checking...');
 
   const navigate = useNavigate();
   const { orderNo: orderNoParam } = useParams();
@@ -112,6 +113,11 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
         console.log("✅ Final booking data:", booking);
         setBookingData(booking);
 
+        // Debugging status for button visibility
+        console.log('DEBUG: Booking Status:', booking.status);
+        console.log('DEBUG: Is Under Process?', booking.status?.toLowerCase().includes("under") && booking.status?.toLowerCase().includes("process"));
+        console.log('DEBUG: Is Confirmed?', booking.status === 'Confirmed');
+
         // Now fetch agency data
         if (booking.agency) {
           // Extract agency ID - it might be an object or just an ID
@@ -151,7 +157,141 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
     fetchBookingData();
   }, [orderNo]);
 
+  // Check hotel availability when booking data is loaded
+  useEffect(() => {
+    const checkHotelAvailability = async () => {
+      if (!bookingData || !bookingData.hotel_details || bookingData.hotel_details.length === 0) {
+        setHotelAvailabilityStatus('N/A');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem("accessToken");
+        const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
+        const organizationId = orgData?.id;
+
+        // Check availability for all hotels
+        const availabilityChecks = await Promise.all(
+          bookingData.hotel_details.map(async (hotel) => {
+            try {
+              // Skip if hotel doesn't have required data
+              if (!hotel.hotel_id && !hotel.hotel) {
+                return { available: true }; // Assume available if no hotel ID
+              }
+
+              const hotelId = hotel.hotel_id || hotel.hotel;
+              const checkIn = hotel.check_in_date || hotel.check_in_time;
+              const checkOut = hotel.check_out_date || hotel.check_out_time;
+
+              if (!checkIn || !checkOut) {
+                return { available: true }; // Assume available if no dates
+              }
+
+              // Format dates to YYYY-MM-DD
+              const formatDate = (dateStr) => {
+                const date = new Date(dateStr);
+                return date.toISOString().split('T')[0];
+              };
+
+              const params = new URLSearchParams({
+                hotel_id: hotelId,
+                date_from: formatDate(checkIn),
+                date_to: formatDate(checkOut),
+                ...(organizationId && { owner_organization: organizationId })
+              });
+
+              const response = await fetch(
+                `http://127.0.0.1:8000/api/hotel-availability/?${params}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  }
+                }
+              );
+
+              if (response.ok) {
+                const data = await response.json();
+                // Hotel is available if there are available rooms
+                return { available: data.available_rooms > 0, data };
+              } else {
+                // If API fails, assume available (don't block on API errors)
+                return { available: true };
+              }
+            } catch (err) {
+              console.error('Error checking hotel availability:', err);
+              return { available: true }; // Assume available on error
+            }
+          })
+        );
+
+        // Determine overall availability
+        const allAvailable = availabilityChecks.every(check => check.available);
+        setHotelAvailabilityStatus(allAvailable ? 'Available' : 'Not Available');
+      } catch (err) {
+        console.error('Error in hotel availability check:', err);
+        setHotelAvailabilityStatus('N/A');
+      }
+    };
+
+    checkHotelAvailability();
+  }, [bookingData]);
+
   const handleConfirmOrder = async () => {
+    try {
+      const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
+      const organizationId = orgData?.id;
+      const token = localStorage.getItem("accessToken");
+
+      // Determine which API to use based on booking type
+      const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+
+      let response;
+      if (isPublicBooking) {
+        // Use dedicated confirm action for public bookings if available, or just update status
+        console.log('Confirming public booking:', bookingData.booking_number);
+        response = await axios.post(
+          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/confirm/`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } else {
+        // Use PATCH for agent bookings
+        console.log('Confirming agent booking:', bookingData.booking_number);
+        response = await axios.patch(
+          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+          {
+            status: 'Confirmed',
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      if (response.status === 200) {
+        // Update local state to reflect the change
+        setBookingData({ ...bookingData, status: 'Confirmed' });
+        alert('Order Confirmed successfully!');
+        window.location.reload();
+      } else {
+        throw new Error('Failed to confirm order');
+      }
+    } catch (err) {
+      console.error('Error confirming order:', err);
+      alert('Error confirming order. Please try again.');
+    }
+  };
+
+  const handleApproveOrder = async () => {
     try {
       const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
       const organizationId = orgData?.id;
@@ -718,8 +858,8 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                       <td>{hotel.number_of_nights}</td>
                       <td>{hotel.room_type_name || hotel.room_type || "N/A"}</td>
                       <td>{hotel.quantity || 1}</td>
-                      <td>{hotel.is_price_pkr ? `PKR ${hotel.price}` : `SAR ${hotel.price}`}</td>
-                      <td>{hotel.is_price_pkr ? `PKR ${hotel.total_price}` : `SAR ${hotel.total_price}`}</td>
+                      <td>PKR {hotel.price}</td>
+                      <td>PKR {hotel.total_price}</td>
                     </tr>
                   ))}
                   <tr className="fw-bold">
@@ -728,7 +868,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td>SAR {calculateTotalHotelAmount()}</td>
+                    <td>PKR {calculateTotalHotelAmount()}</td>
                   </tr>
                 </tbody>
               </table>
@@ -786,15 +926,15 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                       <tr key={index}>
                         <td>{transport.vehicle_type_display || "N/A"}</td>
                         <td>{buildRoute()}</td>
-                        <td>SAR {transport.price_in_sar || 0}</td>
+                        <td>PKR {transport.price_in_pkr || transport.price || 0}</td>
                         <td>1</td>
-                        <td>SAR {transport.price_in_sar || 0}</td>
+                        <td>PKR {transport.price_in_pkr || transport.price || 0}</td>
                       </tr>
                     );
                   })}
                   <tr className="fw-bold">
                     <td colSpan="4">Total Transportation</td>
-                    <td>SAR {bookingData.total_transport_amount_sar || 0}</td>
+                    <td>PKR {bookingData.total_transport_amount_pkr || 0}</td>
                   </tr>
                 </tbody>
               </table>
@@ -819,15 +959,15 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                 <tbody>
                   {bookingData.food_details.map((food, index) => (
                     <tr key={index}>
-                      <td>SAR {food.adult_price} × {food.total_adults}</td>
-                      <td>SAR {food.child_price} × {food.total_children}</td>
-                      <td>SAR {food.infant_price} × {food.total_infants}</td>
-                      <td>SAR {food.total_price_sar || (food.total_price_pkr / 50).toFixed(0) || 0}</td>
+                      <td>PKR {food.adult_price} × {food.total_adults}</td>
+                      <td>PKR {food.child_price} × {food.total_children}</td>
+                      <td>PKR {food.infant_price} × {food.total_infants}</td>
+                      <td>PKR {food.total_price_pkr || 0}</td>
                     </tr>
                   ))}
                   <tr className="fw-bold">
                     <td colSpan="3">Total Food Services</td>
-                    <td>SAR {bookingData.total_food_amount_sar || (bookingData.total_food_amount_pkr / 50).toFixed(0) || 0}</td>
+                    <td>PKR {bookingData.total_food_amount_pkr || 0}</td>
                   </tr>
                 </tbody>
               </table>
@@ -852,15 +992,15 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                 <tbody>
                   {bookingData.ziyarat_details.map((ziarat, index) => (
                     <tr key={index}>
-                      <td>SAR {ziarat.adult_price} × {ziarat.total_adults}</td>
-                      <td>SAR {ziarat.child_price} × {ziarat.total_children}</td>
-                      <td>SAR {ziarat.infant_price} × {ziarat.total_infants}</td>
-                      <td>SAR {ziarat.total_price_sar || (ziarat.total_price_pkr / 50).toFixed(0) || 0}</td>
+                      <td>PKR {ziarat.adult_price} × {ziarat.total_adults}</td>
+                      <td>PKR {ziarat.child_price} × {ziarat.total_children}</td>
+                      <td>PKR {ziarat.infant_price} × {ziarat.total_infants}</td>
+                      <td>PKR {ziarat.total_price_pkr || 0}</td>
                     </tr>
                   ))}
                   <tr className="fw-bold">
                     <td colSpan="3">Total Ziarat Services</td>
-                    <td>SAR {bookingData.total_ziyarat_amount_sar || (bookingData.total_ziyarat_amount_pkr / 50).toFixed(0) || 0}</td>
+                    <td>PKR {bookingData.total_ziyarat_amount_pkr || 0}</td>
                   </tr>
                 </tbody>
               </table>
@@ -890,7 +1030,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                       <td>Adult</td>
                       <td>{getPassengerTypeCount("Adult")}</td>
                       <td>
-                        SAR {bookingData.total_visa_amount || 0}
+                        PKR {bookingData.total_visa_amount_pkr || 0}
                       </td>
                       <td>
                         PKR{" "}
@@ -902,7 +1042,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                       <td>Child</td>
                       <td>{getPassengerTypeCount("Child")}</td>
                       <td>
-                        SAR {bookingData.total_visa_amount || 0}
+                        PKR {bookingData.total_visa_amount_pkr || 0}
                       </td>
                       <td>
                         PKR{" "}
@@ -914,7 +1054,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                       <td>Infant</td>
                       <td>{getPassengerTypeCount("Infant")}</td>
                       <td>
-                        SAR {bookingData.total_visa_amount || 0}
+                        PKR {bookingData.total_visa_amount_pkr || 0}
                       </td>
                       <td>
                         PKR{" "}
@@ -925,7 +1065,7 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
                     <tr>
                       <td>Total</td>
                       <td>{bookingData.total_pax}</td>
-                      <td>SAR {bookingData.total_visa_amount || 0}</td>
+                      <td>PKR {bookingData.total_visa_amount_pkr || 0}</td>
                       <td>PKR {bookingData.total_ticket_amount || 0}</td>
                     </tr>
                   </tbody>
@@ -1034,19 +1174,39 @@ const TravelBookingInvoice = ({ isModal = false, orderNoProp = null }) => {
               </h6>
               <h6 className="fw-bold">
                 Hotel Availability:{" "}
-                <span className="fw-bold" style={{ color: "#8BD399" }}>
-                  Available
+                <span
+                  className="fw-bold"
+                  style={{
+                    color: hotelAvailabilityStatus === 'Available'
+                      ? "#8BD399"
+                      : hotelAvailabilityStatus === 'Not Available'
+                        ? "#FF6B6B"
+                        : "#999"
+                  }}
+                >
+                  {hotelAvailabilityStatus}
                 </span>
               </h6>
 
               {/* Action Buttons - Hidden in Modal */}
               <div className="d-flex flex-wrap gap-2 mt-5">
-                <button
-                  className="btn btn-primary"
-                  onClick={handleConfirmOrder}
-                >
-                  Approve
-                </button>
+                {(bookingData.status === 'under-process' || bookingData.status === 'Un-approved' || (bookingData.status && bookingData.status.toLowerCase().includes("under") && bookingData.status.toLowerCase().includes("process"))) && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleConfirmOrder}
+                  >
+                    Confirm Order
+                  </button>
+                )}
+
+                {(bookingData.status === 'Confirmed') && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleApproveOrder}
+                  >
+                    Approve
+                  </button>
+                )}
 
                 <button
                   className="btn btn-outline-danger"
@@ -1261,6 +1421,62 @@ const TicketsInterface = ({ orderNo }) => {
     return 'N/A';
   };
 
+  const handleConfirmOrder = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+
+      if (isPublicBooking) {
+        await axios.post(
+          `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/confirm/`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await axios.patch(
+          `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+          { status: 'Confirmed' },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      window.location.reload();
+    } catch (error) {
+      console.error("Error confirming order:", error);
+      alert("Failed to confirm order.");
+    }
+  };
+
+  const handleApproveOrder = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await axios.patch(
+        `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+        { status: 'Approved' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      window.location.reload();
+    } catch (error) {
+      console.error("Error approving order:", error);
+      alert("Failed to approve order.");
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    try {
+      const token = localStorage.getItem("accessToken");
+      await axios.patch(
+        `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`,
+        { status: 'Cancelled' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      window.location.reload();
+    } catch (error) {
+      console.error("Error canceling order:", error);
+      alert("Failed to cancel order.");
+    }
+  };
+
   return (
     <div className="bg-white p-4">
       <h5 className="fw-bold mb-3">Passengers Details For Tickets</h5>
@@ -1463,17 +1679,45 @@ const TicketsInterface = ({ orderNo }) => {
       )}
 
       {/* Action Buttons */}
+      {/* Action Buttons */}
       <div className="d-flex flex-wrap gap-2 mb-4">
-        <button className="btn btn-primary">Confirm Ticket</button>
+        {/* Conditional Confirm/Approve Buttons */}
+        {(bookingData.status === 'under-process' || bookingData.status === 'Un-approved') && (
+          <button
+            className="btn btn-primary"
+            onClick={handleConfirmOrder}
+          >
+            Confirm Order
+          </button>
+        )}
+
+        {bookingData.status === 'Confirmed' && (
+          <button
+            className="btn btn-primary"
+            onClick={handleApproveOrder}
+          >
+            Approve
+          </button>
+        )}
+
         <button
-          className="btn btn-primary"
+          className="btn btn-outline-primary"
           onClick={() => setShowChild(true)}
         >
           Set Infant And Child Fare
         </button>
+
         <button className="btn btn-outline-secondary">Remove from order</button>
+
         <button
-          className="btn btn-outline-secondary"
+          className="btn btn-danger"
+          onClick={handleCancelOrder}
+        >
+          Cancel Order
+        </button>
+
+        <button
+          className="btn btn-outline-danger"
           onClick={() => setShowRejectNote(true)}
         >
           Reject With Note
@@ -1768,6 +2012,109 @@ const VisaApplicationInterface = ({ onClose }) => {
     setSelectedPassengers(newSelection);
   };
 
+  const handleApplyShirka = async () => {
+    if (!selectedShirka) {
+      alert("Please select a Shirka first.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      // Determine which API to use based on booking type
+      const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+      const apiEndpoint = isPublicBooking
+        ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+        : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+
+      console.log(`Applying shirka ${selectedShirka} to all passengers in ${isPublicBooking ? 'public' : 'agent'} booking`);
+
+      const response = await axios.patch(
+        apiEndpoint,
+        {
+          agency_id: bookingData.agency?.id || bookingData.agency_id,
+          user_id: bookingData.user?.id || bookingData.user_id,
+          organization_id: bookingData.organization?.id || bookingData.organization_id,
+          branch_id: bookingData.branch?.id || bookingData.branch_id,
+          person_details: bookingData.person_details.map(p => {
+            const { booking, ...personWithoutBooking } = p;
+            return { ...personWithoutBooking, shirka: selectedShirka };
+          })
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 200) {
+        setBookingData({
+          ...bookingData,
+          person_details: bookingData.person_details.map(p => ({ ...p, shirka: selectedShirka }))
+        });
+        alert("Shirka applied successfully to all passengers!");
+      }
+    } catch (error) {
+      console.error("Error applying shirka:", error);
+      alert("Failed to apply Shirka.");
+    }
+  };
+
+  const handleUpdateVisaStatus = async (newStatus) => {
+    const checkedPassengers = bookingData.person_details.filter((_, idx) => selectedPassengers[idx]);
+    if (checkedPassengers.length === 0) {
+      alert('Please select at least one passenger');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      // Determine which API to use based on booking type
+      const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
+      const apiEndpoint = isPublicBooking
+        ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
+        : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
+
+      console.log(`Updating visa status to ${newStatus} for ${isPublicBooking ? 'public' : 'agent'} booking`);
+
+      const response = await axios.patch(
+        apiEndpoint,
+        {
+          agency_id: bookingData.agency?.id || bookingData.agency_id,
+          user_id: bookingData.user?.id || bookingData.user_id,
+          organization_id: bookingData.organization?.id || bookingData.organization_id,
+          branch_id: bookingData.branch?.id || bookingData.branch_id,
+          person_details: bookingData.person_details.map((p, idx) => {
+            const { booking, ...personWithoutBooking } = p;
+            return selectedPassengers[idx]
+              ? { ...personWithoutBooking, visa_status: newStatus }
+              : personWithoutBooking;
+          })
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        setBookingData({
+          ...bookingData,
+          person_details: bookingData.person_details.map((p, idx) =>
+            selectedPassengers[idx] ? { ...p, visa_status: newStatus } : p
+          )
+        });
+        alert(`Visa status updated to '${newStatus}' for ${checkedPassengers.length} passenger(s)!`);
+        // Clear selections
+        setSelectedPassengers(new Array(bookingData.person_details.length).fill(false));
+      }
+    } catch (error) {
+      console.error('Error updating visa status:', error);
+      console.error('Backend error response:', error.response?.data);
+      alert(`Error updating visa status: ${JSON.stringify(error.response?.data) || error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container-fluid p-0" style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
@@ -2052,34 +2399,43 @@ const VisaApplicationInterface = ({ onClose }) => {
               <div className="row">
                 <div className="col-md-4">
                   <label htmlFor="shirka-select" className="form-label">Shirka</label>
-                  {shirkaLoading ? (
-                    <div className="form-control">
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      Loading shirkas...
-                    </div>
-                  ) : (
-                    <select
-                      id="shirka-select"
-                      className="form-select shadow-none"
-                      name="shirka"
-                      value={selectedShirka}
-                      onChange={(e) => setSelectedShirka(e.target.value)}
-                      disabled={shirkaList.length === 0}
+                  <div className="d-flex gap-2">
+                    {shirkaLoading ? (
+                      <div className="form-control">
+                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                        Loading shirkas...
+                      </div>
+                    ) : (
+                      <select
+                        id="shirka-select"
+                        className="form-select shadow-none"
+                        name="shirka"
+                        value={selectedShirka}
+                        onChange={(e) => setSelectedShirka(e.target.value)}
+                        disabled={shirkaList.length === 0}
+                      >
+                        {shirkaList.length === 0 ? (
+                          <option value="">No Shirka Available</option>
+                        ) : (
+                          <>
+                            <option value="">Select a Shirka</option>
+                            {shirkaList.map((shirka) => (
+                              <option key={shirka.id} value={shirka.id}>
+                                {shirka.name}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    )}
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleApplyShirka}
+                      disabled={!selectedShirka || shirkaLoading}
                     >
-                      {shirkaList.length === 0 ? (
-                        <option value="">No Shirka Available</option>
-                      ) : (
-                        <>
-                          <option value="">Select a Shirka</option>
-                          {shirkaList.map((shirka) => (
-                            <option key={shirka.id} value={shirka.id}>
-                              {shirka.name}
-                            </option>
-                          ))}
-                        </>
-                      )}
-                    </select>
-                  )}
+                      Apply
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2185,6 +2541,8 @@ const VisaApplicationInterface = ({ onClose }) => {
                               }}
                             >
                               <option value="Pending">Pending</option>
+                              <option value="Visa Applied">Visa Applied</option>
+                              <option value="Sent to Embassy">Sent to Embassy</option>
                               <option value="Approved">Approved</option>
                               <option value="Rejected">Rejected</option>
                             </select>
@@ -2204,72 +2562,30 @@ const VisaApplicationInterface = ({ onClose }) => {
             </div>
 
             {/* Action Buttons */}
+            {/* Action Buttons */}
             <div className="d-flex gap-2 mt-4">
-              <button className="btn btn-primary">Visa Applied</button>
-              <button className="btn btn-primary">Send to Embassy</button>
               <button
                 className="btn btn-primary"
-                onClick={async () => {
-                  const checkedPassengers = bookingData.person_details.filter((_, idx) => selectedPassengers[idx]);
-                  if (checkedPassengers.length === 0) {
-                    alert('Please select at least one passenger');
-                    return;
-                  }
-
-                  try {
-                    const token = localStorage.getItem("accessToken");
-
-                    // Determine which API to use based on booking type
-                    const isPublicBooking = bookingData.booking_type === "Public Umrah Package" || bookingData.is_public_booking;
-                    const apiEndpoint = isPublicBooking
-                      ? `http://127.0.0.1:8000/api/admin/public-bookings/${bookingData.id}/`
-                      : `http://127.0.0.1:8000/api/bookings/${bookingData.id}/`;
-
-                    console.log(`Approving visa for ${isPublicBooking ? 'public' : 'agent'} booking`);
-
-                    const response = await axios.patch(
-                      apiEndpoint,
-                      {
-                        agency_id: bookingData.agency?.id || bookingData.agency_id,
-                        user_id: bookingData.user?.id || bookingData.user_id,
-                        organization_id: bookingData.organization?.id || bookingData.organization_id,
-                        branch_id: bookingData.branch?.id || bookingData.branch_id,
-                        person_details: bookingData.person_details.map((p, idx) => {
-                          const { booking, ...personWithoutBooking } = p;
-                          return selectedPassengers[idx]
-                            ? { ...personWithoutBooking, visa_status: 'Approved' }
-                            : personWithoutBooking;
-                        })
-                      },
-                      {
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                          'Content-Type': 'application/json',
-                        },
-                      }
-                    );
-
-                    if (response.status === 200) {
-                      setBookingData({
-                        ...bookingData,
-                        person_details: bookingData.person_details.map((p, idx) =>
-                          selectedPassengers[idx] ? { ...p, visa_status: 'Approved' } : p
-                        )
-                      });
-                      alert(`Visa approved for ${checkedPassengers.length} passenger(s)!`);
-                      // Clear selections
-                      setSelectedPassengers(new Array(bookingData.person_details.length).fill(false));
-                    }
-                  } catch (error) {
-                    console.error('Error approving visa:', error);
-                    console.error('Backend error response:', error.response?.data);
-                    alert(`Error approving visa: ${JSON.stringify(error.response?.data) || error.message}`);
-                  }
-                }}
+                onClick={() => handleUpdateVisaStatus("Visa Applied")}
+              >
+                Visa Applied
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleUpdateVisaStatus("Sent to Embassy")}
+              >
+                Send to Embassy
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleUpdateVisaStatus("Approved")}
               >
                 Visa approved
               </button>
-              <button className="btn btn-outline-secondary">
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => handleUpdateVisaStatus("Rejected")}
+              >
                 Application Reject
               </button>
             </div>
@@ -2319,13 +2635,22 @@ const OrderList = () => {
   const location = useLocation();
   const currentPath = location.pathname;
 
+  // View mode: "orders" or "agencies"
+  const [viewMode, setViewMode] = useState("orders");
+  const [mainTab, setMainTab] = useState("unconfirmed"); // "confirmed" or "unconfirmed"
+
   const [statusFilter, setStatusFilter] = useState("all");
-  const [paymentFilter, setPaymentFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("Umrah Package");
+  const [activeTab, setActiveTab] = useState("Agent Orders"); // Level 2 tab
+  const [packageType, setPackageType] = useState("Umrah Packages"); // Level 3 tab
   const [orders, setOrders] = useState([]);
+  const [agencies, setAgencies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Branch Filter State
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState("");
 
   // Status options for dropdown
   const statusOptions = ["all", "Un-approved", "under-process", "Delivered", "Confirmed", "Canceled"];
@@ -2334,20 +2659,21 @@ const OrderList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Fetch orders from API
+  // Fetch orders and agencies from API
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const orgData = JSON.parse(localStorage.getItem("selectedOrganization"));
         const organizationId = orgData?.id;
         const token = localStorage.getItem("accessToken");
 
-        // Fetch from both APIs in parallel
-        const [agentResponse, publicResponse] = await Promise.all([
+        // Fetch from all APIs in parallel
+        const [agentResponse, publicResponse, agenciesResponse, branchesResponse] = await Promise.all([
           // Agent bookings (excludes public bookings)
           axios.get(`http://127.0.0.1:8000/api/bookings/?organization=${organizationId}`, {
             headers: {
+
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             }
@@ -2361,6 +2687,26 @@ const OrderList = () => {
           }).catch(err => {
             console.warn("Failed to fetch public bookings:", err);
             return { data: { results: [] } }; // Fallback to empty array if API fails
+          }),
+          // Agencies (for Zero Order Agencies view)
+          axios.get(`http://127.0.0.1:8000/api/agencies/?organization=${organizationId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          }).catch(err => {
+            console.warn("Failed to fetch agencies:", err);
+            return { data: [] }; // Fallback to empty array if API fails
+          }),
+          // Fetch branches
+          axios.get(`http://127.0.0.1:8000/api/branches/?organization=${organizationId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          }).catch(err => {
+            console.warn("Failed to fetch branches:", err);
+            return { data: [] };
           })
         ]);
 
@@ -2390,44 +2736,53 @@ const OrderList = () => {
         const combinedOrders = [...agentBookings, ...publicBookings];
         console.log('Combined orders count:', combinedOrders.length);
 
+        // Handle agencies data
+        const agenciesData = Array.isArray(agenciesResponse.data)
+          ? agenciesResponse.data
+          : (agenciesResponse.data?.results || []);
+        console.log('Agencies count:', agenciesData.length);
+
+
+        if (branchesResponse?.data) {
+          setBranches(Array.isArray(branchesResponse.data) ? branchesResponse.data : branchesResponse.data.results || []);
+        }
+
         setOrders(combinedOrders);
+        setAgencies(agenciesResponse.data?.results || agenciesResponse.data || []);
         setError(null);
       } catch (err) {
-        setError("Failed to fetch orders. Please try again later.");
-        console.error("Error fetching orders:", err);
+        setError("Failed to fetch data. Please try again later.");
+        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrders();
+    fetchData();
   }, []);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, paymentFilter, searchTerm, activeTab]);
+  }, [statusFilter, mainTab, searchTerm, activeTab, packageType]);
 
   // Handle tab switching
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    // Reset payment filter when switching tabs
-    setPaymentFilter("all");
   };
 
-  // For order link navigation based on activeTab and status
+  // For order link navigation based on packageType and status
   const handleOrderClick = (order) => {
     // Navigate based on status and booking_type
     if (order.status === "Approved") {
       // Approved orders go to visa management page
       navigate(`/order-delivery/visa/${order.booking_number}`);
-    } else if (order.status === "under-process") {
-      navigate(`/order-delivery/visa/${order.booking_number}`);
-    } else if (activeTab === "Umrah Package" && (order.booking_type === "Umrah Package" || order.booking_type === "Custom Package" || order.booking_type === "Public Umrah Package")) {
-      // Navigate to order delivery page for all Umrah package types including public bookings
-      navigate(`/order-delivery/${order.booking_number}`);
-    } else if (activeTab === "Ticketing" && order.booking_type === "Group Ticket") {
+    } else if (packageType === "Group Tickets" && order.booking_type === "Group Ticket") {
+      // Group ticket bookings go to ticketing page
       navigate(`/order-delivery/ticketing/${order.booking_number}`);
+    } else if (packageType === "Umrah Packages" || packageType === "Custom Packages") {
+      // Umrah and Custom packages go to order delivery page
+      navigate(`/order-delivery/${order.booking_number}`);
     } else {
       // Default: navigate to general booking details page
       navigate(`/order-delivery/${order.booking_number}`);
@@ -2486,51 +2841,196 @@ const OrderList = () => {
     }
   };
 
-  // Filter orders based on active tab, payment status, and other filters
+  // Filter orders based on 3-level filter system: Order Type + Package Type + Status
   const filteredOrders = orders.filter((order) => {
-    // Filter by tab (booking_type)
-    const matchesTab =
-      (activeTab === "Umrah Package" && order.booking_type === "Umrah Package" && !order.is_public_booking) ||
-      (activeTab === "Custom Package" && order.booking_type === "Custom Package" && !order.is_public_booking) ||
-      (activeTab === "Ticketing" && order.booking_type === "Group Ticket") ||
-      (activeTab === "Customer Orders" && order.is_public_booking === true);
+    // LEVEL 1: Main Tab (Confirmed/Unconfirmed)
+    const matchesMainTab =
+      (mainTab === "confirmed" &&
+        (order.status === "Confirmed" || order.status === "Approved" || order.status === "Delivered" || order.status === "Finished" ||
+          order.status === "Un-approved" || order.status === "Pending" ||
+          order.status === "Rejected" || order.status === "Cancelled" || order.status === "Canceled")) ||
+      (mainTab === "unconfirmed" &&
+        ((order.status && order.status.toLowerCase().includes("under") && order.status.toLowerCase().includes("process")) ||
+          order.status === "Cancelled" || order.status === "Canceled" || order.status === "Rejected"));
 
-    // Filter by payment status (now based on booking status)
-    const matchesPayment =
-      paymentFilter === "all" ||
-      (paymentFilter === "paid" && order.status === "Confirmed") ||
-      (paymentFilter === "unpaid" && order.status === "Un-approved");
+    if (!matchesMainTab) return false;
 
-    // Filter by status
+    // LEVEL 2: Order Type (Agent/Area Agent/Customer/Branch/All Orders)
+    let matchesOrderType = false;
+
+    if (activeTab === "All Orders") {
+      matchesOrderType = true; // Show everything
+    } else if (activeTab === "Agent Orders") {
+      // Full agent orders: has agency AND (agency_type contains "full" OR is standard agent type)
+      if (order.agency) {
+        const agencyType = (order.agency.agency_type || order.agency.type || "").toLowerCase();
+        matchesOrderType =
+          agencyType.includes("full") ||  // "Full Agency"
+          agencyType === "agent" ||
+          agencyType === "full_agency" ||
+          (!order.is_public_booking && !agencyType.includes("area")); // Fallback: any agent that's not area/public
+      }
+
+      // Debug logging for agent orders
+      if (order.agency) {
+        console.log('🔍 Agent Order Debug:', {
+          booking_number: order.booking_number,
+          has_agency: !!order.agency,
+          agency_id: order.agency?.id || order.agency,
+          agency_type: order.agency?.type,
+          agency_agency_type: order.agency?.agency_type,
+          is_public: order.is_public_booking,
+          matchesOrderType,
+          agency_object: order.agency
+        });
+      }
+    } else if (activeTab === "Area Agent Orders") {
+      // Area agent orders: has agency AND agency_type contains "area"
+      if (order.agency) {
+        const agencyType = (order.agency.agency_type || order.agency.type || "").toLowerCase();
+        matchesOrderType = agencyType.includes("area");
+      }
+    } else if (activeTab === "Customer Orders") {
+      // Public/customer orders: is_public_booking = true
+      matchesOrderType = order.is_public_booking === true;
+    } else if (activeTab === "Branch Orders") {
+      // Employee/branch orders: has employee field OR no agency
+      matchesOrderType = order.employee || (!order.agency && !order.is_public_booking);
+
+      // Filter by selected branch if set
+      if (matchesOrderType && selectedBranch) {
+        // Check if order belongs to the selected branch
+        // The API response structure for 'branch' might be an ID or an object
+        // Based on typical response: order.branch (ID) or order.branch.id (Object)
+        const orderBranchId = typeof order.branch === 'object' ? order.branch?.id : order.branch;
+        matchesOrderType = String(orderBranchId) === String(selectedBranch);
+      }
+    }
+
+    // LEVEL 3: Package Type (Umrah/Custom/Group Tickets)
+    let matchesPackageType = false;
+
+    // Normalize booking type for comparison (case-insensitive, handle variations)
+    const bookingType = (order.booking_type || "").toLowerCase().trim();
+
+    if (packageType === "Umrah Packages") {
+      matchesPackageType = bookingType.includes("umrah");
+    } else if (packageType === "Custom Packages") {
+      matchesPackageType = bookingType.includes("custom");
+    } else if (packageType === "Group Tickets") {
+      matchesPackageType = bookingType.includes("group") || bookingType.includes("ticket");
+    }
+
+    // Debug logging for package type
+    console.log('📦 Package Type Debug:', {
+      booking_number: order.booking_number,
+      booking_type: order.booking_type,
+      normalized: bookingType,
+      selected_package: packageType,
+      matchesPackageType
+    });
+
+    // LEVEL 4: Status Filter
     const matchesStatus =
       statusFilter === "all" ||
-      (statusFilter === "un-approve" && (order.status === "Un-approved" || order.status === "Confirmed")) ||
-      (statusFilter !== "un-approve" && order.status && order.status.toLowerCase().includes(statusFilter.toLowerCase()));
+      (statusFilter === "un-approve" && (
+        (mainTab === "confirmed" && order.status === "Confirmed") ||
+        (mainTab !== "confirmed" && (order.status === "Un-approved" || order.status === "Pending"))
+      )) ||
+      (statusFilter === "under-process" && (
+        (mainTab === "confirmed" && order.status === "Approved") ||
+        (mainTab !== "confirmed" && (order.status?.toLowerCase().includes("under") && order.status?.toLowerCase().includes("process")))
+      )) ||
+      (statusFilter === "Delivered" && order.status === "Delivered") ||
+      (statusFilter === "Confirmed" && order.status === "Confirmed") ||
+      (statusFilter === "Cancelled" && (order.status === "Cancelled" || order.status === "Canceled" || order.status === "Rejected"));
 
     // Filter by search term (booking number)
     const matchesSearch =
       searchTerm === "" ||
       (order.booking_number && order.booking_number.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // Debug logging for public bookings
-    if (order.is_public_booking === true) {
-      console.log('Public booking filter check:', {
-        booking_number: order.booking_number,
-        booking_type: order.booking_type,
-        is_public_booking: order.is_public_booking,
-        status: order.status,
-        activeTab,
-        paymentFilter,
-        matchesTab,
-        matchesPayment,
-        matchesStatus,
-        matchesSearch,
-        willShow: matchesTab && matchesPayment && matchesStatus && matchesSearch
-      });
-    }
-
-    return matchesTab && matchesPayment && matchesStatus && matchesSearch;
+    // Combine all filters with AND logic
+    return matchesOrderType && matchesPackageType && matchesStatus && matchesSearch;
   });
+
+  // Calculate status counts for badges (based on current filters excluding status filter)
+  const statusCounts = useMemo(() => {
+    const counts = {
+      all: 0,
+      unapproved: 0,
+      underProcess: 0,
+      delivered: 0,
+      confirmed: 0,
+      cancelled: 0
+    };
+
+    orders.forEach((order) => {
+      // Apply all filters EXCEPT status filter
+      const matchesMainTab =
+        (mainTab === "confirmed" &&
+          (order.status === "Confirmed" || order.status === "Approved" || order.status === "Delivered" || order.status === "Finished" ||
+            order.status === "Un-approved" || order.status === "Pending" ||
+            order.status === "Rejected" || order.status === "Cancelled" || order.status === "Canceled")) ||
+        (mainTab === "unconfirmed" &&
+          ((order.status && order.status.toLowerCase().includes("under") && order.status.toLowerCase().includes("process")) ||
+            order.status === "Cancelled" || order.status === "Canceled" || order.status === "Rejected"));
+
+      let matchesOrderType = false;
+      if (activeTab === "All Orders") {
+        matchesOrderType = true;
+      } else if (activeTab === "Agent Orders") {
+        if (order.agency) {
+          const agencyType = (order.agency.agency_type || order.agency.type || "").toLowerCase();
+          matchesOrderType = agencyType.includes("full") || agencyType === "agent" || agencyType === "full_agency" || (!order.is_public_booking && !agencyType.includes("area"));
+        }
+      } else if (activeTab === "Area Agent Orders") {
+        if (order.agency) {
+          const agencyType = (order.agency.agency_type || order.agency.type || "").toLowerCase();
+          matchesOrderType = agencyType.includes("area");
+        }
+      } else if (activeTab === "Customer Orders") {
+        matchesOrderType = order.is_public_booking === true;
+      } else if (activeTab === "Branch Orders") {
+        matchesOrderType = order.employee || (!order.agency && !order.is_public_booking);
+      }
+
+      const bookingType = (order.booking_type || "").toLowerCase().trim();
+      let matchesPackageType = false;
+      if (packageType === "Umrah Packages") {
+        matchesPackageType = bookingType.includes("umrah");
+      } else if (packageType === "Custom Packages") {
+        matchesPackageType = bookingType.includes("custom");
+      } else if (packageType === "Group Tickets") {
+        matchesPackageType = bookingType.includes("group") || bookingType.includes("ticket");
+      }
+
+      const matchesSearch = searchTerm === "" || (order.booking_number && order.booking_number.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // Only count if matches all other filters
+      if (matchesMainTab && matchesOrderType && matchesPackageType && matchesSearch) {
+        counts.all++;
+        if (mainTab === "confirmed" && order.status === "Confirmed") {
+          counts.unapproved++; // Count confirmed as un-approved for confirmed tab
+        } else if (mainTab !== "confirmed" && (order.status === "Un-approved" || order.status === "Pending")) {
+          counts.unapproved++;
+        } else if (mainTab === "confirmed" && order.status === "Approved") {
+          counts.underProcess++; // Count approved as under-process for confirmed tab
+        } else if (mainTab !== "confirmed" && (order.status?.toLowerCase().includes("under") && order.status?.toLowerCase().includes("process"))) {
+          counts.underProcess++;
+        } else if (order.status === "Delivered") {
+        } else if (order.status === "Delivered") {
+          counts.delivered++;
+        } else if (order.status === "Confirmed") {
+          counts.confirmed++;
+        } else if (order.status === "Cancelled" || order.status === "Canceled" || order.status === "Rejected") {
+          counts.cancelled++;
+        }
+      }
+    });
+
+    return counts;
+  }, [orders, mainTab, activeTab, packageType, searchTerm]);
 
   // Calculate pagination
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -2567,241 +3067,503 @@ const OrderList = () => {
   return (
     <>
       <div className="px-3 px-lg-4 my-3">
+        {/* Level 1: Confirmed / Un-Confirmed Orders / Zero Order Agencies */}
         <div className="d-flex gap-4 mb-3">
           <Link
-            className={`text-decoration-none ${paymentFilter === "paid" ? "text-primary" : "text-secondary"}`}
-            onClick={() => setPaymentFilter("paid")}
+            className={`text-decoration-none fw-bold ${viewMode === "orders" && mainTab === "confirmed" ? "text-primary" : "text-secondary"}`}
+            onClick={() => {
+              setViewMode("orders");
+              setMainTab("confirmed");
+            }}
+            style={{ cursor: 'pointer' }}
           >
             Confirmed Orders
           </Link>
           <Link
-            className={`text-decoration-none ${paymentFilter === "unpaid" ? "text-primary" : "text-secondary"}`}
-            onClick={() => setPaymentFilter("unpaid")}
+            className={`text-decoration-none fw-bold ${viewMode === "orders" && mainTab === "unconfirmed" ? "text-primary" : "text-secondary"}`}
+            onClick={() => {
+              setViewMode("orders");
+              setMainTab("unconfirmed");
+            }}
+            style={{ cursor: 'pointer' }}
           >
             Un-Confirmed Orders
           </Link>
+          <Link
+            className={`text-decoration-none fw-bold ${viewMode === "agencies" ? "text-primary" : "text-secondary"}`}
+            onClick={() => setViewMode("agencies")}
+            style={{ cursor: 'pointer' }}
+          >
+            Zero Order Agencies
+          </Link>
         </div>
+
         <div className="bg-white rounded shadow-sm p-4">
-          {/* Payment Status Filter Tabs */}
-          <div className="mb-4">
-            <div className="d-flex justify-content-between align-items-center">
-              {/* Main tabs on the left */}
-              <div className="d-flex gap-2">
-                <button
-                  className={`btn ${activeTab === "Umrah Package" ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => handleTabChange("Umrah Package")}
-                >
-                  Umrah Package
-                </button>
-
-                <button
-                  className={`btn ${activeTab === "Custom Package" ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => handleTabChange("Custom Package")}
-                >
-                  Custom Package
-                </button>
-
-                <button
-                  className={`btn ${activeTab === "Ticketing" ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => handleTabChange("Ticketing")}
-                >
-                  Ticketing
-                </button>
-
-                <button
-                  className={`btn ${activeTab === "Customer Orders" ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => handleTabChange("Customer Orders")}
-                >
-                  Customer Orders
-                </button>
-
-                <button
-                  className={`btn ${activeTab === "Booking Split" ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => handleTabChange("Booking Split")}
-                >
-                  Booking Split
-                </button>
-              </div>
-
-              {/* Paid/Unpaid display buttons - only show for Customer Orders */}
-              {activeTab === "Customer Orders" && (
-                <div className="d-flex gap-2">
-                  <button className="btn btn-outline-secondary">
-                    Paid
+          {/* Orders View - Show only when viewMode is "orders" */}
+          {viewMode === "orders" && (
+            <>
+              {/* Level 2: Order Types (Agent Orders, Area Agent, Customer, Branch, All) */}
+              <div className="mb-3">
+                <div className="d-flex gap-2 flex-wrap">
+                  <button
+                    className={`btn ${activeTab === "Agent Orders" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleTabChange("Agent Orders")}
+                  >
+                    Agent Orders
                   </button>
-                  <button className="btn btn-outline-secondary">
-                    Unpaid
+                  <button
+                    className={`btn ${activeTab === "Area Agent Orders" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleTabChange("Area Agent Orders")}
+                  >
+                    Area Agent Orders
+                  </button>
+                  <button
+                    className={`btn ${activeTab === "Customer Orders" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleTabChange("Customer Orders")}
+                  >
+                    Customer Orders
+                  </button>
+                  <button
+                    className={`btn ${activeTab === "Branch Orders" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleTabChange("Branch Orders")}
+                  >
+                    Branch Orders
+                  </button>
+
+                  {/* Branch Selection Dropdown */}
+                  {activeTab === "Branch Orders" && (
+                    <select
+                      className="form-select d-inline-block w-auto"
+                      value={selectedBranch}
+                      onChange={(e) => setSelectedBranch(e.target.value)}
+                      style={{ minWidth: '150px' }}
+                    >
+                      <option value="">All Branches</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.branch_name || branch.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <button
+                    className={`btn ${activeTab === "All Orders" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => handleTabChange("All Orders")}
+                  >
+                    All Orders
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-            {/* Show filters for all tabs */}
-            <div className="d-flex gap-2 flex-wrap">
-              {/* Show dropdown filters only for unpaid orders */}
-              {paymentFilter === "unpaid" ? (
-                <Dropdown>
-                  <Dropdown.Toggle variant="outline-secondary">
-                    <Funnel size={16} className="me-1" />
-                    Filters
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu>
-                    {statusOptions.map((status, idx) => (
-                      <Dropdown.Item
-                        key={idx}
-                        onClick={() => setStatusFilter(status)}
-                        active={statusFilter === status}
-                      >
-                        {status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown>
-              ) : (
-                // Show regular button filters for paid orders
-                <>
+              {/* Level 3: Package Types (Umrah, Custom, Group Tickets) */}
+              <div className="mb-3">
+                <div className="d-flex gap-2 flex-wrap">
                   <button
-                    className={`btn ${statusFilter === "all"
-                      ? "btn-outline-primary"
-                      : "btn-outline-secondary"
-                      }`}
+                    className={`btn btn-sm ${packageType === "Umrah Packages" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => setPackageType("Umrah Packages")}
+                  >Umrah Packages
+                  </button>
+                  <button
+                    className={`btn btn-sm ${packageType === "Custom Packages" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => setPackageType("Custom Packages")}
+                  >
+                    Custom Packages
+                  </button>
+                  <button
+                    className={`btn btn-sm ${packageType === "Group Tickets" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => setPackageType("Group Tickets")}
+                  >
+                    Group Tickets
+                  </button>
+                </div>
+              </div>
+
+              {/* Level 4: Status Filters */}
+              <div className="mb-4">
+                <div className="d-flex gap-2 flex-wrap">
+                  <button
+                    className={`btn btn-sm position-relative ${statusFilter === "all" ? "btn-primary" : "btn-outline-secondary"}`}
                     onClick={() => setStatusFilter("all")}
                   >
                     All
+                    {statusCounts.all > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-secondary" style={{ fontSize: '0.65rem' }}>
+                        {statusCounts.all}
+                      </span>
+                    )}
                   </button>
-                  <button
-                    className={`btn ${statusFilter === "un-approve"
-                      ? "btn-primary"
-                      : "btn-outline-secondary"
-                      }`}
-                    onClick={() => setStatusFilter("un-approve")}
-                  >
-                    Un-Approved
-                  </button>
-                  <button
-                    className={`btn ${statusFilter === "under-process"
-                      ? "btn-primary"
-                      : "btn-outline-secondary"
-                      }`}
-                    onClick={() => setStatusFilter("under-process")}
-                  >
-                    Under Process
-                  </button>
-                  <button
-                    className={`btn ${statusFilter === "Delivered"
-                      ? "btn-primary"
-                      : "btn-outline-secondary"
-                      }`}
-                    onClick={() => setStatusFilter("Delivered")}
-                  >
-                    Delivered
-                  </button>
-                  <button
-                    className={`btn ${statusFilter === "Confirmed"
-                      ? "btn-primary"
-                      : "btn-outline-secondary"
-                      }`}
-                    onClick={() => setStatusFilter("Confirmed")}
-                  >
-                    Confirmed
-                  </button>
-                  <button
-                    className={`btn ${statusFilter === "Canceled"
-                      ? "btn-primary"
-                      : "btn-outline-secondary"
-                      }`}
-                    onClick={() => setStatusFilter("Canceled")}
-                  >
-                    Canceled
-                  </button>
-                </>
-              )}
-            </div>
 
-            <div className="input-group" style={{ width: "250px" }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Order Number"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <span className="input-group-text">
-                <Search size={16} />
-              </span>
-            </div>
-          </div>
+                  {/* Un-Confirmed Tab Buttons */}
+                  {mainTab === 'unconfirmed' && (
+                    <>
+                      <button
+                        className={`btn btn-sm position-relative ${statusFilter === "under-process" ? "btn-primary" : "btn-outline-secondary"}`}
+                        onClick={() => setStatusFilter("under-process")}
+                      >
+                        Under-process
+                        {statusCounts.underProcess > 0 && (
+                          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                            {statusCounts.underProcess}
+                          </span>
+                        )}
+                      </button>
 
-          {/* Booking Split Tab Content */}
-          {activeTab === "Booking Split" && (
-            <div className="mt-4">
-              <div className="alert alert-info mb-4">
-                <h5 className="mb-2">📋 Booking Split Management</h5>
-                <p className="mb-0">Split bookings functionality for managing passenger allocations and creating separate bookings from existing ones.</p>
+                      <button
+                        className={`btn btn-sm position-relative ${statusFilter === "Cancelled" ? "btn-danger text-white" : "btn-outline-danger"}`}
+                        onClick={() => setStatusFilter("Cancelled")}
+                      >
+                        Cancelled
+                        {statusCounts.cancelled > 0 && (
+                          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-dark" style={{ fontSize: '0.65rem' }}>
+                            {statusCounts.cancelled}
+                          </span>
+                        )}
+                      </button>
+                    </>
+                  )}
+
+                  {/* Confirmed Tab Buttons */}
+                  {mainTab === 'confirmed' && (
+                    <>
+                      <button
+                        className={`btn btn-sm position-relative ${statusFilter === "under-process" ? "btn-primary" : "btn-outline-secondary"}`}
+                        onClick={() => setStatusFilter("under-process")}
+                      >
+                        Under-process
+                        {statusCounts.underProcess > 0 && (
+                          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-secondary" style={{ fontSize: '0.65rem' }}>
+                            {statusCounts.underProcess}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        className={`btn btn-sm position-relative ${statusFilter === "un-approve" ? "btn-primary" : "btn-outline-secondary"}`}
+                        onClick={() => setStatusFilter("un-approve")}
+                      >
+                        Un-approved
+                        {statusCounts.unapproved > 0 && (
+                          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-secondary" style={{ fontSize: '0.65rem' }}>
+                            {statusCounts.unapproved}
+                          </span>
+                        )}
+                      </button>
+
+
+
+                      <button
+                        className={`btn btn-sm position-relative ${statusFilter === "Delivered" ? "btn-primary" : "btn-outline-secondary"}`}
+                        onClick={() => setStatusFilter("Delivered")}
+                      >
+                        Delivered
+                        {statusCounts.delivered > 0 && (
+                          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success" style={{ fontSize: '0.65rem' }}>
+                            {statusCounts.delivered}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        className={`btn btn-sm position-relative ${statusFilter === "Cancelled" ? "btn-danger text-white" : "btn-outline-danger"}`}
+                        onClick={() => setStatusFilter("Cancelled")}
+                      >
+                        Rejected
+                        {statusCounts.cancelled > 0 && (
+                          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-dark" style={{ fontSize: '0.65rem' }}>
+                            {statusCounts.cancelled}
+                          </span>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Booking ID</th>
-                      <th>Customer Name</th>
-                      <th>Total PAX</th>
-                      <th>Total Amount</th>
-                      <th>Booking Date</th>
-                      <th>Package Type</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.length > 0 ? (
-                      paginatedOrders.map((order, index) => (
-                        <tr key={index}>
-                          <td className="fw-bold">{order.booking_number}</td>
-                          <td>{order.person_details?.[0]?.first_name + ' ' + order.person_details?.[0]?.last_name || '-'}</td>
-                          <td>
-                            <span className="badge bg-info">{order.total_pax || 0} PAX</span>
-                          </td>
-                          <td className="fw-semibold">PKR {order.total_amount?.toLocaleString() || 0}</td>
-                          <td>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</td>
-                          <td>
-                            <span className="badge bg-secondary">{order.booking_type || 'N/A'}</span>
-                          </td>
-                          <td>
-                            <span className={`badge ${
-                              order.status === 'Confirmed' || order.status === 'Approved' || order.status === 'Delivered' ? 'bg-success' :
-                              order.status === 'under-process' || order.status === 'Pending' ? 'bg-warning' :
-                              order.status === 'Canceled' || order.status === 'Rejected' ? 'bg-danger' : 'bg-secondary'
-                            }`}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td>
-                            <button className="btn btn-sm btn-primary me-2" onClick={() => handleOrderClick(order)}>
-                              View
+              {/* Search Box */}
+              <div className="d-flex justify-content-end mb-4">
+                <div className="input-group" style={{ width: "250px" }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Order Number"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <span className="input-group-text">
+                    <Search size={16} />
+                  </span>
+                </div>
+              </div>
+
+              {/* Booking Split Tab Content */}
+              {activeTab === "Booking Split" && (
+                <div className="mt-4">
+                  <div className="alert alert-info mb-4">
+                    <h5 className="mb-2">📋 Booking Split Management</h5>
+                    <p className="mb-0">Split bookings functionality for managing passenger allocations and creating separate bookings from existing ones.</p>
+                  </div>
+
+                  <div className="table-responsive">
+                    <table className="table table-hover">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Booking ID</th>
+                          <th>Customer Name</th>
+                          <th>Total PAX</th>
+                          <th>Total Amount</th>
+                          <th>Booking Date</th>
+                          <th>Package Type</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredOrders.length > 0 ? (
+                          paginatedOrders.map((order, index) => (
+                            <tr key={index}>
+                              <td className="fw-bold">{order.booking_number}</td>
+                              <td>{order.person_details?.[0]?.first_name + ' ' + order.person_details?.[0]?.last_name || '-'}</td>
+                              <td>
+                                <span className="badge bg-info">{order.total_pax || 0} PAX</span>
+                              </td>
+                              <td className="fw-semibold">PKR {order.total_amount?.toLocaleString() || 0}</td>
+                              <td>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</td>
+                              <td>
+                                <span className="badge bg-secondary">{order.booking_type || 'N/A'}</span>
+                              </td>
+                              <td>
+                                <span className={`badge ${order.status === 'Confirmed' || order.status === 'Approved' || order.status === 'Delivered' ? 'bg-success' :
+                                  order.status === 'under-process' || order.status === 'Pending' ? 'bg-warning' :
+                                    order.status === 'Canceled' || order.status === 'Rejected' ? 'bg-danger' : 'bg-secondary'
+                                  }`}>
+                                  {order.status}
+                                </span>
+                              </td>
+                              <td>
+                                <button className="btn btn-sm btn-primary me-2" onClick={() => handleOrderClick(order)}>
+                                  View
+                                </button>
+                                <button className="btn btn-sm btn-outline-secondary" title="Split Booking">
+                                  Split
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="8" className="text-center py-4">
+                              No bookings available for splitting
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination for Booking Split */}
+                  {filteredOrders.length > itemsPerPage && (
+                    <div className="d-flex justify-content-between align-items-center mt-4">
+                      <div>
+                        Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
+                      </div>
+                      <nav>
+                        <ul className="pagination mb-0">
+                          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                            <button className="page-link" onClick={() => paginate(currentPage - 1)}>
+                              <ChevronLeft size={14} />
                             </button>
-                            <button className="btn btn-sm btn-outline-secondary" title="Split Booking">
-                              Split
+                          </li>
+
+                          {[...Array(totalPages)].map((_, i) => {
+                            const pageNumber = i + 1;
+                            if (
+                              pageNumber === 1 ||
+                              pageNumber === totalPages ||
+                              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                            ) {
+                              return (
+                                <li key={i} className={`page-item ${currentPage === pageNumber ? 'active' : ''}`}>
+                                  <button className="page-link" onClick={() => paginate(pageNumber)}>
+                                    {pageNumber}
+                                  </button>
+                                </li>
+                              );
+                            } else if (
+                              pageNumber === currentPage - 2 ||
+                              pageNumber === currentPage + 2
+                            ) {
+                              return (
+                                <li key={i} className="page-item disabled">
+                                  <span className="page-link">...</span>
+                                </li>
+                              );
+                            }
+                            return null;
+                          })}
+
+                          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                            <button className="page-link" onClick={() => paginate(currentPage + 1)}>
+                              <ChevronRight size={14} />
                             </button>
+                          </li>
+                        </ul>
+                      </nav>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Regular Order List Table - Hide when Booking Split is active */}
+              {activeTab !== "Booking Split" && (
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ whiteSpace: 'nowrap' }}>Order ID</th>
+                        <th>Order Type</th>
+                        <th>Customer/Agent</th>
+                        <th>Pax Count</th>
+                        <th>Order Status</th>
+                        <th>Payment Status</th>
+                        <th>Delivery Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentItems.length > 0 ? (
+                        currentItems.map((order, index) => (
+                          <tr key={index}>
+                            {/* Order ID */}
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <button
+                                className="btn btn-link p-0 text-decoration-underline text-primary fw-bol"
+                                onClick={() => handleOrderClick(order)}
+                              >
+                                {order.booking_number}
+                              </button>
+                            </td>
+
+                            {/* Order Type */}
+                            <td>
+                              <span className={`badge ${order.booking_type?.toLowerCase().includes('umrah') ? 'bg-primary' :
+                                order.booking_type?.toLowerCase().includes('custom') ? 'bg-info' :
+                                  order.booking_type?.toLowerCase().includes('group') ? 'bg-success' :
+                                    order.booking_type?.toLowerCase().includes('ticket') ? 'bg-warning' : 'bg-secondary'
+                                }`}>
+                                {order.booking_type || 'N/A'}
+                              </span>
+                            </td>
+
+                            {/* Customer / Agent / Branch Name */}
+                            <td>
+                              {order.is_public_booking ? (
+                                <span className="text-primary">
+                                  {order.contact_information?.[0]?.name || order.person_details?.[0]?.first_name || 'Customer'}
+                                </span>
+                              ) : order.agency ? (
+                                <span className="text-success">
+                                  {order.agency.ageny_name || order.agency.name || 'Agent'}
+                                </span>
+                              ) : order.employee ? (
+                                <span className="text-info">
+                                  {order.employee.name || 'Branch'}
+                                </span>
+                              ) : (
+                                'N/A'
+                              )}
+                            </td>
+
+                            {/* Pax Count (Adults / Children / Infants) */}
+                            <td>
+                              <div className="d-flex flex-column small">
+                                <span>{order.total_pax || 0}</span>
+                              </div>
+                            </td>
+
+                            {/* Order Status */}
+                            <td>
+                              <span
+                                className={`badge bg-${order.status === 'Approved' ? 'success' :
+                                  order.status === 'Confirmed' ? 'primary' :
+                                    order.status === 'Delivered' ? 'info' :
+                                      order.status === 'Rejected' ? 'danger' :
+                                        order.status === 'under-process' ? 'warning' :
+                                          'secondary'
+                                  }`}
+                                style={{ cursor: order.rejected_notes ? 'help' : 'default' }}
+                                title={order.rejected_notes || ''}
+                              >
+                                {order.status || 'Pending'}
+                              </span>
+                            </td>
+
+                            {/* Payment Status */}
+                            <td>
+                              <span className={`badge ${order.payment_status === 'Paid' || order.status === 'Confirmed' || order.status === 'Approved' ? 'bg-success' :
+                                order.payment_status === 'Partial' ? 'bg-warning' :
+                                  'bg-danger'
+                                }`}>
+                                {(order.status === 'Confirmed' || order.status === 'Approved') ? 'Paid' : (order.payment_status || 'Unpaid')}
+                              </span>
+                            </td>
+
+                            {/* Delivery Status */}
+                            <td>
+                              <span className={`badge ${order.delivery_status === 'Delivered' || order.status === 'Delivered' ? 'bg-success' :
+                                order.delivery_status === 'In Progress' ? 'bg-warning' :
+                                  'bg-secondary'
+                                }`}>
+                                {order.delivery_status || (order.status === 'Delivered' ? 'Delivered' : 'Pending')}
+                              </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td>
+                              <Dropdown>
+                                <Dropdown.Toggle variant="outline-primary" size="sm" className="py-0">
+                                  <span style={{ fontSize: '0.85rem' }}>⚙️</span>
+                                </Dropdown.Toggle>
+                                <Dropdown.Menu>
+                                  <Dropdown.Item onClick={() => handleOrderClick(order)}>
+                                    View Details
+                                  </Dropdown.Item>
+                                  <Dropdown.Item className="text-primary">
+                                    Reprice
+                                  </Dropdown.Item>
+                                  <Dropdown.Item className="text-info">
+                                    Add Remark
+                                  </Dropdown.Item>
+                                  <Dropdown.Item className="text-warning">
+                                    Follow Up
+                                  </Dropdown.Item>
+                                  <Dropdown.Item
+                                    className="text-danger"
+                                    onClick={() => {
+                                      // Implement cancel logic or call a handler
+                                      // Here we just use a placeholder for now or reuse logic if accessible
+                                    }}
+                                  >
+                                    Cancel
+                                  </Dropdown.Item>
+                                </Dropdown.Menu>
+                              </Dropdown>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="8" className="text-center py-4">
+                            No orders found matching your filters.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="8" className="text-center py-4">
-                          No bookings available for splitting
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      )}  </tbody>
+                  </table>
+                </div>
+              )}
 
-              {/* Pagination for Booking Split */}
-              {filteredOrders.length > itemsPerPage && (
+              {/* Pagination Controls */}
+              {activeTab !== "Booking Split" && filteredOrders.length > itemsPerPage && (
                 <div className="d-flex justify-content-between align-items-center mt-4">
                   <div>
                     Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
@@ -2816,6 +3578,7 @@ const OrderList = () => {
 
                       {[...Array(totalPages)].map((_, i) => {
                         const pageNumber = i + 1;
+                        // Show limited page numbers with ellipsis
                         if (
                           pageNumber === 1 ||
                           pageNumber === totalPages ||
@@ -2850,197 +3613,193 @@ const OrderList = () => {
                   </nav>
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {/* Regular Order List Table - Hide when Booking Split is active */}
-          {activeTab !== "Booking Split" && (
-          <div className="table-responsive">
-            <table className="table table-hover">
-              <thead className="table-light">
-                <tr>
-                  <th>Order No</th>
-                  <th>Agency Code</th>
-                  <th>Agreement</th>
-                  <th>Package No</th>
-                  <th>Passport</th>
-                  <th>Total Pax</th>
-                  <th>Status</th>
-                  {/* Add Action column for unpaid orders */}
-                  {paymentFilter === "unpaid" && <th>Action</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {currentItems.length > 0 ? (
-                  currentItems.map((order, index) => (
-                    <tr key={index}>
-                      <td>
-                        <button
-                          className="btn btn-link p-0 text-decoration-underline text-primary"
-                          onClick={() => handleOrderClick(order)}
-                        >
-                          {order.booking_number}
-                        </button>
-                      </td>
-                      <td>{order.agency?.agency_code || order.agency_id || 'N/A'}</td>
-                      <td>{order.agreement || 'N/A'}</td>
-                      <td>{order.packageNo || order.id || 'N/A'}</td>
-                      <td>
-                        <span className="text-decoration-none">
-                          Download
-                        </span>
-                      </td>
-                      <td>{order.total_pax}</td>
-                      <td style={{ position: 'relative' }}>
-                        <span
-                          className={`badge bg-${order.status === 'Approved' ? 'success' : order.status === 'Confirmed' ? 'primary' : order.status === 'Rejected' ? 'danger' : 'secondary'}`}
-                          style={{
-                            cursor: order.status === 'Rejected' && order.rejected_notes ? 'help' : 'default',
-                            position: 'relative',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (order.status === 'Rejected' && order.rejected_notes) {
-                              const popup = document.getElementById(`rejection-popup-${order.id}`);
-                              if (popup) {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                popup.style.display = 'block';
-                                popup.style.left = `${rect.left + rect.width / 2 - 150}px`;
-                                popup.style.top = `${rect.top - 130}px`;
-                              }
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (order.status === 'Rejected' && order.rejected_notes) {
-                              const popup = document.getElementById(`rejection-popup-${order.id}`);
-                              if (popup) popup.style.display = 'none';
-                            }
-                          }}
-                        >
-                          {order.status || 'N/A'}
-                        </span>
-                        {order.status === 'Rejected' && order.rejected_notes && ReactDOM.createPortal(
-                          <div
-                            id={`rejection-popup-${order.id}`}
-                            style={{
-                              display: 'none',
-                              position: 'fixed',
-                              backgroundColor: '#fff',
-                              border: '2px solid #dc3545',
-                              borderRadius: '8px',
-                              padding: '16px',
-                              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-                              zIndex: 99999,
-                              minWidth: '300px',
-                              maxWidth: '500px',
-                              whiteSpace: 'normal',
-                              pointerEvents: 'none',
-                            }}
-                          >
-                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#dc3545', marginBottom: '8px', borderBottom: '1px solid #ddd', paddingBottom: '6px' }}>
-                              📝 Rejection Note
-                            </div>
-                            <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
-                              {order.rejected_notes}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </td>
-                      {/* Add Action column with dropdown for unpaid orders */}
-                      {paymentFilter === "unpaid" && (
-                        <td>
-                          <Dropdown>
-                            <Dropdown.Toggle
-                              variant="link"
-                              className="text-decoration-none p-0"
-                            >
-                              <Gear size={18} />
-                            </Dropdown.Toggle>
-                            <Dropdown.Menu>
-                              <Dropdown.Item
-                                className="text-success fw-bold"
-                                onClick={() => handleConfirmBooking(order)}
-                              >
-                                Confirm Booking
-                              </Dropdown.Item>
-                              <Dropdown.Item className="text-primary">
-                                Edit
-                              </Dropdown.Item>
-                              <Dropdown.Item className="text-info">
-                                Add Notes
-                              </Dropdown.Item>
-                              <Dropdown.Item className="text-danger">
-                                Call done
-                              </Dropdown.Item>
-                              <Dropdown.Item>Cancel</Dropdown.Item>
-                            </Dropdown.Menu>
-                          </Dropdown>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={paymentFilter === "unpaid" ? 8 : 7} className="text-center py-4">
-                      No orders found matching your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          )}
+          {/* Agencies View - Show only when viewMode is "agencies" */}
+          {viewMode === "agencies" && (
+            <>
+              <h5 className="mb-4">Agency Order Statistics</h5>
 
-          {/* Pagination Controls */}
-          {activeTab !== "Booking Split" && filteredOrders.length > itemsPerPage && (
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <div>
-                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
+              {/* Search by Agency Name */}
+              <div className="mb-3">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Search by agency name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-              <nav>
-                <ul className="pagination mb-0">
-                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                    <button className="page-link" onClick={() => paginate(currentPage - 1)}>
-                      <ChevronLeft size={14} />
-                    </button>
-                  </li>
 
-                  {[...Array(totalPages)].map((_, i) => {
-                    const pageNumber = i + 1;
-                    // Show limited page numbers with ellipsis
-                    if (
-                      pageNumber === 1 ||
-                      pageNumber === totalPages ||
-                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                    ) {
-                      return (
-                        <li key={i} className={`page-item ${currentPage === pageNumber ? 'active' : ''}`}>
-                          <button className="page-link" onClick={() => paginate(pageNumber)}>
-                            {pageNumber}
-                          </button>
-                        </li>
-                      );
-                    } else if (
-                      pageNumber === currentPage - 2 ||
-                      pageNumber === currentPage + 2
-                    ) {
-                      return (
-                        <li key={i} className="page-item disabled">
-                          <span className="page-link">...</span>
-                        </li>
-                      );
-                    }
-                    return null;
-                  })}
+              {/* Agency Statistics Table */}
+              <div className="table-responsive">
+                <table className="table">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Agency Name</th>
+                      <th>Contact Number</th>
+                      <th>Agency Type</th>
+                      <th>Total Bookings</th>
+                      <th>Paid Bookings</th>
+                      <th>Unpaid Bookings</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      // Calculate agency statistics
+                      const agencyStats = agencies.map(agency => {
+                        const agencyOrders = orders.filter(order => order.agency?.id === agency.id);
+                        const totalBookings = agencyOrders.length;
+                        const paidBookings = agencyOrders.filter(o =>
+                          ["Confirmed", "Approved", "Delivered"].includes(o.status)
+                        ).length;
+                        const unpaidBookings = agencyOrders.filter(o =>
+                          ["Un-approved", "Pending"].includes(o.status) ||
+                          (o.status?.toLowerCase().includes("under") && o.status?.toLowerCase().includes("process"))
+                        ).length;
 
-                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                    <button className="page-link" onClick={() => paginate(currentPage + 1)}>
-                      <ChevronRight size={14} />
-                    </button>
-                  </li>
-                </ul>
-              </nav>
-            </div>
+                        return { ...agency, totalBookings, paidBookings, unpaidBookings };
+                      });
+
+                      // Filter by search term
+                      const filteredAgencies = agencyStats.filter(agency =>
+                        searchTerm === "" ||
+                        (agency.name && agency.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (agency.agency_name && agency.agency_name.toLowerCase().includes(searchTerm.toLowerCase()))
+                      );
+
+                      // Pagination
+                      const indexOfLastItem = currentPage * itemsPerPage;
+                      const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                      const currentAgencies = filteredAgencies.slice(indexOfFirstItem, indexOfLastItem);
+                      const totalPages = Math.ceil(filteredAgencies.length / itemsPerPage);
+
+                      if (currentAgencies.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="7" className="text-center py-4">
+                              No agencies found
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return currentAgencies.map((agency) => (
+                        <tr key={agency.id} style={agency.totalBookings === 0 ? { backgroundColor: '#ffe6e6' } : {}}>
+                          <td>{agency.name || agency.agency_name || 'N/A'}</td>
+                          <td>{agency.contact || agency.phone || 'N/A'}</td>
+                          <td>
+                            {(() => {
+                              const agencyType = (agency.agency_type || agency.type || '').toLowerCase();
+                              if (agencyType.includes('full') || agencyType === 'agent') {
+                                return <span className="badge bg-primary">Full Agent</span>;
+                              } else if (agencyType.includes('area')) {
+                                return <span className="badge bg-info">Area Agent</span>;
+                              } else {
+                                return <span className="badge bg-secondary">Unknown</span>;
+                              }
+                            })()}
+                          </td>
+                          <td>
+                            <span className={agency.totalBookings === 0 ? "badge bg-danger" : "badge bg-secondary"}>
+                              {agency.totalBookings}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="badge bg-success">{agency.paidBookings}</span>
+                          </td>
+                          <td>
+                            <span className="badge bg-warning">{agency.unpaidBookings}</span>
+                          </td>
+                          <td>
+                            <button
+                              className="btn btn-sm btn-outline-primary me-2"
+                              onClick={() => alert('Remarks feature coming soon!')}
+                            >
+                              Remarks
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={() => alert('Follow-up feature coming soon!')}
+                            >
+                              Follow-up
+                            </button>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination for Agencies */}
+              {(() => {
+                const agencyStats = agencies.map(agency => {
+                  const agencyOrders = orders.filter(order => order.agency?.id === agency.id);
+                  return { ...agency, totalBookings: agencyOrders.length };
+                });
+                const filteredAgencies = agencyStats.filter(agency =>
+                  searchTerm === "" ||
+                  (agency.name && agency.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                  (agency.agency_name && agency.agency_name.toLowerCase().includes(searchTerm.toLowerCase()))
+                );
+                const totalPages = Math.ceil(filteredAgencies.length / itemsPerPage);
+
+                if (totalPages > 1) {
+                  return (
+                    <div className="d-flex justify-content-between align-items-center mt-4">
+                      <div className="text-muted">
+                        Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAgencies.length)} of {filteredAgencies.length} agencies
+                      </div>
+                      <nav>
+                        <ul className="pagination mb-0">
+                          <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                            <button className="page-link" onClick={() => paginate(currentPage - 1)}>
+                              <ChevronLeft size={14} />
+                            </button>
+                          </li>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber, i) => {
+                            if (
+                              pageNumber === 1 ||
+                              pageNumber === totalPages ||
+                              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                            ) {
+                              return (
+                                <li key={i} className={`page-item ${currentPage === pageNumber ? 'active' : ''}`}>
+                                  <button className="page-link" onClick={() => paginate(pageNumber)}>
+                                    {pageNumber}
+                                  </button>
+                                </li>
+                              );
+                            } else if (
+                              pageNumber === currentPage - 2 ||
+                              pageNumber === currentPage + 2
+                            ) {
+                              return (
+                                <li key={i} className="page-item disabled">
+                                  <span className="page-link">...</span>
+                                </li>
+                              );
+                            }
+                            return null;
+                          })}
+
+                          <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                            <button className="page-link" onClick={() => paginate(currentPage + 1)}>
+                              <ChevronRight size={14} />
+                            </button>
+                          </li>
+                        </ul>
+                      </nav>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </>
           )}
         </div>
       </div>

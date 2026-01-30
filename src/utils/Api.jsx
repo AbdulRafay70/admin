@@ -70,6 +70,10 @@ export const setAuthToken = (token) => {
 
 
 
+export const getBranches = (params = {}) => api.get("/branches/", { params });
+export const getAgencies = (params = {}) => api.get("/agencies/", { params });
+export const getEmployees = (params = {}) => api.get("/employees/", { params });
+
 export const getUniversalList = (params = {}) => {
   return api.get("/universal/list/", { params });
 };
@@ -127,6 +131,10 @@ export const getProfitLossReport = (params = {}) => {
   return api.get(`../reports/profit-loss`, { params });
 };
 
+export const addExpense = (data) => {
+  return api.post(`/finance/expense/add`, data);
+};
+
 export const getExpenses = (params = {}) => {
   return api.get(`/finance/expense/list`, { params });
 };
@@ -146,6 +154,8 @@ export const getBalanceSheet = (params = {}) => {
 export const getAuditTrail = (params = {}) => {
   return api.get(`/finance/audit-trail`, { params });
 };
+
+
 
 export const submitManualPosting = (data) => {
   return api.post(`/finance/manual/post`, data);
